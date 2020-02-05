@@ -89,6 +89,14 @@ def mock_forward(model, dims=(1, 64, 64)):
     out = model(x)
     return out
 
+def cv_thresh(imgdata, threshold):
+    """Wrapper for opencv binary threshold method"""
+    _, thresh = cv2.threshold(
+                    imgdata, 
+                    threshold, 1, 
+                    cv2.THRESH_BINARY)
+    return thresh
+
 
 class dice_loss(torch.nn.Module):
     """

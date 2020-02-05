@@ -1,13 +1,12 @@
 """Module for training neural networks and making predictions with trained models"""
 
-import torch
 from models import dilUnet, dilnet
 from utils import torch_format, load_model, img_pad, img_resize
-from utils import Hook, mock_forward, dice_loss
+from utils import Hook, mock_forward, dice_loss, cv_thresh
 import os
 import time
+import torch
 import numpy as np
-import cv2
 from scipy import ndimage
 import matplotlib.pyplot as plt
 
@@ -365,8 +364,8 @@ class net_locate:
             category = np.empty((0, 1))
             # we assume that class backgrpund is always the last one
             for ch in range(decoded_img.shape[2]-1):
-                _, decoded_img_c = cv2.threshold(
-                    decoded_img[:, :, ch], self.threshold, 1, cv2.THRESH_BINARY)
+                decoded_img_c = cv_thresh(
+                    decoded_img[:, :, ch], self.threshold)
                 coord = find_com(decoded_img_c)
                 coord_ch = self.rem_edge_coord(coord)
                 category_ch = np.zeros((coord_ch.shape[0], 1)) + ch
