@@ -1,0 +1,6 @@
+image:
+  file: .gitpod.dockerfile 
+ports:
+ - port: 8080
+tasks:
+ - command: jupyter lab --no-browser --port 8080
