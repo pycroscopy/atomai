@@ -2,13 +2,13 @@
 
 from models import dilUnet, dilnet
 from utils import torch_format, load_model, img_pad, img_resize
-from utils import Hook, mock_forward, cv_thresh
+from utils import Hook, mock_forward, cv_thresh, find_com, plot_losses
 from utils import dice_loss as dice
 import os
 import time
 import torch
+import torch.nn.functional as F
 import numpy as np
-from scipy import ndimage  # TODO MOVE ALL THE ASSOCIATED FUNCTIONS TO UTILS
 import matplotlib.pyplot as plt
 
 
@@ -159,7 +159,7 @@ class net_train:
             loss = self.criterion(prob, lbl)
         return loss.item()
 
-    def run(self, plot_losses=True):
+    def run(self, plot_training_history=True):
         for e in range(self.training_cycles):
             # Get training images/labels
             images, labels = self.dataloader(
@@ -196,15 +196,8 @@ class net_train:
             running_loss_test += loss
         print('Model (final state) evaluation loss:',
               np.around(running_loss_test/len(self.images_test_all), 4))
-        if plot_losses:
-            print('Plotting training history')
-            _, ax = plt.subplots(1, 1, figsize=(6, 6))
-            ax.plot(self.train_loss, label='Train')
-            ax.plot(self.test_loss, label='Test')
-            ax.set_xlabel('Epoch')
-            ax.set_ylabel('Loss')
-            ax.legend()
-            plt.show()
+        if plot_training_history:
+            plot_losses(self.train_loss, self.test_loss)
         return self.net
 
 
@@ -282,7 +275,7 @@ class net_predict:
         with torch.no_grad():
             prob = self.model.forward(images)
             if self.nb_classes > 1:
-                prob = torch.exp(prob)
+                prob = F.softmax(prob, dim=1)
         if self.use_gpu:
             images = images.cpu()
             prob = prob.cpu()
@@ -349,16 +342,6 @@ class net_locate:
         '''Extract all atomic coordinates in image
         via CoM method & store data as a dictionary
         (key: frame number)'''
-
-        def find_com(image_data):
-            '''Find atoms via center of mass methods'''
-            labels, nlabels = ndimage.label(image_data)
-            coordinates = np.array(
-                ndimage.center_of_mass(
-                    image_data, labels, np.arange(nlabels) + 1))
-            coordinates = coordinates.reshape(coordinates.shape[0], 2)
-            return coordinates
-
         d_coord = {}
         for i, decoded_img in enumerate(self.nn_output):
             coordinates = np.empty((0, 2))

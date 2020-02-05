@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import cv2
+from scipy import ndimage
 import matplotlib.pyplot as plt
 
 
@@ -98,6 +99,16 @@ def cv_thresh(imgdata, threshold):
     return thresh
 
 
+def find_com(image_data):
+    '''Find atoms via center of mass methods'''
+    labels, nlabels = ndimage.label(image_data)
+    coordinates = np.array(
+        ndimage.center_of_mass(
+            image_data, labels, np.arange(nlabels) + 1))
+    coordinates = coordinates.reshape(coordinates.shape[0], 2)
+    return coordinates
+
+
 class dice_loss(torch.nn.Module):
     """
     Computes the Sørensen–Dice loss.
@@ -129,6 +140,18 @@ class dice_loss(torch.nn.Module):
         cardinality = torch.sum(probas + true_1_hot, dims)
         dice_loss = (2. * intersection / (cardinality + self.eps)).mean()
         return (1 - dice_loss)
+
+
+def plot_losses(train_loss, test_loss):
+    print('Plotting training history')
+    _, ax = plt.subplots(1, 1, figsize=(6, 6))
+    ax.plot(train_loss, label='Train')
+    ax.plot(test_loss, label='Test')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.legend()
+    plt.show()
+
 
 def plot_coord(img, coord):
     """Plots coordinates (colored according to atom class)"""
