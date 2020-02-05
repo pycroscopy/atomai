@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# TODO use batchnorm as default instead of dropout
 
 class dilUnet(nn.Module):
     '''
