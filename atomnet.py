@@ -2,12 +2,13 @@
 
 from models import dilUnet, dilnet
 from utils import torch_format, load_model, img_pad, img_resize
-from utils import Hook, mock_forward, dice_loss, cv_thresh
+from utils import Hook, mock_forward, cv_thresh
+from utils import dice_loss as dice
 import os
 import time
 import torch
 import numpy as np
-from scipy import ndimage
+from scipy import ndimage  # TODO MOVE ALL THE ASSOCIATED FUNCTIONS TO UTILS
 import matplotlib.pyplot as plt
 
 
@@ -102,7 +103,7 @@ class net_train:
         torch.cuda.empty_cache()
         self.net.cuda()
         if loss == 'dice':
-            self.criterion = dice_loss()#
+            self.criterion = dice()
         elif loss == 'ce' and num_classes == 1:
             self.criterion = torch.nn.BCEWithLogitsLoss()
         elif loss == 'ce' and num_classes > 2:
