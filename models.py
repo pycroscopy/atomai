@@ -1,3 +1,5 @@
+"""Deep learning models and various custom NN blocks"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
