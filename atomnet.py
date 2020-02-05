@@ -9,7 +9,6 @@ import time
 import torch
 import torch.nn.functional as F
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 class net_train:
