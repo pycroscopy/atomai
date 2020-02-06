@@ -17,22 +17,24 @@ class net_train:
     for semantic segmentation of noisy experimental data
 
     Args:
-        images_all: list / dict / 5D numpy array
-            list or dictionary of 4D numpy arrays or 5D numpy array
-            (4D image tensors stacked along the first dim)
+        images_all: list / dict / 4D numpy array
+            list or dictionary of 4D numpy arrays or 4D numpy array
+            (3D image tensors stacked along the first dim)
             representing training images
         labels_all: list / dict / 4D numpy array
-            list or dictionary of 3D numpy arrays or 4D numpy array
+            list or dictionary of 3D numpy arrays or 
+            4D (binary) / 3D (multiclass) numpy array
+            where 3D / 2D image are tensors stacked along the first dim
+            which represent training labels (aka masks aka ground truth)
+        images_test_all: list / dict / 4D numpy array
+            list or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
-            representing training labels (aka masks aka ground truth)
-        images_test_all: list / dict / 5D numpy array
-            list or dictionary of 4D numpy arrays or 5D numpy array
-            (4D image tensors stacked along the first dim)
             representing test images
         labels_test_all: list / dict / 4D numpy array
-            list or dictionary of 3D numpy arrays or 4D numpy array
-            (3D image tensors stacked along the first dim)
-            representing test labels
+            list or dictionary of 3D numpy arrays or 
+            4D (binary) / 3D (multiclass) numpy array
+            where 3D / 2D image are tensors stacked along the first dim
+            which represent test labels (aka masks aka ground truth)
         training_cycles: int
             number of training 'epochs' (1 epoch == 1 batch)
         batch_size: int
