@@ -73,15 +73,24 @@ class net_train:
         assert type(images_all) == type(labels_all)\
         == type(images_test_all) == type(labels_test_all),\
         "Provide all training and test image/labels data in the same format"
-        if type(labels_all) == list or type(labels_all) == np.ndarray:
+        if type(labels_all) == list
             num_classes = set([len(np.unique(lab)) for lab in labels_all])
         elif type(labels_all) == dict:
             num_classes = set(
                 [len(np.unique(lab)) for lab in labels_all.values()])
+        elif type(labels_all) == np.ndarray:
+            n_train_batches, _ = np.divmod(labels_all.shape[0], batch_size)
+            n_test_batches, _ = np.divmod(labels_test_all.shape[0], batch_size)
+            images_all = np.split(images_all, n_train_batches)
+            labels_all = np.split(labels_all, n_train_batches)
+            images_test_all = np.split(images_test_all, n_test_batches)
+            labels_test_all = np.split(labels_test_all, n_test_batches)
+            num_classes = set([len(np.unique(lab)) for lab in labels_all])    
         else:
             raise NotImplementedError(
                 "Provide training and test data as python list (or dictionary)",
-                "of numpy arrays or as 5D numpy array (the first idx is batch idx)"
+                "of numpy arrays or as 4D (images)",
+                "and 4D/3D (labels for binary/multiclass) numpy arrays"
             )
         assert len(num_classes) == 1,\
          "Confirm that all ground truth images has the same number of classes"
