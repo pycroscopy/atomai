@@ -25,8 +25,8 @@ class dilUnet(nn.Module):
                  nb_classes=1,
                  nb_filters=16,
                  with_dilation=True,
-                 use_dropout=True,
-                 batch_norm=False):
+                 use_dropout=False,
+                 batch_norm=True):
         super(dilUnet, self).__init__()
         dropout_vals = [.1, .2, .1] if use_dropout else [0, 0, 0]
         self.c1 = conv2dblock(
@@ -123,8 +123,8 @@ class dilnet(nn.Module):
     def __init__(self,
                  nb_classes=3,
                  nb_filters=25,
-                 use_dropout=True,
-                 batch_norm=False):
+                 use_dropout=False,
+                 batch_norm=True):
         super(dilnet, self).__init__()
         dropout_vals = [.3, .3] if use_dropout else [0, 0]
         self.c1 = conv2dblock(3, 1, nb_filters,
