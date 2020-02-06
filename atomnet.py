@@ -275,6 +275,8 @@ class net_predict:
             prob = self.model.forward(images)
             if self.nb_classes > 1:
                 prob = F.softmax(prob, dim=1)
+            else:
+                prob = torch.sigmoid(prob)
         if self.use_gpu:
             images = images.cpu()
             prob = prob.cpu()
