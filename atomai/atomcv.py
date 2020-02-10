@@ -9,7 +9,7 @@ import cv2
 from scipy import ndimage
 
 
-class locate:
+class locator:
     """
     Transforms pixel data from NN output into coordinate data
 
@@ -44,7 +44,6 @@ class locate:
         self.nn_output = nn_output
         self.threshold = threshold
         self.dist_edge = dist_edge
-        self.get_all_coordinates()
 
     def get_all_coordinates(self):
         '''Extract all atomic coordinates in image

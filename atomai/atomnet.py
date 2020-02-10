@@ -15,7 +15,7 @@ from atomai.utils import (torch_format, load_model, Hook, mock_forward,
                           plot_losses, img_pad, img_resize)
 
 
-class net_train:
+class trainer:
     """
     Class for training a fully convolutional neural network
     for semantic segmentation of noisy experimental data
@@ -75,7 +75,7 @@ class net_train:
                  with_dilation=True,
                  print_loss=100,
                  savedir='./',
-                 plot_losses=True):
+                 plot_training_history=True):
 
         assert type(images_all) == type(labels_all)\
         == type(images_test_all) == type(labels_test_all),\
@@ -143,7 +143,6 @@ class net_train:
         self.savedir = savedir
         self.plot_training_history = plot_training_history
         self.train_loss, self.test_loss = [], []
-        self.run()
 
     def dataloader(self, images_all, labels_all, batch_num):
         # Generate batch of training images with corresponding ground truth
@@ -218,7 +217,7 @@ class net_train:
         return self.net
 
 
-class net_predict:
+class predictor:
     """
     Predictions with a trained neural network
 
@@ -282,7 +281,6 @@ class net_predict:
         image_data = img_pad(image_data, downsampling)
         self.image_data = torch_format(image_data)
         self.use_gpu = use_gpu
-        self.run()
 
     def predict(self, images):
         '''Returns 'probability' of each pixel
