@@ -45,7 +45,7 @@ class locator:
         self.threshold = threshold
         self.dist_edge = dist_edge
 
-    def get_all_coordinates(self):
+    def run(self):
         '''Extract all atomic coordinates in image
         via CoM method & store data as a dictionary
         (key: frame number)'''
