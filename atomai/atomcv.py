@@ -44,6 +44,7 @@ class locate:
         self.nn_output = nn_output
         self.threshold = threshold
         self.dist_edge = dist_edge
+        self.get_all_coordinates()
 
     def get_all_coordinates(self):
         '''Extract all atomic coordinates in image
