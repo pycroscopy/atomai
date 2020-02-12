@@ -52,7 +52,7 @@ components_im, classes_list = imstack.gmm(10, plot_results=True)
 imstack.transition_matrix(10, plot_results=True, plot_values=True)
 ```
 
-To install AtomAI, run the following commands in the terminal:
+To downlaod and use AtomAI, start with the following commands in the terminal (or in %%bash magic cell in Jupyter/Colab notebooks):
 ```
 git clone https://github.com/ziatdinovmax/atomai.git
 cd atomai
