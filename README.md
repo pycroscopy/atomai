@@ -48,12 +48,14 @@ imstack.transition_matrix(10, plot_results=True, plot_values=True)
 
 TODO:
 
-0) Test trajectories analysis to atomstat on WS2 data.
+0) Test trajectories analysis to atomstat on WS2 data
 
-1) Add several trained models for Graphene and ferroics (single and multi class)
+1) Add several trained models (e.g. graphene, ferroics)
 
 2) Add ferronet-type analysis for a single image to atomstat
 
 3) Add and test class for contour analysis (similar in structure and logic to class 'locator') to atomstat
 
 4) Add comparison between true coordinates and predicted coordinates (histogram and colored overlay)
+
+5) Add more examples and notebooks
