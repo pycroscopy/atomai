@@ -1,3 +1,4 @@
+# TODO Add focal loss
 """
 Custom pytorch loss functions
 """
