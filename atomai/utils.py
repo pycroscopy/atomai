@@ -50,6 +50,29 @@ def img_pad(image_data, pooling):
     return image_data
 
 
+def find_com(image_data):
+            '''Find atoms via center of mass methods'''
+            labels, nlabels = ndimage.label(image_data)
+            coordinates = np.array(
+                ndimage.center_of_mass(
+                    image_data, labels, np.arange(nlabels) + 1))
+            coordinates = coordinates.reshape(coordinates.shape[0], 2)
+            return coordinates
+            
+
+def cv_thresh(imgdata,
+              threshold=.5):
+    """
+    Wrapper for opencv binary threshold method.
+    Returns thresholded image.
+    """
+    _, thresh = cv2.threshold(
+                    imgdata, 
+                    threshold, 1, 
+                    cv2.THRESH_BINARY)
+    return thresh
+
+
 def torch_format(image_data):
     '''Reshapes and normalizes (optionally) image data
     to make it compatible with pytorch format'''
