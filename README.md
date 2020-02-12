@@ -37,17 +37,17 @@ nn_input, pred = atomnet.predictor(expdata, trained_model).run()
 coordinates = atomnet.locator(pred).run()
 ```
 
-One can then perform statistical analysis on the network predictions, including finding Gaussian mixture model components, analyzing trajectories of different classes of defects and calculating transition probability between them:
+One can then perform statistical analysis using the network predictions, including finding Gaussian mixture model components, analyzing trajectories of different classes of defects and calculating transition probability between them:
 ```python
 from atomai import atomstat
 
-# Get local descriptors (e.g. subimages centered around impurities)
+# Get local descriptors (such as subimages centered around impurities)
 imstack = atomstat.imlocal(pred, coordinates, r=32, coord_class=1)
 
 # Calculate Gaussian mixture components
 components_im, classes_list = imstack.gmm(10, plot_results=True)
 
-# Calculate Gaussian mixture components and the transition frequencies between them
+# For movies, calculate Gaussian mixture components and the transition frequencies between them
 imstack.transition_matrix(10, plot_results=True, plot_values=True)
 ```
 
