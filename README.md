@@ -1,4 +1,6 @@
 # AtomAI
+**Under active development (i.e. breaking changes can occur on a daily basis)**
+
 Module for machine learning based analysis of experimental atom-resolved data.
 <br>
 <p align="center">
