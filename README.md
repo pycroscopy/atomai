@@ -38,7 +38,7 @@ nn_input, pred = atomnet.predictor(
 coordinates = atomnet.locator(pred).run()
 ```
 
-One can then perform statistical analysis using the network predictions, including finding Gaussian mixture model components, analyzing trajectories of different classes of defects and calculating transition probability between them:
+One can then perform statistical analysis on the network predictions, including finding Gaussian mixture model components, analyzing trajectories of different classes of defects and calculating transition probability between them:
 ```python
 from atomai import atomstat
 
