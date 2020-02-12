@@ -50,7 +50,7 @@ imstack.transition_matrix(10, plot_results=True, plot_values=True)
 
 TODO:
 
-0) Test trajectories analysis to atomstat on WS2 data
+0) Test trajectories analysis in atomstat on WS2 data
 
 1) Add several trained models (e.g. graphene, ferroics)
 
