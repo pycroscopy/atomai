@@ -52,6 +52,13 @@ components_im, classes_list = imstack.gmm(10, plot_results=True)
 imstack.transition_matrix(10, plot_results=True, plot_values=True)
 ```
 
+To install AtomAI, run the following commands in the terminal:
+```
+git clone https://github.com/ziatdinovmax/atomai.git
+cd atomai
+python3 -m pip install -r requirements.txt
+```
+
 TODO:
 
 0) Test trajectories analysis in atomstat on WS2 data
