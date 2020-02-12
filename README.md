@@ -2,7 +2,7 @@
 
 <br><br>
 <p align="center">
-  <img src="https://github.com/ziatdinovmax/atomai/blob/master/AtomAI_logo.png" width="75%" title="DL">
+  <img src="https://github.com/ziatdinovmax/atomai/blob/master/AtomAI_logo.png" width="30%" title="DL">
 <p align="justify">
 <br><br>
 
