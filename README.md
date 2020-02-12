@@ -8,7 +8,7 @@
 
 TODO:
 
-0) Add trajectories analysis to atomstat
+0) Test trajectories analysis to atomstat on WS2 data.
 
 1) Add several trained models for Graphene and ferroics (single and multi class)
 
