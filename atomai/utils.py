@@ -62,13 +62,13 @@ def img_pad(image_data, pooling):
 ### Utilities for atom finding ###
 
 def find_com(image_data):
-            '''Find atoms via center of mass methods'''
-            labels, nlabels = ndimage.label(image_data)
-            coordinates = np.array(
-                ndimage.center_of_mass(
-                    image_data, labels, np.arange(nlabels) + 1))
-            coordinates = coordinates.reshape(coordinates.shape[0], 2)
-            return coordinates
+    '''Find atoms via center of mass methods'''
+    labels, nlabels = ndimage.label(image_data)
+    coordinates = np.array(
+        ndimage.center_of_mass(
+            image_data, labels, np.arange(nlabels) + 1))
+    coordinates = coordinates.reshape(coordinates.shape[0], 2)
+    return coordinates
             
 
 def cv_thresh(imgdata,
@@ -91,13 +91,12 @@ class Hook():
     layer during forward/backward pass
     see https://www.kaggle.com/sironghuang/
         understanding-pytorch-hooks/notebook
+        
+    Args:
+        module: torch modul(single layer or sequential block)
+        backward (bool): replace forward_hook with backward_hook
     """
     def __init__(self, module, backward=False):
-        """
-        Args:
-            module: torch modul(single layer or sequential block)
-            backward (bool): replace forward_hook with backward_hook
-        """
         if backward is False:
             self.hook = module.register_forward_hook(self.hook_fn)
         else:
@@ -122,6 +121,7 @@ def mock_forward(model, dims=(1, 64, 64)):
 ### Vizualization utilities ###
 
 def plot_losses(train_loss, test_loss):
+    """Plots train and test losses"""
     print('Plotting training history')
     _, ax = plt.subplots(1, 1, figsize=(6, 6))
     ax.plot(train_loss, label='Train')
