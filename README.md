@@ -1,5 +1,11 @@
 # atomai
 
+<br><br>
+<p align="center">
+  <img src="https://github.com/ziatdinovmax/atomai/blob/master/AtomAI_logo.png" width="75%" title="DL">
+<p align="justify">
+<br><br>
+
 TODO:
 
 0) Add trajectories analysis to atomstat
