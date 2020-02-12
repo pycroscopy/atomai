@@ -1,7 +1,10 @@
 """
 Module for training neural networks
 and making predictions with trained models
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
+
 import os
 import time
 
@@ -11,8 +14,8 @@ import torch.nn.functional as F
 
 from atomai.losses import dice_loss as dice
 from atomai.models import dilnet, dilUnet
-from atomai.utils import (torch_format, load_model, Hook, mock_forward,
-                          plot_losses, img_pad, img_resize)
+from atomai.utils import (Hook, cv_thresh, find_com, img_pad, img_resize,
+                          load_model, mock_forward, plot_losses, torch_format)
 
 
 class trainer:
@@ -203,7 +206,7 @@ class trainer:
         # Save final model weights
         torch.save(self.net.state_dict(),
                    os.path.join(self.savedir, 'model_weights_final.pt'))
-        # Run evaluation (by passing all the test data) on the final model state
+        # Run evaluation (by passing all the test data) on the final model
         running_loss_test = 0
         for idx in range(len(self.images_test_all)):
             images_, labels_ = self.dataloader(
@@ -211,7 +214,7 @@ class trainer:
             loss = self.test_step(images_, labels_)
             running_loss_test += loss
         print('Model (final state) evaluation loss:',
-              np.around(running_loss_test/len(self.images_test_all), 4))
+              np.around(running_loss_test / len(self.images_test_all), 4))
         if self.plot_training_history:
             plot_losses(self.train_loss, self.test_loss)
         return self.net
@@ -318,3 +321,79 @@ class predictor:
                 + ' seconds')
         images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
         return images_numpy, decoded_imgs
+
+
+class locator:
+    """
+    Transforms pixel data from NN output into coordinate data
+
+    Args:
+        decoded_imgs: 4D numpy array
+            the output of a neural network (softmax/sigmoid layer)
+        threshold: float
+            value at which the neural network output is thresholded
+        dist_edge: int
+            distance within image boundaries not to consider
+        dim_order: str
+            'channel_last' or 'channel_first' (Default: 'channel last')
+    """
+    def __init__(self,
+                 nn_output,
+                 threshold=0.5,
+                 dist_edge=5,
+                 dim_order='channel_last'):
+
+        if nn_output.shape[-1] == 1: # Add background class for 1-channel data
+            nn_output_b = 1 - nn_output
+            nn_output = np.concatenate(
+                (nn_output[:, :, :, None], nn_output_b[:, :, :, None]), axis=3)
+        if dim_order == 'channel_first':  # make channel dim the last dim
+            nn_output = np.transpose(nn_output, (0, 2, 3, 1))
+        elif dim_order == 'channel_last':
+            pass
+        else:
+            raise NotImplementedError(
+                'For dim_order, use "channel_first"',
+                'or "channel_last" (e.g. tensorflow)')
+        self.nn_output = nn_output
+        self.threshold = threshold
+        self.dist_edge = dist_edge
+
+    def run(self):
+        '''Extract all atomic coordinates in image
+        via CoM method & store data as a dictionary
+        (key: frame number)'''
+
+        d_coord = {}
+        for i, decoded_img in enumerate(self.nn_output):
+            coordinates = np.empty((0, 2))
+            category = np.empty((0, 1))
+            # we assume that class backgrpund is always the last one
+            for ch in range(decoded_img.shape[2]-1):
+                decoded_img_c = cv_thresh(
+                    decoded_img[:, :, ch], self.threshold)
+                coord = find_com(decoded_img_c)
+                coord_ch = self.rem_edge_coord(coord)
+                category_ch = np.zeros((coord_ch.shape[0], 1)) + ch
+                coordinates = np.append(coordinates, coord_ch, axis=0)
+                category = np.append(category, category_ch, axis=0)
+            d_coord[i] = np.concatenate((coordinates, category), axis=1)
+        return d_coord
+
+    def rem_edge_coord(self, coordinates):
+        '''Remove coordinates at the image edges'''
+
+        def coord_edges(coordinates, w, h):
+            return [coordinates[0] > w - self.dist_edge,
+                    coordinates[0] < self.dist_edge,
+                    coordinates[1] > h - self.dist_edge,
+                    coordinates[1] < self.dist_edge]
+
+        w, h = self.nn_output.shape[1:3]
+        coord_to_rem = [
+                        idx for idx, c in enumerate(coordinates)
+                        if any(coord_edges(c, w, h))
+                        ]
+        coord_to_rem = np.array(coord_to_rem, dtype=int)
+        coordinates = np.delete(coordinates, coord_to_rem, axis=0)
+        return coordinates
