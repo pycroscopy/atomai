@@ -6,7 +6,7 @@ Module for machine learning based analysis of experimental atom-resolved data.
 <p align="justify">
 <br>
 
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* allows training a neural network with just one line of code and making a prediction with a trained model (which wil take 2 lines of code). The *atomstat* takes the atomnet predictions and performs statistical analysis of the features asssociated with identified atoms and defects.
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* allows training a neural network with just one line of code and making a prediction with a trained model (which will take 2 lines of code). The *atomstat* takes the atomnet predictions and performs statistical analysis of the features asssociated with the identified atoms and defects.
 
 Here is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
 
