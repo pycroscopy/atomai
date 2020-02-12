@@ -61,14 +61,14 @@ python3 -m pip install -r requirements.txt
 
 TODO:
 
-0) Test trajectories analysis in atomstat on WS2 data
-
-1) Add several trained models (e.g. graphene, ferroics)
+1) Test atomstat functions for analysis of trajectories on WS2 data
 
 2) Add ferronet-type analysis for a single image to atomstat
 
-3) Add and test class for contour analysis (similar in structure and logic to class 'locator') to atomstat
+3) Add and test class for contour analysis to atomstat
 
-4) Add comparison between true coordinates and predicted coordinates (histogram and colored overlay)
+4) Add comparison between "true" coordinates and predicted coordinates to utils as a measure of model performance
 
-5) Add more examples and notebooks
+5) Add several trained models (e.g. graphene, ferroics)
+
+6) Add examples and notebooks
