@@ -33,6 +33,7 @@ The trained model can be used to find atoms/defects in the previously unseen exp
 # Get raw NN output
 nn_input, pred = atomnet.predictor(
     expdata, trained_model).run()
+    
 # Transform to atomic classes and coordinates
 coordinates = atomnet.locator(pred).run()
 ```
