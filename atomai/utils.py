@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import cv2
-from scipy import ndimage
+from scipy import ndimage, fftpack
 from skimage import exposure
 from skimage.util import random_noise
 import matplotlib.pyplot as plt
@@ -19,6 +19,16 @@ def load_model(model, weights_path):
         checkpoint = torch.load(weights_path, map_location='cpu')
     model.load_state_dict(checkpoint)
     return model
+
+### Utilities commonly used for experimental/test image data preprocessing ###
+
+def torch_format(image_data):
+    '''Reshapes and normalizes (optionally) image data
+    to make it compatible with pytorch format'''
+    image_data = np.expand_dims(image_data, axis=1)
+    image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
+    image_data = torch.from_numpy(image_data).float()
+    return image_data
 
 
 def img_resize(image_data, rs):
@@ -49,6 +59,7 @@ def img_pad(image_data, pooling):
             (image_data, np.zeros((d0, d1, 1))), axis=2)
     return image_data
 
+### Utilities for atom finding ###
 
 def find_com(image_data):
             '''Find atoms via center of mass methods'''
@@ -72,15 +83,7 @@ def cv_thresh(imgdata,
                     cv2.THRESH_BINARY)
     return thresh
 
-
-def torch_format(image_data):
-    '''Reshapes and normalizes (optionally) image data
-    to make it compatible with pytorch format'''
-    image_data = np.expand_dims(image_data, axis=1)
-    image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
-    image_data = torch.from_numpy(image_data).float()
-    return image_data
-
+### Utilities for inferring basic characteristics of neural network ###
 
 class Hook():
     """
@@ -116,6 +119,7 @@ def mock_forward(model, dims=(1, 64, 64)):
     out = model(x)
     return out
 
+### Vizualization utilities ###
 
 def plot_losses(train_loss, test_loss):
     print('Plotting training history')
@@ -136,6 +140,7 @@ def plot_coord(img, coord):
     plt.scatter(x, y, c=c, cmap='RdYlGn', s=8)
     plt.show()
 
+###  Some utilities that can help preparing labeled training set ### 
 
 class MakeAtom:
     """
@@ -393,3 +398,47 @@ class data_transform:
             X_batch_a[i, :, :] = img
             y_batch_a[i, :, :, :] = gt
         return X_batch_a, y_batch_a
+    
+def FFTmask(imgsrc, maskratio=10):
+    """
+    Takes a square real space image and filter out a disk with radius equal to:
+    1/maskratio * image size.
+    Retruns FFT transform of the image and the filtered FFT transform
+    """
+    # Take the fourier transform of the image.
+    F1 = fftpack.fft2((imgsrc))
+    # Now shift so that low spatial frequencies are in the center.
+    F2 = (fftpack.fftshift((F1)))
+    # copy the array and zero out the center
+    F3 = F2.copy()
+    l = int(imgsrc.shape[0]/maskratio)
+    m = int(imgsrc.shape[0]/2)
+    y, x = np.ogrid[1: 2*l + 1, 1:2*l + 1]
+    mask = (x - l)*(x - l) + (y - l)*(y - l) <= l*l
+    F3[m-l:m+l, m-l:m+l] = F3[m-l:m+l, m-l:m+l] * (1 - mask)
+    return F2, F3
+
+
+def FFTsub(imgsrc, F3):
+    """
+    Takes real space image and filtred FFT.
+    Reconstructs real space image and subtracts it from the original.
+    Returns normalized image.
+    """
+    reconstruction = np.real(fftpack.ifft2(fftpack.ifftshift(F3)))
+    diff = np.abs(imgsrc - reconstruction)
+    # normalization
+    diff = diff - np.amin(diff)
+    diff = diff/np.amax(diff)
+    return diff
+
+
+def threshImg(diff, threshL=0.25, threshH=0.75):
+    """
+    Takes in difference image, low and high thresold values,
+    and outputs a map of all defects.
+    """
+    threshIL = diff < threshL
+    threshIH = diff > threshH
+    threshI = threshIL + threshIH
+    return threshI
