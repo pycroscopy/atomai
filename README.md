@@ -7,16 +7,16 @@
 
 ## What is AtomAI?
 
-AtomAI is a package for machine learning based analysis of experimental atom-resolved data.
+AtomAI is a simple Python package for machine learning based analysis of experimental atom-resolved data coming from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning).
 
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* allows training a neural network with just one line of code and making a prediction with a trained model (which will take 2 lines of code). The *atomstat* takes the atomnet predictions and performs statistical analysis of the features asssociated with the identified atoms and defects.
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training a neural network (with just one line of code) and for making applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis (e.g., Gaussian mixture modelling, transition probability calculations) on the local image descriptors corresponding to the identified atoms and defects.
 
 Here is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
 
 ```python
 from atomai import atomnet
 
-# Here you load training data
+# Here you load your training data
 # ...
 
 # Train a model
@@ -26,7 +26,7 @@ trained_model = atomnet.trainer(
     training_cycles=500).run()   
 ```
 
-The trained model can be used to find atoms/defects in the previously unseen experimental data:
+Trained models can be used to find atoms/defects in the previously unseen (by a model) experimental data:
 ```python
 # Here you load new experimental data (as 2D or 3D numpy array)
 # ...
@@ -38,7 +38,7 @@ nn_input, pred = atomnet.predictor(expdata, trained_model).run()
 coordinates = atomnet.locator(pred).run()
 ```
 
-One can then perform statistical analysis using the network predictions, including finding Gaussian mixture model components, analyzing trajectories of different classes of defects and calculating transition probability between them:
+To perform statistical analysis for the identified atoms and defects:
 ```python
 from atomai import atomstat
 
@@ -50,6 +50,8 @@ components_im, classes_list = imstack.gmm(10, plot_results=True)
 
 # For movies, calculate Gaussian mixture components and the transition frequencies between them
 imstack.transition_matrix(10, plot_results=True, plot_values=True)
+
+# and more
 ```
 
 ## Quickstart: AtomAI in the Cloud
