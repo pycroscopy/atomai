@@ -2,7 +2,6 @@
 
 import random
 import torch
-import torch.nn.functional as F
 import numpy as np
 import cv2
 from scipy import ndimage, fftpack
@@ -132,10 +131,10 @@ def plot_losses(train_loss, test_loss):
     plt.show()
 
 
-def plot_coord(img, coord):
+def plot_coord(img, coord, fsize=6):
     """Plots coordinates (colored according to atom class)"""
     y, x, c = coord.T
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(fsize, fsize))
     plt.imshow(img, cmap='gray')
     plt.scatter(x, y, c=c, cmap='RdYlGn', s=8)
     plt.show()
