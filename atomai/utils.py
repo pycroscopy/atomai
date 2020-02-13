@@ -1,4 +1,8 @@
-"""Utility functions"""
+"""
+Utility functions
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+"""
 
 import random
 import torch
