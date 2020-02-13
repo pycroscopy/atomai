@@ -91,10 +91,14 @@ class trainer:
         elif type(labels_all) == np.ndarray:
             n_train_batches, _ = np.divmod(labels_all.shape[0], batch_size)
             n_test_batches, _ = np.divmod(labels_test_all.shape[0], batch_size)
-            images_all = np.split(images_all, n_train_batches)
-            labels_all = np.split(labels_all, n_train_batches)
-            images_test_all = np.split(images_test_all, n_test_batches)
-            labels_test_all = np.split(labels_test_all, n_test_batches)
+            images_all = np.split(
+                images_all[:n_train_batches*batch_size], n_train_batches)
+            labels_all = np.split(
+                labels_all[:n_train_batches*batch_size], n_train_batches)
+            images_test_all = np.split(
+                images_test_all[:n_test_batches*batch_size], n_test_batches)
+            labels_test_all = np.split(
+                labels_test_all[:n_test_batches*batch_size], n_test_batches)
             num_classes = set([len(np.unique(lab)) for lab in labels_all])    
         else:
             raise NotImplementedError(
