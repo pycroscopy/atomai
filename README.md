@@ -17,7 +17,7 @@ Here is an example of how one can train a neural network for atom/defect finding
 from atomai import atomnet
 
 # Here you load your training data
-dataset = np.load('training_data.npy')
+dataset = np.load('training_data.npz')
 images_all = dataset['X_train']
 labels_all = dataset['y_train']
 images_test_all = dataset['X_test']
