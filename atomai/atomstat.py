@@ -1,3 +1,9 @@
+"""
+Module for statistical analysis of local image descriptors
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+"""
+
 import numpy as np
 from sklearn import mixture
 from scipy import spatial
