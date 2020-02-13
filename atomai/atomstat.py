@@ -147,38 +147,6 @@ class imlocal:
             plt.show()
         return cla, classes
 
-    def transition_matrix(self,
-                          n_components, 
-                          covariance='diag', 
-                          random_state=1,
-                          plot_results=False,
-                          plot_values=False):
-        """
-        Calculates Markov transition matrix using the GMM classes
-        Args:
-            n_components: int
-                number of components
-            covariance: str
-                type of covariance ('full', 'diag', 'tied', 'spherical')
-            random_state: int
-                random state instance
-            plot_results: bool
-                plot calculated transition matrix
-            plot_values: bool
-                show claculated transition rates
-        Returns:
-            m: 2D numpy array
-                transition matrix
-        """
-
-        classes = self.gmm(
-            n_components, covariance, random_state, plot_results)[1]
-        classes = [c-1 for c in classes]
-        classes = np.array(classes, dtype=int)
-        print(3*'\n')
-        m = transitions(classes).calculate_transition_matrix(
-            plot_results, plot_values)
-        return m
 
     @classmethod
     def get_trajectory(cls, 
@@ -226,11 +194,11 @@ class imlocal:
         classes_renum = [cl - diff_d[cl] for cl in classes]
         return np.array(classes_renum, dtype=np.int64)
 
-    def transition_matrix_trajectories(self,
-                                       n_components, 
-                                       covariance='diag', 
-                                       random_state=1,
-                                       rmax=10):
+    def transition_matrix(self,
+                          n_components, 
+                          covariance='diag', 
+                          random_state=1,
+                          rmax=10):
         trajectories_all, frames_all = self.get_all_trajectories(
             n_components, covariance, random_state, rmax)
         transitions_all = []
