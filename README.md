@@ -64,7 +64,7 @@ imstack.transition_matrix(n_components=10, rmax=10)
 
 TBA
 
-**TODO:**
+## TODO
 
 1) Add ferronet-type analysis for a single image to atomstat
 
