@@ -1,11 +1,11 @@
 import numpy as np
 from sklearn import mixture
-from sklearn import decomposition
+from scipy import spatial
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as patches
 
-class imstack(transitions):
+class imlocal:
 
     def __init__(self,
                  network_output, 
@@ -17,7 +17,9 @@ class imstack(transitions):
         self.coord_all = coord_all
         self.coord_class = coord_class
         self.r = r
-        self.imgstack, self.imgstack_com = self.extract_subimages()
+        (self.imgstack, 
+         self.imgstack_com, 
+         self.imgstack_frames) = self.extract_subimages()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
         self.X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
 
@@ -39,20 +41,24 @@ class imstack(transitions):
         Returns:
             stack of subimages, (x, y) coordinates of their centers    
         """
-        imgstack = []
-        imgstack_com = []
+        imgstack, imgstack_com, imgstack_frames = [], [], []
         for i, (img, coord) in enumerate(
             zip(self.network_output, self.coord_all.values())):
             c = coord[np.where(coord[:,2]==self.coord_class)][:,0:2]
             img_cr_all, com = self._extract_subimages(img, c, self.r)
             imgstack.append(img_cr_all)
             imgstack_com.append(com)
+            imgstack_frames.append(np.ones(len(com), int) * i)
         imgstack = np.concatenate(imgstack, axis=0)
         imgstack_com = np.concatenate(imgstack_com, axis=0)
-        return imgstack, imgstack_com
+        imgstack_frames = np.concatenate(imgstack_frames, axis=0)
+        return imgstack, imgstack_com, imgstack_frames
 
     @classmethod
-    def _extract_subimages(cls, imgdata, coord, r):
+    def _extract_subimages(cls,
+                           imgdata,
+                           coord,
+                           r):
         """
         Extracts subimages centered at specified coordinates
         for a single image
@@ -78,7 +84,9 @@ class imstack(transitions):
                 imgdata[cx-r:cx+r, cy-r:cy+r, :])
             if img_cr.shape[0:2] == (int(r*2), int(r*2)):
                 img_cr_all.append(img_cr[None, ...])
-                com.append(np.array([cx, cy])[None, ...])
+                #com.append(np.array([cx, cy])[None, ...])
+                com.append(c[None, ...])
+                
         img_cr_all = np.concatenate(img_cr_all, axis=0)
         com = np.concatenate(com, axis=0)
         return img_cr_all, com
@@ -125,7 +133,13 @@ class imstack(transitions):
             cla[i] = np.mean(cl, axis=0)
             if plot_results:
                 ax = fig.add_subplot(gs[i])
-                ax.imshow(cla[i], Interpolation='Gaussian')
+                if self.nb_classes == 3:
+                    ax.imshow(cla[i], Interpolation='Gaussian')
+                elif self.nb_classes == 1:
+                    ax.imshow(cla[i, :, :, 0], Interpolation='Gaussian')
+                else:
+                    raise NotImplementedError(
+                        "Can plot only images with 3 and 1 channles")
                 ax.axis('off')
                 ax.set_title('Class '+str(i+1)+'\nCount: '+str(len(cl)))       
         if plot_results:
@@ -159,12 +173,72 @@ class imstack(transitions):
 
         classes = self.gmm(
             n_components, covariance, random_state, plot_results)[1]
-        classes = [c - 1 for c in classes]
+        classes = [c-1 for c in classes]
         classes = np.array(classes, dtype=int)
         print(3*'\n')
-        m = transitions(classes).calc_transition_matrix(plot_results, plot_values)
+        m = transitions(classes).calculate_transition_matrix(
+            plot_results, plot_values)
         return m
 
+    @classmethod
+    def get_trajectory(cls, 
+                       coord_class_dict, 
+                       ck, 
+                       rmax):
+        flow = np.empty((0, 3))
+        frames = []
+        c0 = ck
+        for k, c in coord_class_dict.items():
+            d, index = spatial.cKDTree(
+                c[:,:2]).query(c0, distance_upper_bound=rmax)
+            if d != np.inf:
+                flow = np.append(flow, [c[index]], axis=0)
+                frames.append(k)
+                c0 = c[index][:2]
+        return flow, np.array(frames)
+
+    def get_all_trajectories(self, 
+                             n_components, 
+                             covariance='diag', 
+                             random_state=1,
+                             rmax=10):
+        classes = self.gmm(
+            n_components, covariance, random_state)[1]
+        coord_class_dict = {
+            i: np.concatenate(
+                (self.imgstack_com[np.where(self.imgstack_frames==i)[0]],
+                    classes[np.where(self.imgstack_frames==i)[0]][..., None]),
+                    axis=-1) 
+            for i in range(int(np.ptp(self.imgstack_frames)+1))
+        }
+        all_trajectories = []
+        all_frames = []
+        for ck in coord_class_dict[0][:, :2]:
+            flow, frames = self.get_trajectory(coord_class_dict, ck, rmax)
+            all_trajectories.append(flow)
+            all_frames.append(frames)
+        return all_trajectories, all_frames
+
+    @classmethod
+    def renumerate_classes(cls, classes):
+        diff = np.unique(classes) - np.arange(len(np.unique(classes)))
+        diff_d = {cl: d for d, cl in zip(diff, np.unique(classes))}
+        classes_renum = [cl - diff_d[cl] for cl in classes]
+        return np.array(classes_renum, dtype=np.int64)
+
+    def transition_matrix_trajectories(self,
+                                       n_components, 
+                                       covariance='diag', 
+                                       random_state=1,
+                                       rmax=10):
+        trajectories_all, frames_all = self.get_all_trajectories(
+            n_components, covariance, random_state, rmax)
+        transitions_all = []
+        for traj in trajectories_all:
+            classes = self.renumerate_classes(traj[:, -1])
+            m = transitions(classes).calculate_transition_matrix()
+            transitions_all.append(m)
+        return transitions_all, trajectories_all, frames_all
 
 
 class transitions:
@@ -177,7 +251,9 @@ class transitions:
     def __init__(self, trace):
         self.trace = trace
 
-    def calc_transition_matrix(self, plot_results=False, plot_values=False):
+    def calculate_transition_matrix(self, 
+                                    plot_results=False, 
+                                    plot_values=False):
         """
         Calculates Markov transition matrix
         Args:
@@ -189,7 +265,7 @@ class transitions:
             m: 2D numpy array
                 calculated transition matrix
         """
-        n = 1 +  max(self.trace) # number of states
+        n = 1 + max(self.trace) # number of states
         M = np.zeros(shape=(n, n))  
         for (i,j) in zip(self.trace, self.trace[1:]):
             M[i][j] += 1
@@ -199,11 +275,13 @@ class transitions:
             if s > 0:
                 row[:] = [f/s for f in row]
         if plot_results:
-            self.plot(M, plot_values)
+            self.plot_transition_matrix(M, plot_values)
         return M
 
     @classmethod
-    def plot(cls, m, plot_values=False):
+    def plot_transition_matrix(cls,
+                               m,
+                               plot_values=False):
         """
         Plots transition matrix
         Args:
