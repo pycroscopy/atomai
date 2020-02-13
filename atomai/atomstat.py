@@ -207,12 +207,11 @@ class imlocal:
         return flow, np.array(frames)
 
     def get_all_trajectories(self, 
-                             n_components, 
-                             covariance='diag', 
-                             random_state=1,
-                             rmax=10):
+                             run_gmm=False,
+                             rmax=10,
+                             **kwargs):
         """
-        Applies Gaussian mixture model to a stack of 
+        Applies (optionally) Gaussian mixture model to a stack of 
         local descriptors (subimages). Extracts trajectories for
         the detected defects starting from the first frame.
 
@@ -233,12 +232,18 @@ class imlocal:
             list defects/atoms trajectories (each trajectory is numpy array),
             list of frames corresponding to the extracted trajectories
         """
-        classes = self.gmm(
-            n_components, covariance, random_state)[1]
+        if run_gmm:
+            n_components = kwargs.get("n_components", 5)
+            covariance = kwargs.get("covariance", "diag")
+            random_state = kwargs.get("random_state", 1)
+            classes = self.gmm(
+                n_components, covariance, random_state)[1]
+        else:
+            classes = np.zeros(len(self.imgstack_frames))
         coord_class_dict = {
-            i: np.concatenate(
-                (self.imgstack_com[np.where(self.imgstack_frames==i)[0]],
-                    classes[np.where(self.imgstack_frames==i)[0]][..., None]),
+            i : np.concatenate(
+                (self.imgstack_com[np.where(self.imgstack_frames == i)[0]],
+                    classes[np.where(self.imgstack_frames == i)[0]][..., None]),
                     axis=-1) 
             for i in range(int(np.ptp(self.imgstack_frames)+1))
         }
@@ -289,7 +294,8 @@ class imlocal:
             list of frames corresponding to the extracted trajectories
         """
         trajectories_all, frames_all = self.get_all_trajectories(
-            n_components, covariance, random_state, rmax)
+            run_gmm=True, n_components=n_components, covariance=covariance, 
+            random_state=random_state, rmax=rmax)
         transitions_all = []
         for traj in trajectories_all:
             classes = self.renumerate_classes(traj[:, -1])
