@@ -36,10 +36,10 @@ Trained models can be used to find atoms/defects in the previously unseen (by a 
 expdata = np.load('expdata-test.npy')
 
 # Get raw NN output
-nn_input, pred = atomnet.predictor(expdata, trained_model).run()
+nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
     
 # Transform to atomic classes and coordinates
-coordinates = atomnet.locator(pred).run()
+coordinates = atomnet.locator(nn_output).run()
 ```
 
 To perform statistical analysis for the identified atoms and defects:
@@ -47,7 +47,7 @@ To perform statistical analysis for the identified atoms and defects:
 from atomai import atomstat
 
 # Get local descriptors (such as subimages centered around impurities)
-imstack = atomstat.imlocal(pred, coordinates, r=32, coord_class=1)
+imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
 
 # Calculate Gaussian mixture components (GMM)
 components_im, classes_list = imstack.gmm(n_components=10, plot_results=True)
