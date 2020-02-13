@@ -7,9 +7,9 @@
 
 ## What is AtomAI?
 
-AtomAI is a simple Python package for machine learning based analysis of experimental atom-resolved data coming from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning).
+AtomAI is a simple Python package for machine learning based analysis of experimental atom-resolved data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning).
 
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training a neural network (with just one line of code) and for making applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis (e.g., Gaussian mixture modelling, transition probability calculations) on the local image descriptors corresponding to the identified atoms and defects.
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training a neural network (with just one line of code) and for applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis (e.g., Gaussian mixture modelling, transition probability calculations) on the local image descriptors corresponding to the identified atoms and defects.
 
 Here is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
 
@@ -46,10 +46,10 @@ from atomai import atomstat
 imstack = atomstat.imlocal(pred, coordinates, r=32, coord_class=1)
 
 # Calculate Gaussian mixture components
-components_im, classes_list = imstack.gmm(10, plot_results=True)
+components_im, classes_list = imstack.gmm(n_components=10, plot_results=True)
 
 # For movies, calculate Gaussian mixture components and the transition frequencies between them
-imstack.transition_matrix(10, plot_results=True, plot_values=True)
+imstack.transition_matrix(n_components=10, plot_results=True, plot_values=True)
 
 # and more
 ```
