@@ -1,4 +1,8 @@
-"""Deep learning models and various custom NN blocks"""
+"""
+Deep learning models and various custom NN blocks
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+"""
 
 import torch
 import torch.nn as nn
