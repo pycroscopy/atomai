@@ -53,7 +53,7 @@ imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
 components_im, classes_list = imstack.gmm(n_components=10, plot_results=True)
 
 # For movies, calculate GMM and the transition probabilities between them along the trajectories
-imstack.transition_matrix(n_components=10, rmax=10)
+trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=10)
 
 # and more
 ```
