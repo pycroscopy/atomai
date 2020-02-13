@@ -58,6 +58,7 @@ imstack.transition_matrix(n_components=10, rmax=10)
 
 1. [Use AtomAI's atomnet module to train a deep NN for atom finding in Colab in just 10 min](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/notebooks/atomai_atomnet.ipynb)
 2. Use atomstat module to analyze trajectories of different classes of defects in atomic movie - TBA
+3. TBA
 
 ## Local Installation
 
@@ -65,14 +66,12 @@ TBA
 
 **TODO:**
 
-1) Test atomstat functions for analysis of trajectories on WS2 data
+1) Add ferronet-type analysis for a single image to atomstat
 
-2) Add ferronet-type analysis for a single image to atomstat
+2) Add and test class for contour analysis to atomstat
 
-3) Add and test class for contour analysis to atomstat
+3) Add comparison between "true" coordinates and predicted coordinates to utils as a measure of model performance
 
-4) Add comparison between "true" coordinates and predicted coordinates to utils as a measure of model performance
+4) Add several trained models (e.g. graphene, ferroics)
 
-5) Add several trained models (e.g. graphene, ferroics)
-
-6) Add examples and notebooks
+5) Add more examples and notebooks
