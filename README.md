@@ -1,12 +1,13 @@
 # AtomAI
 **Under active development (i.e. breaking changes can occur on a daily basis)**
 
-Module for machine learning based analysis of experimental atom-resolved data.
-<br>
 <p align="center">
   <img src="https://github.com/ziatdinovmax/atomai/blob/master/AtomAI_logo.png" width="30%" title="AtomAI">
 <p align="justify">
-<br>
+
+## What is AtomAI?
+
+AtomAI is a package for machine learning based analysis of experimental atom-resolved data.
 
 AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* allows training a neural network with just one line of code and making a prediction with a trained model (which will take 2 lines of code). The *atomstat* takes the atomnet predictions and performs statistical analysis of the features asssociated with the identified atoms and defects.
 
@@ -51,12 +52,7 @@ components_im, classes_list = imstack.gmm(10, plot_results=True)
 imstack.transition_matrix(10, plot_results=True, plot_values=True)
 ```
 
-To download and use AtomAI, run first:
-```
-git clone https://github.com/ziatdinovmax/atomai.git
-cd atomai
-python3 -m pip install -r requirements.txt
-```
+## Quickstart: AtomAI in the Cloud
 
 TODO:
 
