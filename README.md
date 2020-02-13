@@ -45,11 +45,11 @@ from atomai import atomstat
 # Get local descriptors (such as subimages centered around impurities)
 imstack = atomstat.imlocal(pred, coordinates, r=32, coord_class=1)
 
-# Calculate Gaussian mixture components
+# Calculate Gaussian mixture components (GMM)
 components_im, classes_list = imstack.gmm(n_components=10, plot_results=True)
 
-# For movies, calculate Gaussian mixture components and the transition probabilities between them
-imstack.transition_matrix(n_components=10, plot_results=True, plot_values=True)
+# For movies, calculate GMM and the transition probabilities between them along the trajectories
+imstack.transition_matrix(n_components=10, rmax=10)
 
 # and more
 ```
