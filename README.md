@@ -2,7 +2,7 @@
 **Under active development (i.e. breaking changes can occur on a daily basis)**
 
 <p align="center">
-  <img src="https://github.com/ziatdinovmax/atomai/blob/master/AtomAI_logo.png" width="30%" title="AtomAI">
+  <img src="https://github.com/ziatdinovmax/atomai/blob/master/AtomAI_logo-v2.png" width="30%" title="AtomAI">
 <p align="justify">
 
 ## What is AtomAI?
