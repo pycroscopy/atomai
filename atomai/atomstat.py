@@ -5,8 +5,25 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as patches
 
-class imlocal:
 
+class imlocal:
+    """
+    Class for extraction and statistical analysis of local descriptors
+    It assumes that input image data is output of neural network, but 
+    can also work with regular experimental images.
+
+    Args:
+        network_output: 4D numpy array
+            batch_size x height x width x channels
+        coord_all: dict
+            prediction from atomnet.locator
+            (can be from other source but must be the same format)
+        r: int
+            half of the side of the square for subimage cropping
+        coord_class: int
+            class of atoms/defects around around which 
+            the subimages images will be cropped (starts with 0)
+    """
     def __init__(self,
                  network_output, 
                  coord_all, 
@@ -147,12 +164,30 @@ class imlocal:
             plt.show()
         return cla, classes
 
-
     @classmethod
     def get_trajectory(cls, 
                        coord_class_dict, 
                        ck, 
                        rmax):
+        """
+        Extracts a trajectory of a single defect/atom from image stack
+        
+        Args:
+            coord_class_dict: dict
+                dictionary of atomic coordinates
+                (same format as produced by atomnet.locator)
+            ck: N x 2 numpy array
+                coordinate of defect/atom in the firs frame
+                whose trajectory we are going to track
+            rmax: int
+                max allowed distance (projected on xy plane) between defect
+                in one frame and the position of its nearest neigbor
+                in the next one
+
+        Returns:
+            numpy array of defect/atom coordinaes form a single trajectory,
+            frames corresponding to this trajectory
+        """
         flow = np.empty((0, 3))
         frames = []
         c0 = ck
@@ -170,6 +205,28 @@ class imlocal:
                              covariance='diag', 
                              random_state=1,
                              rmax=10):
+        """
+        Applies Gaussian mixture model to a stack of 
+        local descriptors (subimages). Extracts trajectories for
+        the detected defects starting from the first frame.
+
+        Args:
+            n_components: int
+                number of components for  Gaussian mixture model
+            covariance: str
+                type of covariance for Gaussian mixture model
+                ('full', 'diag', 'tied', 'spherical')
+            random_state: int
+                random state instance for Gaussian mixture model
+            rmax: int
+                max allowed distance (projected on xy plane) between defect
+                in one frame and the position of its nearest neigbor
+                in the next one
+
+        Returns:
+            list defects/atoms trajectories (each trajectory is numpy array),
+            list of frames corresponding to the extracted trajectories
+        """
         classes = self.gmm(
             n_components, covariance, random_state)[1]
         coord_class_dict = {
@@ -189,6 +246,8 @@ class imlocal:
 
     @classmethod
     def renumerate_classes(cls, classes):
+        """Helper functions for renumerating Gaussian mixture model
+         classes for Markov transition analysis"""
         diff = np.unique(classes) - np.arange(len(np.unique(classes)))
         diff_d = {cl: d for d, cl in zip(diff, np.unique(classes))}
         classes_renum = [cl - diff_d[cl] for cl in classes]
@@ -199,6 +258,30 @@ class imlocal:
                           covariance='diag', 
                           random_state=1,
                           rmax=10):
+        """
+        Applies Gaussian mixture model to a stack of 
+        local descriptors (subimages). Extracts trajectories for
+        the detected defects starting from the first frame.
+        Calculates transition probability for each trajectory.
+
+        Args:
+            n_components: int
+                number of components for  Gaussian mixture model
+            covariance: str
+                type of covariance for Gaussian mixture model
+                ('full', 'diag', 'tied', 'spherical')
+            random_state: int
+                random state instance for Gaussian mixture model
+            rmax: int
+                max allowed distance (projected on xy plane) between defect
+                in one frame and the position of its nearest neigbor
+                in the next one
+
+        Returns:
+            list of transition matrices for each trajectory,
+            list defects/atoms trajectories,
+            list of frames corresponding to the extracted trajectories
+        """
         trajectories_all, frames_all = self.get_all_trajectories(
             n_components, covariance, random_state, rmax)
         transitions_all = []
