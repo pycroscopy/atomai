@@ -54,6 +54,10 @@ imstack.transition_matrix(10, plot_results=True, plot_values=True)
 
 ## Quickstart: AtomAI in the Cloud
 
+## Local Installation
+
+TBA
+
 TODO:
 
 1) Test atomstat functions for analysis of trajectories on WS2 data
