@@ -17,7 +17,11 @@ Here is an example of how one can train a neural network for atom/defect finding
 from atomai import atomnet
 
 # Here you load your training data
-# ...
+dataset = np.load('training_data.npy')
+images_all = dataset['X_train']
+labels_all = dataset['y_train']
+images_test_all = dataset['X_test']
+labels_test_all = dataset['y_test']
 
 # Train a model
 trained_model = atomnet.trainer(
@@ -29,7 +33,7 @@ trained_model = atomnet.trainer(
 Trained models can be used to find atoms/defects in the previously unseen (by a model) experimental data:
 ```python
 # Here you load new experimental data (as 2D or 3D numpy array)
-# ...
+expdata = np.load('expdata-test.npy')
 
 # Get raw NN output
 nn_input, pred = atomnet.predictor(expdata, trained_model).run()
