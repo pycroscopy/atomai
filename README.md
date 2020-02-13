@@ -61,7 +61,7 @@ trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 ## Quickstart: AtomAI in the Cloud
 
 1. [Use AtomAI to train a deep NN for atom finding in Colab](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/notebooks/atomai_atomnet.ipynb)
-2. Use atomstat module to analyze trajectories of different classes of defects in atomic movie - TBA
+2. Analyze trajectories of atomic defects in atomic movie - TBA
 3. TBA
 
 ## Local Installation
