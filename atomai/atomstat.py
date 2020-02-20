@@ -5,11 +5,11 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import numpy as np
-from sklearn import mixture
+from sklearn import mixture, decomposition
 from scipy import spatial
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import matplotlib.patches as patches
+# import matplotlib.patches as patches
 
 
 class imlocal:
@@ -45,8 +45,7 @@ class imlocal:
          self.imgstack_frames) = self.extract_subimages()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
         self.X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
-
-       
+      
     def extract_subimages(self):
         """
         Extracts subimages centered at certain atom class/type
@@ -62,7 +61,7 @@ class imlocal:
                 defines size of a square subimage
 
         Returns:
-            stack of subimages, (x, y) coordinates of their centers    
+            stack of subimages, (x, y) coordinates of their centers 
         """
         imgstack, imgstack_com, imgstack_frames = [], [], []
         for i, (img, coord) in enumerate(
@@ -302,6 +301,237 @@ class imlocal:
             m = transitions(classes).calculate_transition_matrix()
             transitions_all.append(m)
         return transitions_all, trajectories_all, frames_all
+
+    def pca_scree_plot(self, plot_results=True):
+        """
+        Calculates and plots PCA 'scree plot'
+        (explained variance ratio vs number of components)
+        """
+        # PCA decomposition
+        pca = decomposition.PCA()
+        pca.fit(self.X_vec)
+        explained_var = pca.explained_variance_ratio_
+        if plot:
+            # Plotting
+            fig, ax = plt.subplots(1, 1, figsize=(6,6))
+            ax.plot(explained_var, '-o')
+            ax.set_xlim(-0.5, 50)
+            ax.set_xlabel('Number of components')
+            ax.set_ylabel('Explained variance')
+            plt.show()
+        return explained_var
+
+    @classmethod
+    def plot_decomposition_results(cls,
+                                   components,
+                                   X_vec_t,
+                                   image_hw,
+                                   xy_centers,
+                                   **kwargs):
+        """
+        Plots PCA eigenvectors and their loading maps
+
+        Args:
+            components: 4D numpy array
+                computed (and reshaped) 
+                principal axes / independent sources / factorization matrix
+                for stack of subimages
+            X_vec_t: 2D numpy array
+                Projection of X_vec on the first principal components /
+                Recovered sources from X_vec / 
+                transformed X_vec according to the learned NMF model
+                (is used to create "loading maps")
+            img_hw: tuple
+                height and width of the "mother image"
+            com_: n x 2 numpy array
+                (x, y) coordinates of the extracted subimages
+
+        **Kwargs:
+            marker_size: int
+                controls marker size for loading maps plot
+        """
+        m_s = kwargs.get("marker_size", 32)
+        com_ = xy_centers
+        nc = components.shape[0]
+        y, x = com_.T
+        img_h, img_w = image_hw
+        rows = int(np.ceil(float(nc)/5))
+        cols = int(np.ceil(float(nc)/rows))
+        y, x = com_.T
+        print('NUMBER OF COMPONENTS: ' + str(nc))
+        # plot eigenvectors
+        gs1 = gridspec.GridSpec(rows, cols)
+        fig1 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))   
+        for i in range(nc):
+            ax1 = fig1.add_subplot(gs1[i])
+            ax1.imshow(
+                np.sum(components[i, :, :, :-1], axis=-1),
+                cmap='seismic', Interpolation='Gaussian')
+            ax1.set_aspect('equal')
+            ax1.axis('off')
+            ax1.set_title('Component '+str(i + 1)+'\nComponent')
+        plt.show()
+        # plot loading maps
+        gs2 = gridspec.GridSpec(rows, cols)
+        fig2 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))   
+        for i in range(nc):
+            ax2 = fig2.add_subplot(gs2[i])
+            ax2.scatter(
+                x, y, c=X_vec_t[:, i], 
+                cmap='seismic', marker='s', s=m_s)
+            ax2.set_xlim(0, img_w)
+            ax2.set_ylim(img_h, 0)
+            ax2.set_aspect('equal')
+            ax2.axis('off')
+            ax2.set_title('Component '+str(i+1)+'\nLoading map')
+        plt.show()     
+
+    def imblock_pca(self, 
+                    n_components,
+                    random_state=1,
+                    plot_results=True,
+                    **kwargs):
+        """
+        Computes PCA eigenvectors and their loading maps
+        for a stack of subimages. Intended to be used for
+        finding domains (e.g. ferroic domains) in a _single image_.
+
+        Args:
+            n_components: int
+                number of PCA components
+            random_state: int
+                random state instance
+            plot_results: bool
+                Plots computed eigenvectors and loading maps
+        
+        **Kwargs:
+            marker_size: int
+                controls marker size for loading maps plot
+
+        Returns:
+            components: 4D numpy array
+                computed (and reshaped) principal axes
+                for stack of subimages
+            X_vec_t: 2D numpy array
+                Projection of X_vec on the first principal components
+        """
+        
+        m_s = kwargs.get('marker_size')
+        pca = decomposition.PCA(
+            n_components=n_components,
+            random_state=random_state)
+        X_vec_t = pca.fit_transform(self.X_vec)
+        components = pca.components_
+        components = components.reshape(
+            n_components, self.d1, self.d2, self.d3)
+        if plot_results:
+            assert self.network_output.shape[0] == 1,\
+            "The 'mother image' dimensions must be (1 x h x w x c)"
+            self.plot_decomposition_results(
+                components, X_vec_t,
+                self.network_output.shape[1:3],
+                self.imgstack_com, marker_size=m_s)
+        return components, X_vec_t
+
+    def imblock_ica(self, 
+                    n_components,
+                    random_state=1,
+                    plot_results=True,
+                    **kwargs):
+        """
+        Computes ICA independent souces and their loading maps
+        for a stack of subimages. Intended to be used for
+        finding domains (e.g. ferroic domains) in a _single image_.
+
+        Args:
+            n_components: int
+                number of ICA components
+            random_state: int
+                random state instance
+            plot_results: bool
+                Plots computed eigenvectors and loading maps
+        
+        **Kwargs:
+            marker_size: int
+                controls marker size for loading maps plot
+
+        Returns:
+            components: 4D numpy array
+                computed (and reshaped) independent sources
+                for stack of subimages
+            X_vec_t: 2D numpy array
+                Recovered sources from X_vec
+        """
+        
+        m_s = kwargs.get('marker_size')
+        ica = decomposition.FastICA(
+            n_components=n_components,
+            random_state=random_state)
+        X_vec_t = ica.fit_transform(self.X_vec)
+        components = ica.components_
+        components = components.reshape(
+            n_components, self.d1, self.d2, self.d3)
+        if plot_results:
+            assert self.network_output.shape[0] == 1,\
+            "The 'mother image' dimensions must be (1 x h x w x c)"
+            self.plot_decomposition_results(
+                components, X_vec_t,
+                self.network_output.shape[1:3],
+                self.imgstack_com, marker_size=m_s)
+        return components, X_vec_t
+    
+    def imblock_nmf(self, 
+                    n_components,
+                    random_state=1,
+                    plot_results=True,
+                    **kwargs):
+        """
+        Applies NMF to source separation. 
+        Computes sources and their loading maps
+        for a stack of subimages. Intended to be used for
+        finding domains (e.g. ferroic domains) in a _single image_.
+
+        Args:
+            n_components: int
+                number of NMF components
+            random_state: int
+                random state instance
+            plot_results: bool
+                Plots computed eigenvectors and loading maps
+        
+        **Kwargs:
+            max_iterations: int
+                Maximum number of iterations before timing out
+            marker_size: int
+                controls marker size for loading maps plot
+
+        Returns:
+            components: 4D numpy array
+                computed (and reshaped) sources
+                for stack of subimages
+            X_vec_t: 2D numpy array
+                Transformed data X_vec according
+                to the trained NMF model
+        """
+        
+        m_s = kwargs.get('marker_size')
+        max_iter = kwargs.get('max_iterations', 1000)
+        nmf = decomposition.NMF(
+            n_components=n_components,
+            random_state=random_state,
+            max_iter=max_iter)
+        X_vec_t = nmf.fit_transform(self.X_vec)
+        components = nmf.components_
+        components = components.reshape(
+            n_components, self.d1, self.d2, self.d3)
+        if plot_results:
+            assert self.network_output.shape[0] == 1,\
+            "The 'mother image' dimensions must be (1 x h x w x c)"
+            self.plot_decomposition_results(
+                components, X_vec_t,
+                self.network_output.shape[1:3],
+                self.imgstack_com, marker_size=m_s)
+        return components, X_vec_t
 
 
 class transitions:
