@@ -311,7 +311,7 @@ class imlocal:
         pca = decomposition.PCA()
         pca.fit(self.X_vec)
         explained_var = pca.explained_variance_ratio_
-        if plot:
+        if plot_results:
             # Plotting
             fig, ax = plt.subplots(1, 1, figsize=(6,6))
             ax.plot(explained_var, '-o')
