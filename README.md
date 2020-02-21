@@ -5,9 +5,7 @@
 
 AtomAI is a simple Python package for machine learning based analysis of experimental atom-resolved data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning).
 
-## Installation
-
-```pip install -q git+https://github.com/ziatdinovmax/atomai.git```
+## How to use it?
 
 AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis (e.g., Gaussian mixture modelling, transition probability calculations) on the local image descriptors corresponding to the identified atoms and defects.
 
@@ -42,17 +40,25 @@ nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
 coordinates = atomnet.locator(nn_output).run()
 ```
 
-To perform statistical analysis for the identified atoms and defects:
+One can then perform statistical analysis using the information extracted by *atomnet*. For example, for a single image, one can identify domains with different ferroic distortions:
+
 ```python
 from atomai import atomstat
 
+# Get local descriptors
+imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
+
+# Compute distortion "eigenvectors" with associated loading maps and plot results:
+nmf_results = imstack.imblock_nmf(4, plot_results=True)
+```
+
+For movies, one can extract trajectories of individual defects and calculate the transition probabilities between different classes:
+
+```
 # Get local descriptors (such as subimages centered around impurities)
 imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
 
-# Calculate Gaussian mixture components (GMM)
-components_im, classes_list = imstack.gmm(n_components=10, plot_results=True)
-
-# For movies, calculate GMM components and transition probabilities for different trajectories
+# Calculate GMM components and transition probabilities for different trajectories
 trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=10)
 
 # and more
@@ -61,8 +67,13 @@ trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 ## Quickstart: AtomAI in the Cloud
 
 1. [Use AtomAI to train a deep NN for atom finding in Colab](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
-2. Analyze distortion domains in a single atomic image - TBA
+2. [Analyze distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
 3. Analyze trajectories of atomic defects in atomic movie - TBA
+
+## Installation
+Install AtomAI using
+
+```pip install -q git+https://github.com/ziatdinovmax/atomai.git```
 
 
 ## TODO
