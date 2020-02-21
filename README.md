@@ -54,7 +54,7 @@ nmf_results = imstack.imblock_nmf(4, plot_results=True)
 
 For movies, one can extract trajectories of individual defects and calculate the transition probabilities between different classes:
 
-```
+```python
 # Get local descriptors (such as subimages centered around impurities)
 imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
 
