@@ -1,13 +1,13 @@
 # AtomAI
 **Under active development (i.e. breaking changes can occur on a daily basis)**
 
-<p align="center">
-  <img src="https://github.com/ziatdinovmax/atomai/blob/master/AtomAI_logo-v2.png" width="30%" title="AtomAI">
-<p align="justify">
-
 ## What is AtomAI?
 
 AtomAI is a simple Python package for machine learning based analysis of experimental atom-resolved data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning).
+
+## Installation
+
+```pip install -q git+https://github.com/ziatdinovmax/atomai.git```
 
 AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis (e.g., Gaussian mixture modelling, transition probability calculations) on the local image descriptors corresponding to the identified atoms and defects.
 
@@ -64,18 +64,15 @@ trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 2. Analyze distortion domains in a single atomic image - TBA
 3. Analyze trajectories of atomic defects in atomic movie - TBA
 
-## Local Installation
-
-TBA
 
 ## TODO
 
-1) Add ferronet-type analysis for a single image to atomstat
+1) Add test modules
 
-2) Add and test class for contour analysis to atomstat
+2) Add comparison between "true" coordinates and predicted coordinates as a measure of model performance
 
-3) Add comparison between "true" coordinates and predicted coordinates to utils as a measure of model performance
+3) Add class for the analysis of particles geometry
 
-4) Add several trained models (e.g. graphene, ferroics)
+4) Add more examples and notebooks
 
-5) Add more examples and notebooks
+5) Add docs
