@@ -3,11 +3,11 @@
 
 ## What is AtomAI?
 
-AtomAI is a simple Python package for machine learning based analysis of experimental atom-resolved data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning).
+AtomAI is a simple Python package for machine learning-based analysis of experimental atom-resolved data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning).
 
 ## How to use it?
 
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis (e.g., Gaussian mixture modelling, transition probability calculations) on the local image descriptors corresponding to the identified atoms and defects.
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
 
 Here is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
 
@@ -57,6 +57,9 @@ For movies, one can extract trajectories of individual defects and calculate the
 ```python
 # Get local descriptors (such as subimages centered around impurities)
 imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
+
+# Calculate Gaussian mixture model (GMM) components
+components_img, classes_list = imstack.gmm(n_components=10, plot_results=True)
 
 # Calculate GMM components and transition probabilities for different trajectories
 trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=10)
