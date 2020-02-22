@@ -24,6 +24,8 @@ def load_model(model, weights_path):
     model.load_state_dict(checkpoint)
     return model
 
+
+
 ### Utilities commonly used for experimental/test image data preprocessing ###
 
 def torch_format(image_data):
@@ -63,6 +65,8 @@ def img_pad(image_data, pooling):
             (image_data, np.zeros((d0, d1, 1))), axis=2)
     return image_data
 
+
+
 ### Utilities for atom finding ###
 
 def find_com(image_data):
@@ -86,6 +90,8 @@ def cv_thresh(imgdata,
                     threshold, 1, 
                     cv2.THRESH_BINARY)
     return thresh
+
+
 
 ### Utilities for inferring basic characteristics of neural network ###
 
@@ -122,6 +128,7 @@ def mock_forward(model, dims=(1, 64, 64)):
     out = model(x)
     return out
 
+
 ### Vizualization utilities ###
 
 def plot_losses(train_loss, test_loss):
@@ -143,6 +150,7 @@ def plot_coord(img, coord, fsize=6):
     plt.imshow(img, cmap='gray')
     plt.scatter(x, y, c=c, cmap='RdYlGn', s=8)
     plt.show()
+
 
 ###  Some utilities that can help preparing labeled training set ### 
 
@@ -274,8 +282,10 @@ class data_transform:
             height of images in the batch,
         channels:
             number of classes (channels) in the ground truth
-        dim_order: str 
-            channel first (pytorch) or channel last (otherwise) ordering
+        dim_order_in: str
+            channel first or channel last ordering in the input masks
+        dim_order_out: str
+            channel first or channel last ordering in the output masks
         norm: int 
             normalization to (0, 1)
         **flip: bool 
@@ -292,11 +302,13 @@ class data_transform:
             assumes heght==width.
     """
     def __init__(self, batch_size, width, height,
-                 channels, dim_order='pytorch',
-                 norm=1, **kwargs):
+                 channels, dim_order_in='channel_last', 
+                 dim_order_out='channel_first', norm=1,
+                 **kwargs):
         self.n, self.w, self.h = batch_size, width, height
         self.ch = channels
-        self.dim_order = dim_order
+        self.dim_order_in = dim_order_in
+        self.dim_order_out = dim_order_out
         self.norm = norm
         self.flip = kwargs.get('flip')
         self.rotate90 = kwargs.get('rotate90')
@@ -309,6 +321,12 @@ class data_transform:
         Applies a sequence of augmentation procedures
         to images and (except for noise) ground truth
         """
+        if self.dim_order_in == 'channel_first':
+            masks = np.transpose(masks, [0, 2, 3, 1])
+        elif self.dim_order_in == 'channel_last':
+            pass
+        else:
+            raise NotImplementedError("Use 'channel_first' or 'channel_last'")
         images = (images - np.amin(images))/np.ptp(images)
         if self.flip:
             images, masks = self.batch_flip(images, masks)
@@ -318,14 +336,14 @@ class data_transform:
             images, masks = self.batch_zoom(images, masks)
         if self.resize is not None:
             images, masks = self.batch_resize(images, masks)
-        if self.dim_order == 'pytorch':
+        if self.dim_order_out == 'channel_first':
             images = np.expand_dims(images, axis=1)
             masks = np.transpose(masks, (0, 3, 1, 2))
-        else:
+        elif self.dim_order_out == 'channel_last':
             images = np.expand_dims(images, axis=3)
-            images = images.astype('float32')
-        if self.norm != 0:
-            images = (images - np.amin(images))/np.ptp(images)
+        else:
+            raise NotImplementedError("Use 'channel_first' or 'channel_last'")
+        images = (images - np.amin(images))/np.ptp(images)
         return images, masks
 
     def batch_noise(self, X_batch, y_batch,):
