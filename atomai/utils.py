@@ -269,7 +269,7 @@ def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches):
     return images, labels
 
 
-class data_transform:
+class augmentor:
     """
     Applies a sequence of pre-defined operations for data augmentation.
 
@@ -329,7 +329,7 @@ class data_transform:
         self.noise = kwargs.get('noise')
         self.resize = kwargs.get('resize')
 
-    def transform(self, images, masks):
+    def run(self, images, masks):
         """
         Applies a sequence of augmentation procedures
         to images and (except for noise) ground truth
