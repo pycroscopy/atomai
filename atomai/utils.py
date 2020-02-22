@@ -302,11 +302,11 @@ class data_transform:
             assumes heght==width.
     """
     def __init__(self, batch_size, width, height,
-                 channels, dim_order_in='channel_last', 
+                 n_channels, dim_order_in='channel_last', 
                  dim_order_out='channel_first', norm=1,
                  **kwargs):
         self.n, self.w, self.h = batch_size, width, height
-        self.ch = channels
+        self.ch = n_channels
         self.dim_order_in = dim_order_in
         self.dim_order_out = dim_order_out
         self.norm = norm
