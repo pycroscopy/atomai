@@ -488,7 +488,7 @@ class augmentor:
             return images, labels
         images_valid, labels_valid = [], []
         for label, image in zip(labels, images):
-            label = squeeze_channels_(label)
+            label = squeeze_channels(label)
             if len(np.unique(label)) == labels.shape[-1]:
                 labels_valid.append(label)
                 images_valid.append(image[None, ...])
