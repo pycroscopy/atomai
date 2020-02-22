@@ -350,12 +350,12 @@ class data_transform:
             gnoise = random.randint(gnoise_range[0], gnoise_range[1])
             blevel = random.randint(blevel_range[0], blevel_range[1])
             clevel = random.randint(c_level_range[0], c_level_range[1])
-            img = ndimage.filters.gaussian_filter(img, blevel*1e-1)
+            img = ndimage.filters.gaussian_filter(img, blevel*1e-2)
             img = make_pnoise(img, pnoise)
             img = random_noise(img, mode='gaussian', var=gnoise*1e-4)
-            img = random_noise(img, mode='pepper', amount=spnoise*1e-3)
-            img = random_noise(img, mode='salt', amount=spnoise*5e-4)
-            img = exposure.adjust_gamma(img, clevel*1e-1)
+            img = random_noise(img, mode='pepper', amount=spnoise*1e-4)
+            img = random_noise(img, mode='salt', amount=spnoise*5e-5)
+            img = exposure.adjust_gamma(img, clevel*1e-2)
             X_batch_a[i, :, :] = img
         return X_batch_a, y_batch
 
