@@ -211,10 +211,10 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
             corresponding mask for each atomic coordinate. 
 
             For example,
-            # def create_atomic_mask(r=7, thresh=.2):
-            #     atom = MakeAtom(r).atom2dgaussian()
-            #     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
-            #     return atom, mask
+            >>> def create_atomic_mask(r=7, thresh=.2):
+            >>>     atom = MakeAtom(r).atom2dgaussian()
+            >>>     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
+            >>>     return atom, mask
 
         **scale: int
                 controls the atomic mask size      
@@ -295,8 +295,21 @@ class data_transform:
         **zoom: tuple
             values for zooming-in (min height, max height, step);
             assumes height==width
-        **noise: dict 
-            dictionary of noise values for each type of noise,
+        **noise: dict
+            dictionary of with range of noise values for each type of noise;
+            dictionary keys are:
+            'poisson', 'gauss', 'blur', 'contrast', 'salt and pepper'.
+            For each case, you need to specify the range of values.
+            For example,
+            >>> noise_d = {} # Noise parameters are defined as dictionary
+            >>> noise_d['poisson'] = (90, 130)
+            >>> noise_d['gauss'] = (1, 200)
+            >>> noise_d['blur'] = (1, 40)
+            >>> noise_d['contrast'] = (10, 400)
+            >>> noise_d['salt and pepper'] = (1, 50)
+            Notice that for poisson noise, 
+            smaller values result in larger noise.     
+
         **resize: tuple
             values for image resizing (min height, max height, step);
             assumes heght==width.
