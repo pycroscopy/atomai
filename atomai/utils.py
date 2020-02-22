@@ -187,7 +187,7 @@ class MakeAtom:
         return g
 
 
-def create_lattice_mask(lattice, xy_atoms, create_mask_func):
+def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     """
     Given experimental image and xy atomic coordinates
     creates ground truth image. Currently works only for the case
@@ -198,25 +198,33 @@ def create_lattice_mask(lattice, xy_atoms, create_mask_func):
             experimental image as 2D numpy array
         xy_atoms: 2 x N numpy array
             position of atoms in the experimental data
-        create_mask_func: python function
+        *args: python function
             function that creates a 2D numpy array with atom and
             corresponding mask for each atomic coordinate. 
-            For example,
 
+            For example,
             # def create_atomic_mask(r=7, thresh=.2):
             #     atom = MakeAtom(r).atom2dgaussian()
             #     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
             #     return atom, mask
 
+        **scale: int
+                controls the atomic mask size      
+
     Returns:
         2D numpy array with ground truth data
     """
+    if len(args) == 1:
+        create_mask_func = args[0]
+    else:
+        create_mask_func = create_atom_mask_pair
+    scale = kwargs.get("scale", 7)
     lattice_mask = np.zeros_like(lattice)
     for i in range(xy_atoms.shape[-1]):
         x, y = xy_atoms[:, i]
         x = int(np.around(x))
         y = int(np.around(y))
-        _, mask = create_mask_func()
+        _, mask = create_mask_func(scale)
         r_m = mask.shape[0] / 2
         r_m1 = int(r_m + .5)
         r_m2 = int(r_m - .5)
@@ -442,6 +450,8 @@ def squeeze_data(images, labels):
     As a result the number of image-label-pairs returned may be different
     from the number of image-label pairs in the original data.
     """
+    if labels.shape[1] == 1:
+        return images, labels
     images_valid, labels_valid = [], []
     for label, image in zip(labels, images):
         label = squeeze_channels(label[None, ...])
