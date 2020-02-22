@@ -316,13 +316,13 @@ class data_transform:
     """
     def __init__(self, batch_size, width, height,
                  n_channels, dim_order_in='channel_last', 
-                 dim_order_out='channel_first', norm=1,
+                 dim_order_out='channel_first', squeeze=False,
                  **kwargs):
         self.n, self.w, self.h = batch_size, width, height
         self.ch = n_channels
         self.dim_order_in = dim_order_in
         self.dim_order_out = dim_order_out
-        self.norm = norm
+        self.squeeze = squeeze
         self.flip = kwargs.get('flip')
         self.rotate90 = kwargs.get('rotate90')
         self.zoom = kwargs.get('zoom')
@@ -349,9 +349,12 @@ class data_transform:
             images, masks = self.batch_zoom(images, masks)
         if self.resize is not None:
             images, masks = self.batch_resize(images, masks)
+        if self.squeeze:
+            images, masks = self.squeeze_data(images, masks)
         if self.dim_order_out == 'channel_first':
             images = np.expand_dims(images, axis=1)
-            masks = np.transpose(masks, (0, 3, 1, 2))
+            if self.squeeze is None or self.ch == 1:
+                masks = np.transpose(masks, (0, 3, 1, 2))
         elif self.dim_order_out == 'channel_last':
             images = np.expand_dims(images, axis=3)
         else:
@@ -463,10 +466,39 @@ class data_transform:
             y_batch_a[i, :, :, :] = gt
         return X_batch_a, y_batch_a
 
+    @classmethod
+    def squeeze_data(cls, images, labels):
+        """
+        Squeezes channels in each training image and
+        filters out image-label pairs where some pixels have multiple values.
+        As a result the number of image-label-pairs returned may be different
+        from the number of image-label pairs in the original data.
+        """
 
-def squeeze_channels(y_train):
+        def squeeze_channels(label):
+            """
+            Squeezes multiple channel into a single channel for a single label
+            """
+            label_ = np.zeros((1, label.shape[0], label.shape[1]))
+            for c in range(label.shape[-1]):
+                label_ += label[:, :, c] * c
+            return label_
+
+        if labels.shape[-1] == 1:
+            return images, labels
+        images_valid, labels_valid = [], []
+        for label, image in zip(labels, images):
+            label = squeeze_channels_(label)
+            if len(np.unique(label)) == labels.shape[-1]:
+                labels_valid.append(label)
+                images_valid.append(image[None, ...])
+        return np.concatenate(images_valid), np.concatenate(labels_valid) 
+
+
+def squeeze_channels_(y_train):
     """
-    Squeezes multiple channel into a single channel for a batch of labels
+    Squeezes multiple channel into a single channel for a batch of labels.
+    Assumes 'channel first ordering'
     """
     y_train_ = np.zeros((y_train.shape[0], y_train.shape[2], y_train.shape[3]))
     for c in range(y_train.shape[1]):
@@ -474,18 +506,19 @@ def squeeze_channels(y_train):
     return y_train_
 
 
-def squeeze_data(images, labels):
+def squeeze_data_(images, labels):
     """
     Squeezes channels in each training image and
     filters out image-label pairs where some pixels have multiple values.
     As a result the number of image-label-pairs returned may be different
     from the number of image-label pairs in the original data.
+    Assumes 'channel first' ordering
     """
     if labels.shape[1] == 1:
         return images, labels
     images_valid, labels_valid = [], []
     for label, image in zip(labels, images):
-        label = squeeze_channels(label[None, ...])
+        label = squeeze_channels_(label[None, ...])
         unique_labels = len(np.unique(label))
         if unique_labels == labels.shape[1]:
             labels_valid.append(label)
