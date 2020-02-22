@@ -77,7 +77,7 @@ trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 ## Installation
 Install AtomAI using
 
-```pip install -q git+https://github.com/ziatdinovmax/atomai.git```
+```pip install git+https://github.com/ziatdinovmax/atomai.git```
 
 
 ## TODO
