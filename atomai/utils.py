@@ -369,7 +369,8 @@ class data_transform:
             gt = gt[w1:w2, h1:h2]
             img = cv2.resize(img, (self.w, self.h))
             gt = cv2.resize(gt, (self.w, self.h))
-            _, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
+            #_, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
+            gt = np.around(gt)
             if len(gt.shape) != 3:
                 gt = np.expand_dims(gt, axis=2)
             X_batch_a[i, :, :] = img
@@ -415,7 +416,8 @@ class data_transform:
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
             img = cv2.resize(img, (rs, rs), cv2.INTER_CUBIC)
             gt = cv2.resize(gt, (rs, rs), cv2.INTER_CUBIC)
-            _, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
+            #_, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
+            gt = np.around(gt)
             if len(gt.shape) < 3:
                 gt = np.expand_dims(gt, axis=-1)
             X_batch_a[i, :, :] = img
