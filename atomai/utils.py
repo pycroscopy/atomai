@@ -9,6 +9,7 @@ import torch
 import numpy as np
 import cv2
 from scipy import ndimage, fftpack
+from sklearn.feature_extraction.image import extract_patches_2d
 from skimage import exposure
 from skimage.util import random_noise
 import matplotlib.pyplot as plt
@@ -185,6 +186,7 @@ class MakeAtom:
             c*((self.y-self.yo)**2)))
         return g
 
+
 def create_lattice_mask(lattice, xy_atoms, create_mask_func):
     """
     Given experimental image and xy atomic coordinates
@@ -197,13 +199,14 @@ def create_lattice_mask(lattice, xy_atoms, create_mask_func):
         xy_atoms: 2 x N numpy array
             position of atoms in the experimental data
         create_mask_func: python function
-            function that creates a 2D numpy array with ground truth
-            for each atomic coordinate. For example,
+            function that creates a 2D numpy array with atom and
+            corresponding mask for each atomic coordinate. 
+            For example,
 
-            # def create_atomic_mask(r_mask=7, thresh=.2):
-            #     atom = MakeAtom(r_mask).atom2dgaussian()
+            # def create_atomic_mask(r=7, thresh=.2):
+            #     atom = MakeAtom(r).atom2dgaussian()
             #     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
-            #     return mask
+            #     return atom, mask
 
     Returns:
         2D numpy array with ground truth data
@@ -213,25 +216,42 @@ def create_lattice_mask(lattice, xy_atoms, create_mask_func):
         x, y = xy_atoms[:, i]
         x = int(np.around(x))
         y = int(np.around(y))
-        mask = create_mask_func()
+        _, mask = create_mask_func()
         r_m = mask.shape[0] / 2
         r_m1 = int(r_m + .5)
         r_m2 = int(r_m - .5)
         lattice_mask[x-r_m1:x+r_m2, y-r_m1:y+r_m2] = mask
     return lattice_mask
 
-def create_atomic_mask(r_mask=7, thresh=.2):
+
+def create_atom_mask_pair(r=7, thresh=.2):
     """
-    Helper function for creating atomic maks
+    Helper function for creating atomic masks
     from 2D gaussian via simple thresholding
     """
-    atom = MakeAtom(r_mask).atom2dgaussian()
+    atom = MakeAtom(r).atom2dgaussian()
     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
     mask = mask[np.min(np.where(mask == 1)[0]):
-                    np.max(np.where(mask==1)[0] + 1),
-                    np.min(np.where(mask==1)[1]):
-                    np.max(np.where(mask==1)[1]) + 1]
-    return mask
+                np.max(np.where(mask == 1)[0] + 1),
+                np.min(np.where(mask == 1)[1]):
+                np.max(np.where(mask == 1)[1]) + 1]
+    return atom, mask
+
+
+def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches):
+    """
+    Extracts subimages of the selected size from the 'mother images' of
+    atomic lattice and the corresponding mask
+    (atomic contours with constant pixel values)
+    """
+    if type(patch_size) == int:
+        patch_size = (patch_size, patch_size)
+    images = extract_patches_2d(
+        lattice_im, patch_size, max_patches=num_patches, random_state=0)
+    labels = extract_patches_2d(
+        lattice_mask, patch_size, max_patches=num_patches, random_state=0)
+    return images, labels
+
 
 class data_transform:
     """
@@ -349,7 +369,7 @@ class data_transform:
             gt = gt[w1:w2, h1:h2]
             img = cv2.resize(img, (self.w, self.h))
             gt = cv2.resize(gt, (self.w, self.h))
-            _, gt = cv2.threshold(gt, 0.25, 1, cv2.THRESH_BINARY)
+            _, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
             if len(gt.shape) != 3:
                 gt = np.expand_dims(gt, axis=2)
             X_batch_a[i, :, :] = img
@@ -395,12 +415,40 @@ class data_transform:
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
             img = cv2.resize(img, (rs, rs), cv2.INTER_CUBIC)
             gt = cv2.resize(gt, (rs, rs), cv2.INTER_CUBIC)
-            _, gt = cv2.threshold(gt, 0.25, 1, cv2.THRESH_BINARY)
+            _, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
             if len(gt.shape) < 3:
                 gt = np.expand_dims(gt, axis=-1)
             X_batch_a[i, :, :] = img
             y_batch_a[i, :, :, :] = gt
         return X_batch_a, y_batch_a
+
+
+def squeeze_channels(y_train):
+    """
+    Squeezes multiple channel into a single channel for a batch of labels
+    """
+    y_train_ = np.zeros((y_train.shape[0], y_train.shape[2], y_train.shape[3]))
+    for c in range(y_train.shape[1]):
+        y_train_ += y_train[:, c] * c
+    return y_train_
+
+
+def squeeze_data(images, labels):
+    """
+    Squeezes channels in each training image and
+    filters out image-label pairs where some pixels have multiple values.
+    As a result the number of image-label-pairs returned may be different
+    from the number of image-label pairs in the original data.
+    """
+    images_valid, labels_valid = [], []
+    for label, image in zip(labels, images):
+        label = squeeze_channels(label[None, ...])
+        unique_labels = len(np.unique(label))
+        if unique_labels == labels.shape[1]:
+            labels_valid.append(label)
+            images_valid.append(image[None, ...])
+    return np.concatenate(images_valid), np.concatenate(labels_valid) 
+
     
 def FFTmask(imgsrc, maskratio=10):
     """
