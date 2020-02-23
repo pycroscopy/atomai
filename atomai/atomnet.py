@@ -7,6 +7,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 
 import os
 import time
+import warnings
 
 import numpy as np
 import torch
@@ -122,8 +123,13 @@ class trainer:
             raise NotImplementedError(
                 "Currently implemented models are 'dilUnet' and 'dilnet'"
             )
-        torch.cuda.empty_cache()
-        self.net.cuda()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            self.net.cuda()
+        else:
+            warnings.warn(
+                "No GPU found. The training can be EXTREMELY slow",
+                UserWarning)
         if loss == 'dice':
             self.criterion = dice()
         elif loss == 'ce' and num_classes == 1:
@@ -161,7 +167,8 @@ class trainer:
             labels = torch.from_numpy(labels).float()
         else:
             labels = torch.from_numpy(labels).long()
-        images, labels = images.cuda(), labels.cuda()
+        if torch.cuda.is_available():
+            images, labels = images.cuda(), labels.cuda()
         return images, labels
 
     def train_step(self, img, lbl):
