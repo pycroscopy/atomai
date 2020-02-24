@@ -80,10 +80,9 @@ class trainer:
                  print_loss=100,
                  savedir='./',
                  plot_training_history=True):
-
         assert type(images_all) == type(labels_all)\
         == type(images_test_all) == type(labels_test_all),\
-        "Provide all training and test image/labels data in the same format"
+        "Provide all training and test data in the same format"
         if type(labels_all) == list:
             num_classes = set([len(np.unique(lab)) for lab in labels_all])
         elif type(labels_all) == dict:
@@ -105,14 +104,60 @@ class trainer:
             raise NotImplementedError(
                 "Provide training and test data as python list (or dictionary)",
                 "of numpy arrays or as 4D (images)",
-                "and 4D/3D (labels for binary/multiclass) numpy arrays"
+                "and 4D/3D (labels for single/multi class) numpy arrays"
             )
         assert len(num_classes) == 1,\
-         "Confirm that all ground truth images has the same number of classes"
+         "All labels (ground truth) must have the same number of classes"
         num_classes = num_classes.pop()
         assert num_classes != 1,\
         "Confirm that you have a class corresponding to background"
         num_classes = num_classes - 1 if num_classes == 2 else num_classes
+
+        imshapes_train = set([len(im.shape) for im in images_all])
+        assert len(imshapes_train) == 1,\
+        "All training images must have the same dimensionality"
+        imshapes_test = set([len(im.shape) for im in images_test_all])
+        assert len(imshapes_test) == 1,\
+        "All test images must have the same dimensionality"
+        if imshapes_train.pop() == 3:
+            warnings.warn(
+                'Adding a channel dimension of 1 to training images',
+                UserWarning
+            )
+            images_all_e = [
+                np.expand_dims(im, axis=1) for im in images_all]
+            images_all = images_all_e
+        if imshapes_test.pop() == 3:
+            warnings.warn(
+                'Adding a channel dimension of 1 to test images',
+                UserWarning
+            )
+            images_test_all_e = [
+                np.expand_dims(im, axis=1) for im in images_test_all]
+            images_test_all = images_test_all_e
+        
+        lshapes_train = set([len(l.shape) for l in labels_all])
+        assert len(lshapes_train) == 1,\
+        "All labels must have the same dimensionality"
+        lshapes_test = set([len(l.shape) for l in labels_test_all])
+        assert len(lshapes_test) == 1,\
+        "All labels must have the same dimensionality"
+        if num_classes == 1 and lshapes_train.pop() == 3:
+            warnings.warn(
+                'Adding a channel dimension of 1 to training labels',
+                UserWarning
+            )
+            labels_all_e = [
+                np.expand_dims(l, axis=1) for l in labels_all]
+            labels_all = labels_all_e
+        if num_classes == 1 and lshapes_test.pop() == 3:
+            warnings.warn(
+                'Adding a channel dimension of 1 to test labels',
+                UserWarning
+            )
+            labels_test_all_e = [
+                np.expand_dims(l, axis=1) for l in labels_test_all]
+            labels_test_all = labels_test_all_e
         if model_type == 'dilUnet':
             self.net = dilUnet(
                 num_classes, 16, with_dilation, use_dropouts, use_batchnorm
@@ -129,7 +174,8 @@ class trainer:
         else:
             warnings.warn(
                 "No GPU found. The training can be EXTREMELY slow",
-                UserWarning)
+                UserWarning
+            )
         if loss == 'dice':
             self.criterion = dice()
         elif loss == 'ce' and num_classes == 1:
@@ -157,10 +203,14 @@ class trainer:
         self.plot_training_history = plot_training_history
         self.train_loss, self.test_loss = [], []
 
-    def dataloader(self, images_all, labels_all, batch_num):
+    def dataloader(self, batch_num, mode='train'):
         # Generate batch of training images with corresponding ground truth
-        images = images_all[batch_num][:self.batch_size]
-        labels = labels_all[batch_num][:self.batch_size]
+        if mode == 'test':
+            images = self.images_test_all[batch_num][:self.batch_size]
+            labels = self.labels_test_all[batch_num][:self.batch_size]
+        else:
+            images = self.images_all[batch_num][:self.batch_size]
+            labels = self.labels_all[batch_num][:self.batch_size]
         # Transform images and ground truth to torch tensors and move to GPU
         images = torch.from_numpy(images).float()
         if self.num_classes == 1:
@@ -193,14 +243,12 @@ class trainer:
         for e in range(self.training_cycles):
             # Get training images/labels
             images, labels = self.dataloader(
-                self.images_all, self.labels_all,
-                self.batch_idx_train[e])
+                self.batch_idx_train[e], mode='train')
             # Training step
             loss = self.train_step(images, labels)
             self.train_loss.append(loss)
             images_, labels_ = self.dataloader(
-                self.images_test_all, self.labels_test_all,
-                self.batch_idx_test[e])
+                self.batch_idx_test[e], mode='test')
             loss_ = self.test_step(images_, labels_)
             self.test_loss.append(loss_)
             # Print loss info
@@ -220,8 +268,7 @@ class trainer:
         # Run evaluation (by passing all the test data) on the final model
         running_loss_test = 0
         for idx in range(len(self.images_test_all)):
-            images_, labels_ = self.dataloader(
-                self.images_test_all, self.labels_test_all, idx)
+            images_, labels_ = self.dataloader(idx, mode='test')
             loss = self.test_step(images_, labels_)
             running_loss_test += loss
         print('Model (final state) evaluation loss:',
