@@ -77,7 +77,7 @@ The easiest (and recommended) way to use AtomAI is via [Google Colab](https://co
 4. [Prepare training data from experimental image with atomic coordinates (beta)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ## Installation
-First, install [PyTorch](https://pytorch.org/). Then, install AtomAI via
+First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, install AtomAI via
 
 ```pip install git+https://github.com/ziatdinovmax/atomai.git```
 
