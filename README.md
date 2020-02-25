@@ -69,7 +69,7 @@ trans_all, traj_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 
 ## Quickstart: AtomAI in the Cloud
 
-The easiest way to use AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb).
+The easiest (and recommended) way to use AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb).
 
 1. [Use AtomAI to train a deep NN for atom finding](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
 2. [Analyze distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
