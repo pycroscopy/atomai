@@ -13,7 +13,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from atomai.losses import dice_loss as dice
+import atomai.losses as losses_
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, img_pad, img_resize,
                           load_model, mock_forward, plot_losses, torch_format)
@@ -56,7 +56,7 @@ class trainer:
         use_dropouts: bool
             Apply dropouts in the three inner blocks in the middle of a network
         loss: str
-            type of loss for model training ('ce' or 'dice')
+            type of loss for model training ('ce', 'dice' or 'focal')
         with_dilation: bool
             use / not use dilated convolutions in the bottleneck of dilUnet
         print_loss: int
@@ -177,7 +177,9 @@ class trainer:
                 UserWarning
             )
         if loss == 'dice':
-            self.criterion = dice()
+            self.criterion = losses_.dice_loss()
+        elif loss == 'focal':
+            self.criterion = losses_.focal_loss()
         elif loss == 'ce' and num_classes == 1:
             self.criterion = torch.nn.BCEWithLogitsLoss()
         elif loss == 'ce' and num_classes > 2:
