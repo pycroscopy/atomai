@@ -13,6 +13,7 @@ from sklearn.feature_extraction.image import extract_patches_2d
 from skimage import exposure
 from skimage.util import random_noise
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 
 def load_model(model, weights_path):
@@ -149,6 +150,21 @@ def plot_coord(img, coord, fsize=6):
     plt.figure(figsize=(fsize, fsize))
     plt.imshow(img, cmap='gray')
     plt.scatter(x, y, c=c, cmap='RdYlGn', s=8)
+    plt.show()
+
+
+def draw_boxes(imgdata, defcoord, bbox=16, fsize=(6, 6)):
+    '''Draws boxes cetered around the extracted dedects'''
+    fig, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
+    ax.imshow(imgdata, cmap='gray')
+    for point in defcoord:
+        startx = int(round(point[0] - bbox))
+        starty = int(round(point[1] - bbox))
+        p = patches.Rectangle(
+            (starty, startx), bbox*2, bbox*2,
+            fill=False, edgecolor='orange', lw=2)
+        ax.add_patch(p)
+    ax.grid(False)
     plt.show()
 
 
