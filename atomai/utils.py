@@ -189,7 +189,7 @@ def plot_coord(img, coord, fsize=6):
     plt.show()
 
 
-def draw_boxes(imgdata, defcoord, bbox=16, fsize=(6, 6)):
+def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
     '''Draws boxes cetered around the extracted dedects'''
     fig, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
     ax.imshow(imgdata, cmap='gray')
