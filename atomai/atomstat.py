@@ -206,15 +206,25 @@ class imlocal:
         return flow, np.array(frames)
 
     def get_all_trajectories(self, 
+                             min_length=0,
                              run_gmm=False,
                              rmax=10,
                              **kwargs):
         """
-        Applies (optionally) Gaussian mixture model to a stack of 
-        local descriptors (subimages). Extracts trajectories for
-        the detected defects starting from the first frame.
+        Extracts trajectories for the detected defects 
+        starting from the first frame. Applies (optionally) 
+        Gaussian mixture model to a stack of local descriptors (subimages).
 
         Args:
+            min_length: int
+                minimal length of trajectory to return
+            run_gmm: bool
+                optional GMM separation into different classes
+            rmax: int
+                max allowed distance (projected on xy plane) between defect
+                in one frame and the position of its nearest neigbor
+                in the next one
+        **Kwargs
             n_components: int
                 number of components for  Gaussian mixture model
             covariance: str
@@ -222,10 +232,6 @@ class imlocal:
                 ('full', 'diag', 'tied', 'spherical')
             random_state: int
                 random state instance for Gaussian mixture model
-            rmax: int
-                max allowed distance (projected on xy plane) between defect
-                in one frame and the position of its nearest neigbor
-                in the next one
 
         Returns:
             list defects/atoms trajectories (each trajectory is numpy array),
@@ -250,8 +256,9 @@ class imlocal:
         all_frames = []
         for ck in coord_class_dict[0][:, :2]:
             flow, frames = self.get_trajectory(coord_class_dict, ck, rmax)
-            all_trajectories.append(flow)
-            all_frames.append(frames)
+            if len(flow) > min_length:
+                all_trajectories.append(flow)
+                all_frames.append(frames)
         return all_trajectories, all_frames
 
     @classmethod
@@ -268,7 +275,7 @@ class imlocal:
                           covariance='diag', 
                           random_state=1,
                           rmax=10,
-                          min_length=None):
+                          min_length=0):
         """
         Applies Gaussian mixture model to a stack of 
         local descriptors (subimages). Extracts trajectories for
@@ -296,19 +303,13 @@ class imlocal:
             list of frames corresponding to the extracted trajectories
         """
         trajectories_all, frames_all = self.get_all_trajectories(
-            run_gmm=True, n_components=n_components, covariance=covariance, 
-            random_state=random_state, rmax=rmax)
+            min_length, run_gmm=True, n_components=n_components,
+            covariance=covariance, random_state=random_state, rmax=rmax)
         transitions_all = []
         for traj in trajectories_all:
             classes = self.renumerate_classes(traj[:, -1])
             m = transitions(classes).calculate_transition_matrix()
             transitions_all.append(m)
-        if min_length is not None:
-            transitions_all_ = [l for l in transitions_all if len(l) > min_length]
-            trajectories_all_ = [l for l in trajectories_all if len(l) > min_length]
-            frames_all_ = [l for l in frames_all if len(l) > min_length]
-            assert len(transitions_all_) == len(transitions_all_) == len(frames_all_)
-            return trajectories_all_,  transitions_all_, frames_all_
         return trajectories_all, transitions_all, frames_all
 
     def pca_scree_plot(self, plot_results=True):
