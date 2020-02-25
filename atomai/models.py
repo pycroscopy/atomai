@@ -124,7 +124,7 @@ class dilnet(nn.Module):
     '''
 
     def __init__(self,
-                 nb_classes=3,
+                 nb_classes=1,
                  nb_filters=25,
                  use_dropout=False,
                  batch_norm=True):
