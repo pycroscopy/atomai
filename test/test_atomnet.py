@@ -65,6 +65,7 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
 @pytest.mark.parametrize(
     "loss_user, criterion_, n_atoms",
      [("dice", "dice_loss()", 1), 
+     ("focal", "focal_loss()", 1),
      ("ce", "BCEWithLogitsLoss()", 1),
      ("ce", "CrossEntropyLoss()", 2)])
 def test_trainer_loss_selection(loss_user, n_atoms, criterion_):
