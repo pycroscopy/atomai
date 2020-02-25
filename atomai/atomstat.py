@@ -267,7 +267,8 @@ class imlocal:
                           n_components, 
                           covariance='diag', 
                           random_state=1,
-                          rmax=10):
+                          rmax=10,
+                          min_length=None):
         """
         Applies Gaussian mixture model to a stack of 
         local descriptors (subimages). Extracts trajectories for
@@ -286,10 +287,12 @@ class imlocal:
                 max allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor
                 in the next one
+            min_length: int
+                minimal length of trajectory to return
 
         Returns:
-            list of transition matrices for each trajectory,
             list defects/atoms trajectories,
+            list of transition matrices for each trajectory,
             list of frames corresponding to the extracted trajectories
         """
         trajectories_all, frames_all = self.get_all_trajectories(
@@ -300,7 +303,13 @@ class imlocal:
             classes = self.renumerate_classes(traj[:, -1])
             m = transitions(classes).calculate_transition_matrix()
             transitions_all.append(m)
-        return transitions_all, trajectories_all, frames_all
+        if min_length is not None:
+            transitions_all_ = [l for l in transitions_all if len(l) > min_length]
+            trajectories_all_ = [l for l in trajectories_all if len(l) > min_length]
+            frames_all_ = [l for l in frames_all if len(l) > min_length]
+            assert len(transitions_all_) == len(transitions_all_) == len(frames_all_)
+            return trajectories_all_,  transitions_all_, frames_all_
+        return trajectories_all, transitions_all, frames_all
 
     def pca_scree_plot(self, plot_results=True):
         """
