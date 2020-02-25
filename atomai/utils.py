@@ -27,7 +27,7 @@ def load_model(model, weights_path):
 
 
 
-### Utilities commonly used for experimental/test image data preprocessing ###
+### Utilities commonly used for image data preprocessing ###
 
 def torch_format(image_data):
     '''Reshapes and normalizes (optionally) image data
@@ -91,6 +91,42 @@ def cv_thresh(imgdata,
                     threshold, 1, 
                     cv2.THRESH_BINARY)
     return thresh
+
+
+def filter_cells_(imgdata, 
+                  im_thresh=.5, 
+                  blob_thresh=150, 
+                  filter_='above'):
+    """
+    Filters out blobs above/below cetrain size
+    in the thresholded neural network output
+    """
+    _, imgdata = cv_thresh(imgdata, im_thresh)
+    label_img, cc_num = ndimage.label(imgdata)
+    cc_areas = ndimage.sum(imgdata, label_img, range(cc_num + 1))
+    if filter == 'above':
+        area_mask = (cc_areas > blob_thresh)
+    else:
+        area_mask = (cc_areas < blob_thresh)
+    label_img[area_mask[label_img]] = 0
+    label_img[label_img > 0] = 1
+    return label_img
+
+
+def filter_cells(imgdata, 
+                 im_thresh=0.5,
+                 blob_thresh=50,
+                 filter_='above'):
+    """
+    Filters blobs above/below certain size
+    for each image in the stack.
+    The 'imgdata' must have dimensions (n x h x w).
+    """
+    filtered_stack = np.zeros_like(imgdata)
+    for i, img in enumerate(imgdata):
+        filtered_stack[i] = filter_cells_(
+            img, im_thresh, blob_thresh, filter_)
+    return filtered_stack
 
 
 
