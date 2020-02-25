@@ -64,7 +64,10 @@ class trainer:
         savedir: str
             directory to automatically save intermediate and final weights
         seed: int
-            deterministic mode
+            deterministic mode for model training
+        batch_seed: int
+            separate seed for generating a sequence of batches
+            for training/testing. Equal to 'seed' if set to None (default)
     """
     def __init__(self,
                  images_all,
@@ -82,15 +85,19 @@ class trainer:
                  print_loss=100,
                  savedir='./',
                  plot_training_history=True,
-                 seed=1):
+                 seed=1,
+                 batch_seed=None):
         if seed:
             torch.manual_seed(seed)
-            np.random.seed(seed)
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.manual_seed_all(seed)
                 torch.backends.cudnn.deterministic = True
                 torch.backends.cudnn.benchmark = False
+        if batch_seed is None:
+            np.random.seed(seed)
+        else:
+            np.random.seed(batch_seed)
         assert type(images_all) == type(labels_all)\
         == type(images_test_all) == type(labels_test_all),\
         "Provide all training and test data in the same format"
