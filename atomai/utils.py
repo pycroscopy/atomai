@@ -101,7 +101,7 @@ def filter_cells_(imgdata,
     Filters out blobs above/below cetrain size
     in the thresholded neural network output
     """
-    _, imgdata = cv_thresh(imgdata, im_thresh)
+    imgdata = cv_thresh(imgdata, im_thresh)
     label_img, cc_num = ndimage.label(imgdata)
     cc_areas = ndimage.sum(imgdata, label_img, range(cc_num + 1))
     if filter == 'above':
