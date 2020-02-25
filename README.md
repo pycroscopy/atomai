@@ -56,7 +56,7 @@ For movies, one can extract trajectories of individual defects and calculate the
 
 ```python
 # Get local descriptors (such as subimages centered around impurities)
-imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
+imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
 
 # Calculate Gaussian mixture model (GMM) components
 components_img, classes_list = imstack.gmm(n_components=10, plot_results=True)
