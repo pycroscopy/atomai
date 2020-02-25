@@ -46,7 +46,7 @@ One can then perform statistical analysis using the information extracted by *at
 from atomai import atomstat
 
 # Get local descriptors
-imstack = atomstat.imlocal(nn_output, coordinates, r=32, coord_class=1)
+imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
 
 # Compute distortion "eigenvectors" with associated loading maps and plot results:
 nmf_results = imstack.imblock_nmf(4, plot_results=True)

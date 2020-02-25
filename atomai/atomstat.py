@@ -24,7 +24,7 @@ class imlocal:
         coord_all: dict
             prediction from atomnet.locator
             (can be from other source but must be the same format)
-        r: int
+        crop_size: int
             half of the side of the square for subimage cropping
         coord_class: int
             class of atoms/defects around around which 
@@ -33,13 +33,13 @@ class imlocal:
     def __init__(self,
                  network_output, 
                  coord_all, 
-                 r,
+                 crop_size,
                  coord_class):
         self.network_output = network_output
         self.nb_classes = network_output.shape[-1]
         self.coord_all = coord_all
         self.coord_class = coord_class
-        self.r = r
+        self.r = crop_size
         (self.imgstack, 
          self.imgstack_com, 
          self.imgstack_frames) = self.extract_subimages()
