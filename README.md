@@ -1,5 +1,5 @@
 # AtomAI
-**Under active development (i.e. breaking changes can occur on a daily basis)**
+**Under active development (expect breaking changes)**
 
 ## What is AtomAI?
 
