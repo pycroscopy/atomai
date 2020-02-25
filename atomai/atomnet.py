@@ -61,8 +61,10 @@ class trainer:
             use / not use dilated convolutions in the bottleneck of dilUnet
         print_loss: int
             prints loss every n-th epoch
-        savedir:
+        savedir: str
             directory to automatically save intermediate and final weights
+        seed: int
+            deterministic mode
     """
     def __init__(self,
                  images_all,
@@ -79,7 +81,16 @@ class trainer:
                  with_dilation=True,
                  print_loss=100,
                  savedir='./',
-                 plot_training_history=True):
+                 plot_training_history=True,
+                 seed=1):
+        if seed:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.manual_seed_all(seed)
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
         assert type(images_all) == type(labels_all)\
         == type(images_test_all) == type(labels_test_all),\
         "Provide all training and test data in the same format"
@@ -169,7 +180,6 @@ class trainer:
                 "Currently implemented models are 'dilUnet' and 'dilnet'"
             )
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
             self.net.cuda()
         else:
             warnings.warn(
