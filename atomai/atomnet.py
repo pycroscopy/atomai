@@ -285,7 +285,7 @@ class trainer:
                    os.path.join(self.savedir, self.savename+'_test_weights_best.pt'))
         # Save final model weights
         torch.save(self.net.state_dict(),
-                   os.path.join(self.savedir, self.savename+'_model_weights_final.pt'))
+                   os.path.join(self.savedir, self.savename+'_weights_final.pt'))
         # Run evaluation (by passing all the test data) on the final model
         running_loss_test = 0
         for idx in range(len(self.images_test_all)):
@@ -330,8 +330,16 @@ class predictor:
                  model_weights=None,
                  resize=None,
                  use_gpu=False,
+                 seed=1,
                  **kwargs):
-
+        if seed:
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.manual_seed_all(seed)
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
         if trained_model is None:
             assert model_skeleton and model_weights,\
             "Load both model skeleton and weights path"

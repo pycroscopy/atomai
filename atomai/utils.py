@@ -18,6 +18,7 @@ import matplotlib.patches as patches
 
 def load_model(model, weights_path):
     '''Loads weights saved in a pytorch format (.pt) into a model skeleton'''
+    torch.manual_seed(0)
     if torch.cuda.device_count() > 0:
         checkpoint = torch.load(weights_path)
     else:
