@@ -340,36 +340,55 @@ class augmentor:
             channel first or channel last ordering in the output masks
         norm: int 
             normalization to (0, 1)
-        **flip: bool 
+        seed: int
+            determenism
+    **Kwargs:
+        flip: bool 
             image vertical/horizonal flipping,
-        **rotate90: bool
+        rotate90: bool
             rotating image by +- 90 deg
-        **zoom: tuple
+        zoom: tuple
             values for zooming-in (min height, max height, step);
             assumes height==width
-        **noise: dict
+        noise: dict
             dictionary of with range of noise values for each type of noise;
             dictionary keys are:
             'poisson', 'gauss', 'blur', 'contrast', 'salt and pepper'.
             For each case, you need to specify the range of values.
-            For example,
-            >>> noise_d = {} # Noise parameters are defined as dictionary
-            >>> noise_d['poisson'] = (90, 130)
-            >>> noise_d['gauss'] = (1, 200)
-            >>> noise_d['blur'] = (1, 40)
-            >>> noise_d['contrast'] = (10, 400)
-            >>> noise_d['salt and pepper'] = (1, 50)
             Notice that for poisson noise, 
-            smaller values result in larger noise.     
-
-        **resize: tuple
+            smaller values result in larger noise.   
+         resize: tuple
             values for image resizing (min height, max height, step);
             assumes heght==width.
+
+        Example:
+        Suppose we have a stack of images
+        and a stack of masks (aka labels aka ground truth)
+        with dimensions (n_images, height, width)
+        and (n_images, height, width, channels).
+        We can use the augmentor as follows:
+        >>> # Specify size, dimensions
+        >>> batch_size = len(labels_all) # here we will pass through the augmentor all data at once
+        >>> dim1, dim2, ch = labels_all.shape[1:]
+        >>> # Define image distortion/noise parameters
+        >>> zoom = (256-128, 256+1, 8)
+        >>> noise_dict = {}
+        >>> noise_dict['poisson'] = (80, 130)
+        >>> noise_dict['gauss'] = (1, 400)
+        >>> noise_dict['blur'] = (1, 40)
+        >>> noise_dict['contrast'] = (50, 400)
+        >>> noise_dict['salt and pepper'] = (1, 50)
+        >>> # Run the augmentor
+        >>> imaug = augmentor(
+        >>>    batch_size=batch_size, width=dim1, height=dim2, n_channels=ch,
+        >>>    dim_order_in='channel_last', dim_order_out='channel_first', 
+        >>>    noise=noise_dict, zoom=zoom, flip=True, squeeze=True)
+        >>> images_all, labels_all = imaug.run(images_all, labels_all)  
     """
     def __init__(self, batch_size, width, height,
                  n_channels, dim_order_in='channel_last', 
                  dim_order_out='channel_first', squeeze=False,
-                 **kwargs):
+                 seed=None, **kwargs):
         self.n, self.w, self.h = batch_size, width, height
         self.ch = n_channels
         self.dim_order_in = dim_order_in
@@ -380,6 +399,9 @@ class augmentor:
         self.zoom = kwargs.get('zoom')
         self.noise = kwargs.get('noise')
         self.resize = kwargs.get('resize')
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
 
     def run(self, images, masks):
         """
@@ -454,7 +476,7 @@ class augmentor:
         X_batch_a = np.zeros((self.n, self.w, self.h))
         y_batch_a = np.zeros((self.n, self.w, self.h, self.ch))
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
-            rs = np.random.choice(zoom_list)
+            rs = random.choice(zoom_list)
             w1 = int((self.w-rs)/2)
             w2 = int(rs + (self.w-rs)/2)
             h1 = int((self.h-rs)/2)
@@ -502,7 +524,7 @@ class augmentor:
         corresponding labels (ground truth)
         """
         rs_arr = np.arange(self.resize[0], self.resize[1], self.resize[2])
-        rs = np.random.choice(rs_arr)
+        rs = random.choice(rs_arr)
         if X_batch.shape[1:3] == (rs, rs):
             return X_batch, y_batch
         X_batch_a = np.zeros((self.n, rs, rs))
