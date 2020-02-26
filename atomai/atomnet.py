@@ -84,6 +84,7 @@ class trainer:
                  with_dilation=True,
                  print_loss=100,
                  savedir='./',
+                 savename='model',
                  plot_training_history=True,
                  seed=1,
                  batch_seed=None):
@@ -219,6 +220,7 @@ class trainer:
         self.training_cycles = training_cycles
         self.print_loss = print_loss
         self.savedir = savedir
+        self.savename = savename
         self.plot_training_history = plot_training_history
         self.train_loss, self.test_loss = [], []
 
@@ -280,10 +282,10 @@ class trainer:
             # Save model weights (if test loss decreased)
             if e > 0 and self.test_loss[-1] < min(self.test_loss[: -1]):
                 torch.save(self.net.state_dict(),
-                   os.path.join(self.savedir, 'model_test_weights_best.pt'))
+                   os.path.join(self.savedir, self.savename+'_test_weights_best.pt'))
         # Save final model weights
         torch.save(self.net.state_dict(),
-                   os.path.join(self.savedir, 'model_weights_final.pt'))
+                   os.path.join(self.savedir, self.savename+'_model_weights_final.pt'))
         # Run evaluation (by passing all the test data) on the final model
         running_loss_test = 0
         for idx in range(len(self.images_test_all)):
