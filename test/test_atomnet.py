@@ -4,6 +4,7 @@ import torch
 from atomai import atomnet, models
 from atomai.utils import load_model
 import pytest
+from numpy.testing import assert_allclose
 
 test_img = os.path.join(
     os.path.dirname(__file__), 'test_data/test_img.npy')
@@ -94,17 +95,7 @@ def test_trainer_dataloader(n_atoms, tensor_type):
 def test_atomfind(weights_, nb_classes, coord_expected):
     test_img_ = np.load(test_img)
     coordinates_expected = np.load(coord_expected)
-    diff1, diff2, diff3 = [], [], []
-    for i in range(12):
-        model_ = load_model(models.dilUnet(nb_classes), weights_)
-        _, nn_output = atomnet.predictor(test_img_, model_).run()
-        coordinates_ = atomnet.locator(nn_output).run()
-        if len(coordinates_[0]) != len(coordinates_expected):
-            continue
-        diff = np.abs((coordinates_[0] - coordinates_expected))
-        diff1.append(len(diff[diff[:, 0] < .25]) / len(diff))
-        diff2.append(len(diff[diff[:, 1] < .25]) / len(diff))
-        diff3.append(len(diff[diff[:, 2] == 0]) / len(diff))
-    assert np.mean(diff1) > 0.90
-    assert np.mean(diff2) > 0.90
-    assert np.mean(diff3) > 0.99 
+    model_ = load_model(models.dilUnet(nb_classes), weights_)
+    _, nn_output = atomnet.predictor(test_img_, model_).run()
+    coordinates_ = atomnet.locator(nn_output).run()
+    assert_allclose(coordinates_[0], coordinates_expected)
