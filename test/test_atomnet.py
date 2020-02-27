@@ -88,6 +88,21 @@ def test_trainer_dataloader(n_atoms, tensor_type):
     assert X_train_.is_cuda == torch.cuda.is_available()
 
 
+def test_trainer_determinism():
+    X_train, y_train, X_test, y_test = gen_dummy_data(1)
+    m1 = atomnet.trainer(
+        X_train, y_train, X_test, y_test, 5, 4, upsampling="nearest")
+    m1.run()
+    loss1 = m1.train_loss[-1]
+    m2 = atomnet.trainer(
+        X_train, y_train, X_test, y_test, 5, 4, upsampling="nearest")
+    m2.run()
+    loss2 = m2.train_loss[-1]
+    assert_allclose(loss1, loss2) 
+    for p1, p2 in zip(m1.net.parameters(), m2.net.parameters()):
+        assert_allclose(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
+
+
 @pytest.mark.parametrize(
     "weights_, nb_classes, coord_expected", 
     [(test_model_s, 1, test_coord_s),
