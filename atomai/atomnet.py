@@ -17,7 +17,7 @@ import atomai.losses as losses_
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, img_pad, img_resize,
                           load_model, mock_forward, plot_losses, torch_format)
-
+warnings.filterwarnings("ignore", module="torch.nn.functional")
 
 class trainer:
     """
