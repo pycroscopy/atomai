@@ -23,13 +23,20 @@ class dilUnet(nn.Module):
             use / not use dropout in the 3 inner layers
         batch_norm: bool
             use / not use batch normalization after each convolutional layer
+        upsampling mode: str
+            "bilinear" or "nearest" upsampling method.
+            Bilinear is usually more accurate,
+            but adds additional (small) randomness;
+            for full reproducibility, consider using 'nearest'
+            (this assumes that all other sources of randomness are fixed)
     '''
     def __init__(self,
                  nb_classes=1,
                  nb_filters=16,
                  with_dilation=True,
                  use_dropout=False,
-                 batch_norm=True):
+                 batch_norm=True,
+                 upsampling_mode="bilinear"):
         super(dilUnet, self).__init__()
         dropout_vals = [.1, .2, .1] if use_dropout else [0, 0, 0]
         self.c1 = conv2dblock(
@@ -60,20 +67,23 @@ class dilUnet(nn.Module):
                 dropout_=dropout_vals[1]
             )
         self.upsample_block1 = upsample_block(
-            nb_filters*8, nb_filters*4)
+            nb_filters*8, nb_filters*4,
+            mode=upsampling_mode)
         self.c4 = conv2dblock(
             2, nb_filters*8, nb_filters*4,
             use_batchnorm=batch_norm,
             dropout_=dropout_vals[2]
         )
         self.upsample_block2 = upsample_block(
-            nb_filters*4, nb_filters*2)
+            nb_filters*4, nb_filters*2,
+            mode=upsampling_mode)
         self.c5 = conv2dblock(
             2, nb_filters*4, nb_filters*2,
             use_batchnorm=batch_norm
         )
         self.upsample_block3 = upsample_block(
-            nb_filters*2, nb_filters)
+            nb_filters*2, nb_filters,
+            mode=upsampling_mode)
         self.c6 = conv2dblock(
             1, nb_filters*2, nb_filters,
             use_batchnorm=batch_norm
@@ -121,17 +131,26 @@ class dilnet(nn.Module):
             use / not use dropout in the 3 inner layers
         batch_norm: bool
             use / not use batch normalization after each convolutional layer
+        upsampling mode: str
+            "bilinear" or "nearest" upsampling method.
+            Bilinear is usually more accurate,
+            but adds additional (small) randomness;
+            for full reproducibility, consider using 'nearest'
+            (this assumes that all other sources of randomness are fixed)
     '''
 
     def __init__(self,
                  nb_classes=1,
                  nb_filters=25,
                  use_dropout=False,
-                 batch_norm=True):
+                 batch_norm=True,
+                 upsampling_mode="bilinear"):
         super(dilnet, self).__init__()
         dropout_vals = [.3, .3] if use_dropout else [0, 0]
-        self.c1 = conv2dblock(3, 1, nb_filters,
-                              use_batchnorm=batch_norm)
+        self.c1 = conv2dblock(
+                    3, 1, nb_filters,
+                    use_batchnorm=batch_norm
+        )
         self.at1 = dilated_block(
                     nb_filters, nb_filters*2,
                     dilation_values=[2, 4, 6], padding_values=[2, 4, 6],
@@ -142,9 +161,14 @@ class dilnet(nn.Module):
                     dilation_values=[2, 4, 6], padding_values=[2, 4, 6],
                     use_batchnorm=batch_norm, dropout_=dropout_vals[1]
         )
-        self.up1 = upsample_block(nb_filters*2, nb_filters)
-        self.c2 = conv2dblock(3, nb_filters*2, nb_filters,
-                              use_batchnorm=batch_norm)
+        self.up1 = upsample_block(
+                    nb_filters*2, nb_filters,
+                    mode=upsampling_mode
+        )
+        self.c2 = conv2dblock(
+                    3, nb_filters*2, nb_filters,
+                    use_batchnorm=batch_norm
+        )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
     def forward(self, x):
@@ -199,10 +223,17 @@ class upsample_block(nn.Module):
     convolution (the latter can be used to reduce
     a number of feature channels)
     '''
-    def __init__(self, input_channels, output_channels, scale_factor=2):
+    def __init__(self,
+                 input_channels,
+                 output_channels,
+                 scale_factor=2,
+                 mode="bilinear"):
         '''Initializes module parameters'''
         super(upsample_block, self).__init__()
+        assert mode == 'bilinear' or mode == 'nearest',\
+            "use 'bilinear' or 'nearest' for upsampling mode"
         self.scale_factor = scale_factor
+        self.mode = mode
         self.conv = nn.Conv2d(
             input_channels, output_channels,
             kernel_size=1, stride=1, padding=0)
@@ -210,8 +241,7 @@ class upsample_block(nn.Module):
     def forward(self, x):
         '''Defines a forward path'''
         x = F.interpolate(
-            x, scale_factor=self.scale_factor,
-            mode='bilinear', align_corners=False)
+            x, scale_factor=self.scale_factor, mode=self.mode)
         return self.conv(x)
 
 

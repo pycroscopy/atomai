@@ -59,15 +59,23 @@ class trainer:
             type of loss for model training ('ce', 'dice' or 'focal')
         with_dilation: bool
             use / not use dilated convolutions in the bottleneck of dilUnet
-        print_loss: int
-            prints loss every n-th epoch
-        savedir: str
-            directory to automatically save intermediate and final weights
+        upsampling mode: str
+            "bilinear" or "nearest" upsampling method
         seed: int
             deterministic mode for model training
         batch_seed: int
             separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
+    **Kwargs:
+        print_loss: int
+            prints loss every n-th epoch
+        savedir: str
+            directory to automatically save intermediate and final weights
+        savename: str
+            filename for model weights
+            (appended with "_test_weights_best.pt" and "_weights_final.pt")
+        plot_training_history: bool
+            Plot training and test curves vs epochs at the end of training
     """
     def __init__(self,
                  images_all,
@@ -82,12 +90,10 @@ class trainer:
                  use_dropouts=False,
                  loss="dice",
                  with_dilation=True,
-                 print_loss=100,
-                 savedir='./',
-                 savename='model',
-                 plot_training_history=True,
+                 upsampling="bilinear",
                  seed=1,
-                 batch_seed=None):
+                 batch_seed=None,
+                 **kwargs):
         if seed:
             torch.manual_seed(seed)
             if torch.cuda.is_available():
@@ -179,10 +185,14 @@ class trainer:
             labels_test_all = labels_test_all_e
         if model_type == 'dilUnet':
             self.net = dilUnet(
-                num_classes, 16, with_dilation, use_dropouts, use_batchnorm
+                num_classes, 16, with_dilation,
+                use_dropouts, use_batchnorm, upsampling
             )
         elif model_type == 'dilnet':
-            self.net = dilnet(num_classes, 25, use_dropouts, use_batchnorm)
+            self.net = dilnet(
+                num_classes, 25, 
+                use_dropouts, use_batchnorm, upsampling
+            )
         else:
             raise NotImplementedError(
                 "Currently implemented models are 'dilUnet' and 'dilnet'"
@@ -218,10 +228,10 @@ class trainer:
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.training_cycles = training_cycles
-        self.print_loss = print_loss
-        self.savedir = savedir
-        self.savename = savename
-        self.plot_training_history = plot_training_history
+        self.print_loss = kwargs.get("print_loss", 100)
+        self.savedir = kwargs.get("savedir", "./")
+        self.savename = kwargs.get("savename", "model")
+        self.plot_training_history = kwargs.get("plot_training_history", True)
         self.train_loss, self.test_loss = [], []
 
     def dataloader(self, batch_num, mode='train'):
