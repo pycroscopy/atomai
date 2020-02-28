@@ -5,11 +5,10 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import numpy as np
-from sklearn import mixture, decomposition
+from sklearn import mixture, decomposition, cluster
 from scipy import spatial
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-# import matplotlib.patches as patches
 
 
 class imlocal:
@@ -170,10 +169,7 @@ class imlocal:
         return cla, classes
 
     @classmethod
-    def get_trajectory(cls, 
-                       coord_class_dict, 
-                       ck, 
-                       rmax):
+    def get_trajectory(cls, coord_class_dict, start_coord, rmax):
         """
         Extracts a trajectory of a single defect/atom from image stack
         
@@ -181,8 +177,8 @@ class imlocal:
             coord_class_dict: dict
                 dictionary of atomic coordinates
                 (same format as produced by atomnet.locator)
-            ck: N x 2 numpy array
-                coordinate of defect/atom in the firs frame
+            start_coord: N x 2 numpy array
+                coordinate of defect/atom in the first frame
                 whose trajectory we are going to track
             rmax: int
                 max allowed distance (projected on xy plane) between defect
@@ -195,7 +191,7 @@ class imlocal:
         """
         flow = np.empty((0, 3))
         frames = []
-        c0 = ck
+        c0 = start_coord
         for k, c in coord_class_dict.items():
             d, index = spatial.cKDTree(
                 c[:,:2]).query(c0, distance_upper_bound=rmax)
@@ -204,6 +200,48 @@ class imlocal:
                 frames.append(k)
                 c0 = c[index][:2]
         return flow, np.array(frames)
+
+    @classmethod
+    def cluster_xy(cls, coord_class_dict, eps, min_samples=10):
+        """
+        Collapses coordinates from an image stack onto xy plane and
+        performs clustering in the xy space. Works for non-overlapping
+        trajectories.
+
+        Args:
+            coord_class_dict: dict
+                dictionary of atomic coordinates (N x 3 numpy arrays])
+                (same format as produced by atomnet.locator)
+                Can also be a list of N x 3 numpy arrays
+                Typically, these are coordinates from a movie (3D image stack)
+                where each element in dict/list corresponds
+                to an individual movie frame
+            eps: float
+                max distance between two points for one to be considered
+                as in the neighborhood of the other
+                (see sklearn.cluster.DBSCAN).
+            min_samples: int
+                minmum number of points for a "cluster"
+
+        Returns:
+            Coordinates of points in each identified cluster,
+            center of the mass for each cluster,
+            standard deviation of points in each cluster
+        """
+        coordinates_all = np.empty((0, 3))
+        for k in range(len(coord_class_dict)):
+            coordinates_all = np.append(
+                coordinates_all, coord_class_dict[k], axis=0)
+        clustering = cluster.DBSCAN(
+            eps=eps, min_samples=min_samples).fit(coordinates_all[:, :2])
+        labels = clustering.labels_
+        clusters, clusters_std, clusters_mean = [], [], []
+        for l in np.unique(labels)[1:]:
+            coord = coordinates_all[np.where(labels == l)]
+            clusters.append(coord)
+            clusters_mean.append(np.mean(coord[:, :2], axis=0))
+            clusters_std.append(np.std(coord[:, :2], axis=0))
+        return clusters, clusters_mean, clusters_std
 
     def get_all_trajectories(self, 
                              min_length=0,
