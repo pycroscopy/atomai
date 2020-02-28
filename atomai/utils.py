@@ -8,7 +8,7 @@ import random
 import torch
 import numpy as np
 import cv2
-from scipy import ndimage, fftpack
+from scipy import ndimage, fftpack, spatial
 from sklearn.feature_extraction.image import extract_patches_2d
 from skimage import exposure
 from skimage.util import random_noise
@@ -79,6 +79,43 @@ def find_com(image_data):
             image_data, labels, np.arange(nlabels) + 1))
     coordinates = coordinates.reshape(coordinates.shape[0], 2)
     return coordinates
+
+
+def compare_coordinates(coordinates1,
+                        coordinates2,
+                        d_max,
+                        plot_results=False,
+                        **kwargs):
+    """
+    Finds difference between predicted ('coordinates1')
+    and "true" ('coordinates2') coordinates using scipy.spatialcKDTree method.
+    Use 'd_max' to set maximum search radius. If plotting, pass figure size
+    and experimental image using keyword arguments 'fsize' and 'expdata'.
+    """
+    coordinates1_ = np.empty((0, 3))
+    coordinates2_ = np.empty((0, 3))
+    delta_r = []
+    for c in coordinates1:
+        dist, idx = spatial.cKDTree(coordinates2).query(c)
+        if dist < d_max:
+            coordinates1_ = np.append(coordinates1_, [c], axis=0)
+            coordinates2_ = np.append(
+                coordinates2_, [coordinates2[idx]], axis=0)
+            delta_r.append(dist)
+    if plot_results:
+        fsize = kwargs.get('fsize', 20)
+        expdata = kwargs.get('expdata')
+        assert expdata is not None,\
+        "For plotting, provide 2D image via 'expdata' keyword"
+        plt.figure(figsize=(int(fsize*1.25), fsize))
+        plt.imshow(expdata, cmap='gray')
+        im = plt.scatter(
+            coordinates1_[:, 1], coordinates1_[:, 0], 
+            c=np.array(delta_r), cmap='jet', s=5)
+        clrbar = plt.colorbar(im)
+        clrbar.set_label('Position deviation (px)')
+        plt.show()
+    return coordinates1_, coordinates2_, np.array(delta_r)
             
 
 def cv_thresh(imgdata,
