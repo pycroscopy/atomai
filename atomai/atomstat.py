@@ -13,38 +13,44 @@ import matplotlib.gridspec as gridspec
 
 class imlocal:
     """
-    Class for extraction and statistical analysis of local descriptors
-    It assumes that input image data is output of neural network, but 
-    can also work with regular experimental images.
+    Class for extraction and statistical analysis of local image descriptors.
+    It assumes that input image data is an output of a neural network, but
+    it can also work with regular experimental images
+    (make sure you have extra dimensions for channel and batch size).
 
     Args:
         network_output: 4D numpy array
             batch_size x height x width x channels
-        coord_all: dict
+        coord_class_dict_all: dict
             prediction from atomnet.locator
-            (can be from other source but must be the same format)
+            (can be from other but must be the same format)
+            Each element is a N x 3 numpy array,
+            where N is a number of detected atoms/defects,
+            the first 2 columns are xy coordinates
+            and the third columns is class (starts with 0)
         crop_size: int
             half of the side of the square for subimage cropping
         coord_class: int
-            class of atoms/defects around around which 
-            the subimages images will be cropped (starts with 0)
+            class of atoms/defects around around which
+            the subimages will be cropped; in the atomnet.locator output
+            the class is the 3rd column (the first two are xy positions)
     """
     def __init__(self,
-                 network_output, 
-                 coord_all, 
+                 network_output,
+                 coord_class_dict_all,
                  crop_size,
                  coord_class):
         self.network_output = network_output
         self.nb_classes = network_output.shape[-1]
-        self.coord_all = coord_all
+        self.coord_all = coord_class_dict_all
         self.coord_class = coord_class
         self.r = crop_size
-        (self.imgstack, 
-         self.imgstack_com, 
+        (self.imgstack,
+         self.imgstack_com,
          self.imgstack_frames) = self.extract_subimages()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
         self.X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
-      
+
     def extract_subimages(self):
         """
         Extracts subimages centered at certain atom class/type
@@ -52,19 +58,21 @@ class imlocal:
 
         Args:
             imgdata: 4D numpy array
-                Prediction of a neural network with dimensions 
+                Prediction of a neural network with dimensions
                 (batch_size x height x width x channels)
             coord: N x 3 numpy array
-                (x, y, class) coordinates data  
+                (x, y, class) coordinates data
             d: int
                 defines size of a square subimage
 
         Returns:
-            stack of subimages, (x, y) coordinates of their centers 
+            stack of subimages,
+            (x, y) coordinates of their centers,
+            frame number associated with each subimage
         """
         imgstack, imgstack_com, imgstack_frames = [], [], []
         for i, (img, coord) in enumerate(
-            zip(self.network_output, self.coord_all.values())):
+                zip(self.network_output, self.coord_all.values())):
             c = coord[np.where(coord[:,2]==self.coord_class)][:,0:2]
             img_cr_all, com = self._extract_subimages(img, c, self.r)
             imgstack.append(img_cr_all)
@@ -76,25 +84,23 @@ class imlocal:
         return imgstack, imgstack_com, imgstack_frames
 
     @classmethod
-    def _extract_subimages(cls,
-                           imgdata,
-                           coord,
-                           r):
+    def _extract_subimages(cls, imgdata, coord, r):
         """
         Extracts subimages centered at specified coordinates
         for a single image
 
         Args:
             imgdata: 3D numpy array
-                Prediction of a neural network with dimensions 
+                Prediction of a neural network with dimensions
                 (height x width x channels)
             coord: N x 2 numpy array
-                (x, y) coordinates  
+                (x, y) coordinates
             r: int
-                square image side = 2*r
+                square subimage side is 2*r
 
         Returns:
-            stack of subimages, (x, y) coordinates of their centers    
+            stack of subimages,
+            (x, y) coordinates of their centers
         """
         img_cr_all = []
         com = []
@@ -107,14 +113,14 @@ class imlocal:
                 img_cr_all.append(img_cr[None, ...])
                 #com.append(np.array([cx, cy])[None, ...])
                 com.append(c[None, ...])
-                
+
         img_cr_all = np.concatenate(img_cr_all, axis=0)
         com = np.concatenate(com, axis=0)
         return img_cr_all, com
 
-    def gmm(self, 
-            n_components, 
-            covariance='diag', 
+    def gmm(self,
+            n_components,
+            covariance='diag',
             random_state=1,
             plot_results=False):
         """
@@ -129,7 +135,7 @@ class imlocal:
                 random state instance
             plot_results: bool
                 plotting gmm components
-            
+
         Returns:
             cla: 3D numpy array
                 First dimension correspond to individual mixture component
@@ -137,8 +143,8 @@ class imlocal:
                 labels for every subimage in image stack
         """
         clf = mixture.GaussianMixture(
-            n_components=n_components, 
-            covariance_type=covariance, 
+            n_components=n_components,
+            covariance_type=covariance,
             random_state=random_state)
         classes = clf.fit_predict(self.X_vec) + 1
         cla = np.ndarray(shape=(
@@ -162,7 +168,7 @@ class imlocal:
                     raise NotImplementedError(
                         "Can plot only images with 3 and 1 channles")
                 ax.axis('off')
-                ax.set_title('Class '+str(i+1)+'\nCount: '+str(len(cl)))       
+                ax.set_title('Class '+str(i+1)+'\nCount: '+str(len(cl)))
         if plot_results:
             plt.subplots_adjust(hspace=0.6, wspace=0.4)
             plt.show()
@@ -172,7 +178,7 @@ class imlocal:
     def get_trajectory(cls, coord_class_dict, start_coord, rmax):
         """
         Extracts a trajectory of a single defect/atom from image stack
-        
+
         Args:
             coord_class_dict: dict
                 dictionary of atomic coordinates
@@ -241,17 +247,17 @@ class imlocal:
             clusters.append(coord)
             clusters_mean.append(np.mean(coord[:, :2], axis=0))
             clusters_std.append(np.std(coord[:, :2], axis=0))
-        return (np.array(clusters), np.array(clusters_mean), 
+        return (np.array(clusters), np.array(clusters_mean),
                 np.array(clusters_std))
 
-    def get_all_trajectories(self, 
+    def get_all_trajectories(self,
                              min_length=0,
                              run_gmm=False,
                              rmax=10,
                              **kwargs):
         """
-        Extracts trajectories for the detected defects 
-        starting from the first frame. Applies (optionally) 
+        Extracts trajectories for the detected defects
+        starting from the first frame. Applies (optionally)
         Gaussian mixture model to a stack of local descriptors (subimages).
 
         Args:
@@ -288,7 +294,7 @@ class imlocal:
             i : np.concatenate(
                 (self.imgstack_com[np.where(self.imgstack_frames == i)[0]],
                     classes[np.where(self.imgstack_frames == i)[0]][..., None]),
-                    axis=-1) 
+                    axis=-1)
             for i in range(int(np.ptp(self.imgstack_frames)+1))
         }
         all_trajectories = []
@@ -310,13 +316,13 @@ class imlocal:
         return np.array(classes_renum, dtype=np.int64)
 
     def transition_matrix(self,
-                          n_components, 
-                          covariance='diag', 
+                          n_components,
+                          covariance='diag',
                           random_state=1,
                           rmax=10,
                           min_length=0):
         """
-        Applies Gaussian mixture model to a stack of 
+        Applies Gaussian mixture model to a stack of
         local descriptors (subimages). Extracts trajectories for
         the detected defects starting from the first frame.
         Calculates transition probability for each trajectory.
@@ -378,16 +384,16 @@ class imlocal:
                                    xy_centers,
                                    **kwargs):
         """
-        Plots PCA eigenvectors and their loading maps
+        Plots decomposition "eigenvectors" and their loading maps
 
         Args:
             components: 4D numpy array
-                computed (and reshaped) 
+                computed (and reshaped)
                 principal axes / independent sources / factorization matrix
                 for stack of subimages
             X_vec_t: 2D numpy array
                 Projection of X_vec on the first principal components /
-                Recovered sources from X_vec / 
+                Recovered sources from X_vec /
                 transformed X_vec according to the learned NMF model
                 (is used to create "loading maps")
             img_hw: tuple
@@ -410,7 +416,7 @@ class imlocal:
         print('NUMBER OF COMPONENTS: ' + str(nc))
         # plot eigenvectors
         gs1 = gridspec.GridSpec(rows, cols)
-        fig1 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))   
+        fig1 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
         for i in range(nc):
             ax1 = fig1.add_subplot(gs1[i])
             ax1.imshow(
@@ -422,20 +428,20 @@ class imlocal:
         plt.show()
         # plot loading maps
         gs2 = gridspec.GridSpec(rows, cols)
-        fig2 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))   
+        fig2 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
         for i in range(nc):
             ax2 = fig2.add_subplot(gs2[i])
             ax2.scatter(
-                x, y, c=X_vec_t[:, i], 
+                x, y, c=X_vec_t[:, i],
                 cmap='seismic', marker='s', s=m_s)
             ax2.set_xlim(0, img_w)
             ax2.set_ylim(img_h, 0)
             ax2.set_aspect('equal')
             ax2.axis('off')
             ax2.set_title('Component '+str(i+1)+'\nLoading map')
-        plt.show()     
+        plt.show()
 
-    def imblock_pca(self, 
+    def imblock_pca(self,
                     n_components,
                     random_state=1,
                     plot_results=True,
@@ -443,7 +449,8 @@ class imlocal:
         """
         Computes PCA eigenvectors and their loading maps
         for a stack of subimages. Intended to be used for
-        finding domains (e.g. ferroic domains) in a _single image_.
+        finding domains ("blocks") (e.g. ferroic domains)
+        in a _single image_.
 
         Args:
             n_components: int
@@ -452,7 +459,7 @@ class imlocal:
                 random state instance
             plot_results: bool
                 Plots computed eigenvectors and loading maps
-        
+
         **Kwargs:
             marker_size: int
                 controls marker size for loading maps plot
@@ -464,7 +471,7 @@ class imlocal:
             X_vec_t: 2D numpy array
                 Projection of X_vec on the first principal components
         """
-        
+
         m_s = kwargs.get('marker_size')
         pca = decomposition.PCA(
             n_components=n_components,
@@ -482,7 +489,7 @@ class imlocal:
                 self.imgstack_com, marker_size=m_s)
         return components, X_vec_t
 
-    def imblock_ica(self, 
+    def imblock_ica(self,
                     n_components,
                     random_state=1,
                     plot_results=True,
@@ -490,7 +497,8 @@ class imlocal:
         """
         Computes ICA independent souces and their loading maps
         for a stack of subimages. Intended to be used for
-        finding domains (e.g. ferroic domains) in a _single image_.
+        finding domains ("blocks") (e.g. ferroic domains)
+        in a _single image_.
 
         Args:
             n_components: int
@@ -499,7 +507,7 @@ class imlocal:
                 random state instance
             plot_results: bool
                 Plots computed eigenvectors and loading maps
-        
+
         **Kwargs:
             marker_size: int
                 controls marker size for loading maps plot
@@ -511,7 +519,7 @@ class imlocal:
             X_vec_t: 2D numpy array
                 Recovered sources from X_vec
         """
-        
+
         m_s = kwargs.get('marker_size')
         ica = decomposition.FastICA(
             n_components=n_components,
@@ -528,17 +536,18 @@ class imlocal:
                 self.network_output.shape[1:3],
                 self.imgstack_com, marker_size=m_s)
         return components, X_vec_t
-    
-    def imblock_nmf(self, 
+
+    def imblock_nmf(self,
                     n_components,
                     random_state=1,
                     plot_results=True,
                     **kwargs):
         """
-        Applies NMF to source separation. 
+        Applies NMF to source separation.
         Computes sources and their loading maps
         for a stack of subimages. Intended to be used for
-        finding domains (e.g. ferroic domains) in a _single image_.
+        finding domains ("blocks") (e.g. ferroic domains)
+        in a _single image_.
 
         Args:
             n_components: int
@@ -547,7 +556,7 @@ class imlocal:
                 random state instance
             plot_results: bool
                 Plots computed eigenvectors and loading maps
-        
+
         **Kwargs:
             max_iterations: int
                 Maximum number of iterations before timing out
@@ -562,7 +571,7 @@ class imlocal:
                 Transformed data X_vec according
                 to the trained NMF model
         """
-        
+
         m_s = kwargs.get('marker_size')
         max_iter = kwargs.get('max_iterations', 1000)
         nmf = decomposition.NMF(
@@ -593,8 +602,8 @@ class transitions:
     def __init__(self, trace):
         self.trace = trace
 
-    def calculate_transition_matrix(self, 
-                                    plot_results=False, 
+    def calculate_transition_matrix(self,
+                                    plot_results=False,
                                     plot_values=False):
         """
         Calculates Markov transition matrix
@@ -603,12 +612,12 @@ class transitions:
                 plot calculated transition matrix
             plot_values: bool
                 show calculated transition rates
-        Returns: 
+        Returns:
             m: 2D numpy array
                 calculated transition matrix
         """
         n = 1 + max(self.trace) # number of states
-        M = np.zeros(shape=(n, n))  
+        M = np.zeros(shape=(n, n))
         for (i, j) in zip(self.trace, self.trace[1:]):
             M[i][j] += 1
         # now convert to probabilities:
@@ -645,4 +654,4 @@ class transitions:
         ax.set_xlabel('Transition class', fontsize=18)
         ax.set_ylabel('Starting class', fontsize=18)
         plt.show()
-   
+
