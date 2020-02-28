@@ -609,7 +609,7 @@ class transitions:
         """
         n = 1 + max(self.trace) # number of states
         M = np.zeros(shape=(n, n))  
-        for (i,j) in zip(self.trace, self.trace[1:]):
+        for (i, j) in zip(self.trace, self.trace[1:]):
             M[i][j] += 1
         # now convert to probabilities:
         for row in M:
@@ -621,36 +621,28 @@ class transitions:
         return M
 
     @classmethod
-    def plot_transition_matrix(cls,
-                               m,
-                               plot_values=False):
+    def plot_transition_matrix(cls, m, plot_values=False):
         """
         Plots transition matrix
         Args:
             m: 2D numpy array
                 transition matrix
             plot_values: bool
-                show claculated transtion rates
+                show calculated transtion rates
         """
         print('Transition matrix')
-        m_ = np.concatenate((np.zeros((1, m.shape[1])), m), axis=0)
-        m_ = np.concatenate((np.zeros((m_.shape[0], 1)), m_), axis=1)
-        xt = np.arange(len(m) + 1)
-        yt = np.arange(len(m) + 1)
-        fig = plt.figure(figsize=(10, 10))
-        ax = fig.add_subplot(111)
-        ax.imshow(m_, cmap='Reds')
+        _, ax = plt.subplots(1, 1, figsize=(6, 6))
+        ax.matshow(m, cmap='Reds')
+        xt = np.arange(len(m))
+        yt = np.arange(len(m))
         ax.set_xticks(xt)
         ax.set_yticks(yt)
-        ax.set_xticklabels(xt, fontsize=10)  
-        ax.set_yticklabels(xt, fontsize=10)  
+        ax.set_xticklabels((xt+1).tolist(), rotation='horizontal', fontsize=14)
+        ax.set_yticklabels((yt+1).tolist(), rotation='horizontal', fontsize=14)
+        ax.set_title('Transition matrix', y=1.1, fontsize=20)
+        for (j, i), v in np.ndenumerate(m):
+            ax.text(i, j, np.around(v, 2), ha='center', va='center', c='b')
         ax.set_xlabel('Transition class', fontsize=18)
         ax.set_ylabel('Starting class', fontsize=18)
-        ax.set_xlim(0.5, len(m)+0.5)
-        ax.set_ylim(len(m)+0.5, 0.5)
-        if plot_values:
-            for (j,i),label in np.ndenumerate(m_):
-                if i !=0 and j !=0:
-                    ax.text(i,j, "%.2f" % label,
-                            ha='center', va='center', fontsize=6)
         plt.show()
+   
