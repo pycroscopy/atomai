@@ -84,12 +84,10 @@ First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, instal
 
 ## TODO
 
-1) Add more test modules
+1) Add class for the analysis of particles geometry
 
-2) Add comparison between "true" coordinates and predicted coordinates as a measure of model performance
+2) Add more examples/notebooks together with pre-trained models
 
-3) Add class for the analysis of particles geometry
+3) Add more test modules
 
-4) Add more examples/notebooks together with pre-trained models
-
-5) Add docs
+4) Add docs
