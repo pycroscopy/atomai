@@ -241,7 +241,8 @@ class imlocal:
             clusters.append(coord)
             clusters_mean.append(np.mean(coord[:, :2], axis=0))
             clusters_std.append(np.std(coord[:, :2], axis=0))
-        return clusters, clusters_mean, clusters_std
+        return (np.array(clusters), np.array(clusters_mean), 
+                np.array(clusters_std))
 
     def get_all_trajectories(self, 
                              min_length=0,
