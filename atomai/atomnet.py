@@ -19,6 +19,7 @@ from atomai.utils import (Hook, cv_thresh, find_com, img_pad, img_resize,
                           load_model, mock_forward, plot_losses, torch_format)
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
+
 class trainer:
     """
     Class for training a fully convolutional neural network
@@ -316,28 +317,23 @@ class predictor:
     Args:
         image_data: 2D or 3D numpy array
             image stack or a single image (all greyscale)
-        model: object
+        trained_model: object
             trained pytorch model (skeleton+weights)
-        model_skeleton: pytorch object with neural network skeleton
-            The path to saved weights must be provided (see 'model_weights' arg)
-        model_weights: pytorch model state dict
-            Must match with the tensor dimension in the 'model skeleton' arg
         resize: tuple / 2-element list
             target dimensions for optional image(s) resizing
-
-        Kwargs:
-            **nb_classes: int
-                number of classes in the model
-            **downsampled: int or float
-                downsampling factor
-            **use_gpu: bool
-                optional use of gpu device for inference
+        use_gpu: bool
+            use gpu device for inference
+        seed: int
+            sets seed for random number generators
+    Kwargs:
+        **nb_classes: int
+            number of classes in the model
+        **downsampled: int or float
+            downsampling factor
      """
     def __init__(self,
                  image_data,
-                 trained_model=None,
-                 model_skeleton=None,
-                 model_weights=None,
+                 trained_model,
                  resize=None,
                  use_gpu=False,
                  seed=1,
@@ -350,14 +346,7 @@ class predictor:
                 torch.cuda.manual_seed_all(seed)
                 torch.backends.cudnn.deterministic = True
                 torch.backends.cudnn.benchmark = False
-        if trained_model is None:
-            assert model_skeleton and model_weights,\
-            "Load both model skeleton and weights path"
-            assert model_skeleton.__dict__, "Load a valid pytorch model skeleton"
-            assert isinstance(model_weights, str), "Filepath must be a string"
-            model = load_model(model_skeleton, model_weights)
-        else:
-            model = trained_model
+        model = trained_model
         self.nb_classes = kwargs.get('nb_classes', None)
         if self.nb_classes is None:
             hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
@@ -368,7 +357,7 @@ class predictor:
             hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
             mock_forward(model)
             imsize = [hook.output.shape[-1] for hook in hookF]
-            downsampling = max(imsize)/min(imsize)
+            downsampling = max(imsize) / min(imsize)
         self.model = model
         if use_gpu:
             self.model.cuda()
@@ -465,7 +454,7 @@ class locator:
         for i, decoded_img in enumerate(self.nn_output):
             coordinates = np.empty((0, 2))
             category = np.empty((0, 1))
-            # we assume that class backgrpund is always the last one
+            # we assume that class 'background' is always the last one
             for ch in range(decoded_img.shape[2]-1):
                 decoded_img_c = cv_thresh(
                     decoded_img[:, :, ch], self.threshold)

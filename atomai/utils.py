@@ -16,9 +16,31 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 
+### Utilities to laod trained weights/models ###
+
 def load_model(model, weights_path):
-    '''Loads weights saved in a pytorch format (.pt) into a model skeleton'''
-    torch.manual_seed(0)
+    """
+    Loads weights saved as pytorch state dictionary into a model skeleton
+    
+    Args:
+        model: pytorch object
+            Initialized pytorch model
+        weights_path: str
+            Filepath to trained weights (pytorch state dict)
+    
+    Returns:
+        Model with trained weights loaded
+
+    Example:
+        >>> from atomai.utils import load_model
+        >>> # Path to file with trained weights
+        >>> weights_path = '/content/simple_model_weights.pt'
+        >>> # initialize model (by default all models trained are 'dilUnet')
+        >>> model = models.dilUnet(nb_classes=3)
+        >>> # load the weights into the model skeleton
+        >>> model = load_model(model, weights_path)
+    """
+    torch.manual_seed(0) 
     if torch.cuda.device_count() > 0:
         checkpoint = torch.load(weights_path)
     else:
@@ -26,6 +48,15 @@ def load_model(model, weights_path):
     model.load_state_dict(checkpoint)
     return model
 
+
+def get_nb_classes(weights_path):
+    """
+    Returns the number of classes used in trained AtomAI models
+    from the loaded weights.
+    """
+    checkpoint = torch.load(weights_path, map_location='cpu')
+    last_layer = [k for k in checkpoint.keys()][-1]
+    return list(checkpoint[last_layer].size())[0]
 
 
 ### Utilities commonly used for image data preprocessing ###
