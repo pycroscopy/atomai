@@ -4,6 +4,7 @@ Utility functions
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+import subprocess
 import random
 import torch
 import numpy as np
@@ -57,6 +58,23 @@ def get_nb_classes(weights_path):
     checkpoint = torch.load(weights_path, map_location='cpu')
     last_layer = [k for k in checkpoint.keys()][-1]
     return list(checkpoint[last_layer].size())[0]
+
+
+def gpu_usage_map(cuda_device):
+    """
+    Get the current GPU memory usage
+    Adapted with changes from
+    https://discuss.pytorch.org/t/access-gpu-memory-usage-in-pytorch/3192/4
+    """
+    result = subprocess.check_output(
+        [
+            'nvidia-smi', '--id=' + str(cuda_device),
+            '--query-gpu=memory.used,memory.total,utilization.gpu',
+            '--format=csv,nounits,noheader'
+        ], encoding='utf-8')
+    gpu_usage = [int(y) for y in result.split(',')]
+    return gpu_usage[0:2]
+
 
 
 ### Utilities commonly used for image data preprocessing ###

@@ -15,8 +15,9 @@ import torch.nn.functional as F
 
 import atomai.losses as losses_
 from atomai.models import dilnet, dilUnet
-from atomai.utils import (Hook, cv_thresh, find_com, img_pad, img_resize,
-                          load_model, mock_forward, plot_losses, torch_format)
+from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
+                          img_resize, mock_forward, plot_losses, torch_format)
+
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
 
@@ -285,11 +286,17 @@ class trainer:
             self.test_loss.append(loss_)
             # Print loss info
             if e == 0 or (e+1) % self.print_loss == 0:
+                if torch.cuda.is_available():
+                    gpu_usage = gpu_usage_map(torch.cuda.current_device())
+                else:
+                    gpu_usage = ['N/A ', ' N/A']
                 print('Epoch {} ...'.format(e+1),
                       'Training loss: {} ...'.format(
                           np.around(self.train_loss[-1], 4)),
-                      'Test loss: {}'.format(
-                    np.around(self.test_loss[-1], 4)))
+                      'Test loss: {} ...'.format(
+                    np.around(self.test_loss[-1], 4)),
+                      'GPU memory usage: {}/{}'.format(
+                          gpu_usage[0], gpu_usage[1]))
             # Save model weights (if test loss decreased)
             if e > 0 and self.test_loss[-1] < min(self.test_loss[: -1]):
                 torch.save(self.net.state_dict(),
