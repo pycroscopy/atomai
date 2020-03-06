@@ -30,7 +30,7 @@ def load_model(model, weights_path):
             Filepath to trained weights (pytorch state dict)
     
     Returns:
-        Model with trained weights loaded
+        Model with trained weights loaded in evaluation state
 
     Example:
         >>> from atomai.utils import load_model
@@ -58,6 +58,30 @@ def get_nb_classes(weights_path):
     checkpoint = torch.load(weights_path, map_location='cpu')
     last_layer = [k for k in checkpoint.keys()][-1]
     return list(checkpoint[last_layer].size())[0]
+
+
+def average_weights(ensemble):
+    """
+    Averages weights of all models in the ensemble
+
+    Args:
+        ensemble: dict
+            dictionary with trained weights (model's state_dict)
+            of models with exact same architecture.
+    
+    Returns:
+        Average weights (as model's state_dict)
+    """
+    ensemble_state_dict = ensemble[0]
+    names = [name for name in ensemble_state_dict.keys()]
+    for name in names:
+        w_aver = []
+        for model in ensemble.values():
+            for n, p in model.items():
+                if n == name:
+                    w_aver.append(p)
+        ensemble_state_dict[name].copy_(sum(w_aver) / len(w_aver))
+    return ensemble_state_dict
 
 
 def gpu_usage_map(cuda_device):
