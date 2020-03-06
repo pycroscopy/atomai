@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/ziatdinovmax/atomai.svg?branch=master)](https://travis-ci.org/ziatdinovmax/atomai)
+[![Build Status](https://travis-ci.com/ziatdinovmax/atomai.svg?branch=master)](https://travis-ci.com/ziatdinovmax/atomai)
 
 # AtomAI
 **Under active development (expect breaking changes)**
