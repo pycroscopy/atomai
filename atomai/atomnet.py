@@ -59,8 +59,6 @@ class trainer:
             Apply dropouts in the three inner blocks in the middle of a network
         loss: str
             type of loss for model training ('ce', 'dice' or 'focal')
-        with_dilation: bool
-            use / not use dilated convolutions in the bottleneck of dilUnet
         upsampling mode: str
             "bilinear" or "nearest" upsampling method
         seed: int
@@ -69,6 +67,12 @@ class trainer:
             separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
     **Kwargs:
+        nb_filters: int
+            number of convolutional filters in the first convolutional block
+            (this number doubles in the consequtive block(s),
+            see definition of dilUnet and dilnet models for details)
+        with_dilation: bool
+            use / not use dilated convolutions in the bottleneck of dilUnet
         print_loss: int
             prints loss every n-th epoch
         savedir: str
@@ -91,7 +95,6 @@ class trainer:
                  use_batchnorm=True,
                  use_dropouts=False,
                  loss="dice",
-                 with_dilation=True,
                  upsampling="bilinear",
                  seed=1,
                  batch_seed=None,
@@ -183,13 +186,16 @@ class trainer:
                 np.expand_dims(l, axis=1) for l in labels_test_all]
             labels_test_all = labels_test_all_e
         if model_type == 'dilUnet':
+            with_dilation = kwargs.get('with_dilation', True)
+            nb_filters = kwargs.get('nb_filters', 16)
             self.net = dilUnet(
-                num_classes, 16, with_dilation,
+                num_classes, nb_filters, with_dilation,
                 use_dropouts, use_batchnorm, upsampling
             )
         elif model_type == 'dilnet':
+            nb_filters = kwargs.get('nb_filters', 25)
             self.net = dilnet(
-                num_classes, 25, 
+                num_classes, nb_filters, 
                 use_dropouts, use_batchnorm, upsampling
             )
         else:
