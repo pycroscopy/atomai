@@ -47,7 +47,7 @@ def load_model(model, weights_path):
     else:
         checkpoint = torch.load(weights_path, map_location='cpu')
     model.load_state_dict(checkpoint)
-    return model
+    return model.eval()
 
 
 def get_nb_classes(weights_path):
