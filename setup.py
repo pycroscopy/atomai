@@ -13,6 +13,7 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 if __name__ == "__main__":
     setup(
         name='atomai',
+        python_requires='>=3.6',
         version='0.1.0',
         description='Deep/machine learning for atom-resolved data',
         long_description=open(os.path.join(module_dir, 'README.md')).read(),
