@@ -1,4 +1,7 @@
 """
+utils.py
+========
+
 Utility functions
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
@@ -17,7 +20,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 
-### Utilities to laod trained weights/models ###
+#####################
+# Model weights #
+#####################
+
 
 def load_model(model, weights_path):
     """
@@ -50,16 +56,6 @@ def load_model(model, weights_path):
     return model.eval()
 
 
-def get_nb_classes(weights_path):
-    """
-    Returns the number of classes used in trained AtomAI models
-    from the loaded weights.
-    """
-    checkpoint = torch.load(weights_path, map_location='cpu')
-    last_layer = [k for k in checkpoint.keys()][-1]
-    return list(checkpoint[last_layer].size())[0]
-
-
 def average_weights(ensemble):
     """
     Averages weights of all models in the ensemble
@@ -84,6 +80,11 @@ def average_weights(ensemble):
     return ensemble_state_dict
 
 
+#####################
+# GPU characteristics #
+#####################
+
+
 def gpu_usage_map(cuda_device):
     """
     Get the current GPU memory usage
@@ -100,8 +101,10 @@ def gpu_usage_map(cuda_device):
     return gpu_usage[0:2]
 
 
+#####################
+# Image preprocessing #
+#####################
 
-### Utilities commonly used for image data preprocessing ###
 
 def torch_format(image_data):
     '''Reshapes and normalizes (optionally) image data
@@ -141,8 +144,10 @@ def img_pad(image_data, pooling):
     return image_data
 
 
+#####################
+# Atomic coordinates #
+#####################
 
-### Utilities for atom finding ###
 
 def find_com(image_data):
     '''Find atoms via center of mass methods'''
@@ -241,7 +246,9 @@ def filter_cells(imgdata,
 
 
 
-### Utilities for inferring basic characteristics of neural network ###
+#####################
+# NN structure inference #
+#####################
 
 class Hook():
     """
@@ -277,7 +284,19 @@ def mock_forward(model, dims=(1, 64, 64)):
     return out
 
 
-### Vizualization utilities ###
+def get_nb_classes(weights_path):
+    """
+    Returns the number of classes used in trained AtomAI models
+    from the loaded weights.
+    """
+    checkpoint = torch.load(weights_path, map_location='cpu')
+    last_layer = [k for k in checkpoint.keys()][-1]
+    return list(checkpoint[last_layer].size())[0]
+
+
+#####################
+# Vizualization #
+#####################
 
 def plot_losses(train_loss, test_loss):
     """Plots train and test losses"""
@@ -315,7 +334,9 @@ def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
     plt.show()
 
 
-###  Some utilities that can help preparing labeled training set ### 
+#####################
+# Training data preparation #
+#####################
 
 class MakeAtom:
     """
