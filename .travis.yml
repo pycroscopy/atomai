@@ -7,7 +7,6 @@ python:
 
 os:
     - linux
-    - osx
 
 cache: pip
 
