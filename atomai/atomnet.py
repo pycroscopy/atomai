@@ -47,12 +47,17 @@ class trainer:
             which represent test labels (aka masks aka ground truth)
         training_cycles: int
             number of training 'epochs' (1 epoch == 1 batch)
-        batch_size: int
-            size of training and test batches
-        model: pytorch object with neural network skeleton
-            allows using custom modules from outside this package
         model_type: str
             Type of mode to choose from the package ('dilUnet' or 'dilnet')
+        seed: int
+            deterministic mode for model training
+        batch_seed: int
+            separate seed for generating a sequence of batches
+            for training/testing. Equal to 'seed' if set to None (default)
+
+    **Kwargs:
+        batch_size: int
+            size of training and test batches
         use_batchnorm: bool
             Apply batch normalization after each convolutional layer
         use_dropouts: bool
@@ -61,12 +66,6 @@ class trainer:
             type of loss for model training ('ce', 'dice' or 'focal')
         upsampling mode: str
             "bilinear" or "nearest" upsampling method
-        seed: int
-            deterministic mode for model training
-        batch_seed: int
-            separate seed for generating a sequence of batches
-            for training/testing. Equal to 'seed' if set to None (default)
-    **Kwargs:
         nb_filters: int
             number of convolutional filters in the first convolutional block
             (this number doubles in the consequtive block(s),
@@ -89,13 +88,7 @@ class trainer:
                  images_test_all,
                  labels_test_all,
                  training_cycles,
-                 batch_size=32,
-                 model=None,
                  model_type='dilUnet',
-                 use_batchnorm=True,
-                 use_dropouts=False,
-                 loss="dice",
-                 upsampling="bilinear",
                  seed=1,
                  batch_seed=None,
                  **kwargs):
@@ -119,6 +112,7 @@ class trainer:
             num_classes = max(
                 set([len(np.unique(lab)) for lab in labels_all.values()]))
         elif type(labels_all) == np.ndarray:
+            batch_size = kwargs.get("batch_size", 32)
             n_train_batches, _ = np.divmod(labels_all.shape[0], batch_size)
             n_test_batches, _ = np.divmod(labels_test_all.shape[0], batch_size)
             images_all = np.split(
@@ -185,6 +179,9 @@ class trainer:
             labels_test_all_e = [
                 np.expand_dims(l, axis=1) for l in labels_test_all]
             labels_test_all = labels_test_all_e
+        use_batchnorm = kwargs.get('use_batchnorm', True)
+        use_dropouts = kwargs.get('use_dropouts', False)
+        upsampling = kwargs.get('upsampling', "bilinear")
         if model_type == 'dilUnet':
             with_dilation = kwargs.get('with_dilation', True)
             nb_filters = kwargs.get('nb_filters', 16)
@@ -209,6 +206,7 @@ class trainer:
                 "No GPU found. The training can be EXTREMELY slow",
                 UserWarning
             )
+        loss = kwargs.get('loss', "dice")
         if loss == 'dice':
             self.criterion = losses_.dice_loss()
         elif loss == 'focal':
@@ -230,9 +228,9 @@ class trainer:
         self.labels_all = labels_all
         self.images_test_all = images_test_all
         self.labels_test_all = labels_test_all
-        self.num_classes = num_classes
-        self.batch_size = batch_size
         self.training_cycles = training_cycles
+        self.num_classes = num_classes
+        self.batch_size = kwargs.get("batch_size", 32)
         self.print_loss = kwargs.get("print_loss", 100)
         self.savedir = kwargs.get("savedir", "./")
         self.savename = kwargs.get("savename", "model")
