@@ -56,7 +56,7 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
     X_train, X_test = gen_data(img_dims_in)
     y_train, y_test = gen_labels(lbl_dims_in, n_atoms)
     m = atomnet.trainer(
-        X_train, y_train, X_test, y_test, 1, 4)
+        X_train, y_train, X_test, y_test, training_cycles=1, batch_size=4)
     assert m.images_all[0].ndim == img_dims_out
     assert m.images_test_all[0].ndim == img_dims_out
     assert m.labels_all[0].ndim == lbl_dims_out
@@ -72,7 +72,8 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
 def test_trainer_loss_selection(loss_user, n_atoms, criterion_):
     X_train, y_train, X_test, y_test = gen_dummy_data(n_atoms)
     m = atomnet.trainer(
-        X_train, y_train, X_test, y_test, 1, 4, loss=loss_user)
+        X_train, y_train, X_test, y_test,
+        training_cycles=1, batch_size=4, loss=loss_user)
     assert str(m.criterion) == criterion_
 
 @pytest.mark.parametrize(
@@ -81,7 +82,7 @@ def test_trainer_loss_selection(loss_user, n_atoms, criterion_):
 def test_trainer_dataloader(n_atoms, tensor_type):
     X_train, y_train, X_test, y_test = gen_dummy_data(n_atoms)
     m = atomnet.trainer(
-        X_train, y_train, X_test, y_test, 1, 4)
+        X_train, y_train, X_test, y_test, training_cycles=1, batch_size=4)
     X_train_, y_train_ = m.dataloader(0)
     assert y_train_.dtype == tensor_type
     assert len(X_train) == len(y_train)
@@ -91,11 +92,13 @@ def test_trainer_dataloader(n_atoms, tensor_type):
 def test_trainer_determinism():
     X_train, y_train, X_test, y_test = gen_dummy_data(1)
     m1 = atomnet.trainer(
-        X_train, y_train, X_test, y_test, 5, 4, upsampling="nearest")
+        X_train, y_train, X_test, y_test, 
+        training_cycles=5, batch_size=4, upsampling="nearest")
     m1.run()
     loss1 = m1.train_loss[-1]
     m2 = atomnet.trainer(
-        X_train, y_train, X_test, y_test, 5, 4, upsampling="nearest")
+        X_train, y_train, X_test, y_test,
+        training_cycles=5, batch_size=4, upsampling="nearest")
     m2.run()
     loss2 = m2.train_loss[-1]
     assert_allclose(loss1, loss2) 
