@@ -18,6 +18,7 @@ from skimage import exposure
 from skimage.util import random_noise
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import warnings
 
 
 #####################
@@ -104,6 +105,119 @@ def gpu_usage_map(cuda_device):
 #####################
 # Image preprocessing #
 #####################
+
+def preprocess_training_data(images_all,
+                             labels_all,
+                             images_test_all,
+                             labels_test_all,
+                             batch_size):
+    """
+    Preprocess training and test data
+
+    Args:
+        images_all: list / dict / 4D numpy array
+            list or dictionary of 4D numpy arrays or 4D numpy array
+            (3D image tensors stacked along the first dim)
+            representing training images
+        labels_all: list / dict / 4D numpy array
+            list or dictionary of 3D numpy arrays or 
+            4D (binary) / 3D (multiclass) numpy array
+            where 3D / 2D image are tensors stacked along the first dim
+            which represent training labels (aka masks aka ground truth)
+        images_test_all: list / dict / 4D numpy array
+            list or dictionary of 4D numpy arrays or 4D numpy array
+            (3D image tensors stacked along the first dim)
+            representing test images
+        labels_test_all: list / dict / 4D numpy array
+            list or dictionary of 3D numpy arrays or 
+            4D (binary) / 3D (multiclass) numpy array
+            where 3D / 2D image are tensors stacked along the first dim
+            which represent test labels (aka masks aka ground truth)
+        batch_size: int
+            size of training and test batches
+
+    Returns: 
+        4 lists processed with preprocessed training and test data,
+        number of classes inferred from the data
+    """
+    assert type(images_all) == type(labels_all)\
+    == type(images_test_all) == type(labels_test_all),\
+    "Provide all training and test data in the same format"
+    if type(labels_all) == list:
+        num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
+    elif type(labels_all) == dict:
+        num_classes = max(
+            set([len(np.unique(lab)) for lab in labels_all.values()]))
+    elif type(labels_all) == np.ndarray:
+        n_train_batches, _ = np.divmod(labels_all.shape[0], batch_size)
+        n_test_batches, _ = np.divmod(labels_test_all.shape[0], batch_size)
+        images_all = np.split(
+            images_all[:n_train_batches*batch_size], n_train_batches)
+        labels_all = np.split(
+            labels_all[:n_train_batches*batch_size], n_train_batches)
+        images_test_all = np.split(
+            images_test_all[:n_test_batches*batch_size], n_test_batches)
+        labels_test_all = np.split(
+            labels_test_all[:n_test_batches*batch_size], n_test_batches)
+        num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))    
+    else:
+        raise NotImplementedError(
+            "Provide training and test data as python list (or dictionary)",
+            "of numpy arrays or as 4D (images)",
+            "and 4D/3D (labels for single/multi class) numpy arrays"
+        )
+    assert num_classes != 1,\
+    "Confirm that you have a class corresponding to background"
+    num_classes = num_classes - 1 if num_classes == 2 else num_classes
+
+    imshapes_train = set([len(im.shape) for im in images_all])
+    assert len(imshapes_train) == 1,\
+    "All training images must have the same dimensionality"
+    imshapes_test = set([len(im.shape) for im in images_test_all])
+    assert len(imshapes_test) == 1,\
+    "All test images must have the same dimensionality"
+    if imshapes_train.pop() == 3:
+        warnings.warn(
+            'Adding a channel dimension of 1 to training images',
+            UserWarning
+        )
+        images_all_e = [
+            np.expand_dims(im, axis=1) for im in images_all]
+        images_all = images_all_e
+    if imshapes_test.pop() == 3:
+        warnings.warn(
+            'Adding a channel dimension of 1 to test images',
+            UserWarning
+        )
+        images_test_all_e = [
+            np.expand_dims(im, axis=1) for im in images_test_all]
+        images_test_all = images_test_all_e
+    
+    lshapes_train = set([len(l.shape) for l in labels_all])
+    assert len(lshapes_train) == 1,\
+    "All labels must have the same dimensionality"
+    lshapes_test = set([len(l.shape) for l in labels_test_all])
+    assert len(lshapes_test) == 1,\
+    "All labels must have the same dimensionality"
+    if num_classes == 1 and lshapes_train.pop() == 3:
+        warnings.warn(
+            'Adding a channel dimension of 1 to training labels',
+            UserWarning
+        )
+        labels_all_e = [
+            np.expand_dims(l, axis=1) for l in labels_all]
+        labels_all = labels_all_e
+    if num_classes == 1 and lshapes_test.pop() == 3:
+        warnings.warn(
+            'Adding a channel dimension of 1 to test labels',
+            UserWarning
+        )
+        labels_test_all_e = [
+            np.expand_dims(l, axis=1) for l in labels_test_all]
+        labels_test_all = labels_test_all_e
+    return (images_all, labels_all, 
+            images_test_all, labels_test_all,
+            num_classes)
 
 
 def torch_format(image_data):

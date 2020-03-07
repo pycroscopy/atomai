@@ -9,14 +9,14 @@ import os
 import time
 import warnings
 
+import atomai.losses as losses_
 import numpy as np
 import torch
 import torch.nn.functional as F
-
-import atomai.losses as losses_
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
-                          img_resize, mock_forward, plot_losses, torch_format)
+                          img_resize, mock_forward, plot_losses,
+                          preprocess_training_data, torch_format)
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
@@ -103,82 +103,14 @@ class trainer:
             np.random.seed(seed)
         else:
             np.random.seed(batch_seed)
-        assert type(images_all) == type(labels_all)\
-        == type(images_test_all) == type(labels_test_all),\
-        "Provide all training and test data in the same format"
-        if type(labels_all) == list:
-            num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
-        elif type(labels_all) == dict:
-            num_classes = max(
-                set([len(np.unique(lab)) for lab in labels_all.values()]))
-        elif type(labels_all) == np.ndarray:
-            batch_size = kwargs.get("batch_size", 32)
-            n_train_batches, _ = np.divmod(labels_all.shape[0], batch_size)
-            n_test_batches, _ = np.divmod(labels_test_all.shape[0], batch_size)
-            images_all = np.split(
-                images_all[:n_train_batches*batch_size], n_train_batches)
-            labels_all = np.split(
-                labels_all[:n_train_batches*batch_size], n_train_batches)
-            images_test_all = np.split(
-                images_test_all[:n_test_batches*batch_size], n_test_batches)
-            labels_test_all = np.split(
-                labels_test_all[:n_test_batches*batch_size], n_test_batches)
-            num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))    
-        else:
-            raise NotImplementedError(
-                "Provide training and test data as python list (or dictionary)",
-                "of numpy arrays or as 4D (images)",
-                "and 4D/3D (labels for single/multi class) numpy arrays"
-            )
-        assert num_classes != 1,\
-        "Confirm that you have a class corresponding to background"
-        num_classes = num_classes - 1 if num_classes == 2 else num_classes
 
-        imshapes_train = set([len(im.shape) for im in images_all])
-        assert len(imshapes_train) == 1,\
-        "All training images must have the same dimensionality"
-        imshapes_test = set([len(im.shape) for im in images_test_all])
-        assert len(imshapes_test) == 1,\
-        "All test images must have the same dimensionality"
-        if imshapes_train.pop() == 3:
-            warnings.warn(
-                'Adding a channel dimension of 1 to training images',
-                UserWarning
-            )
-            images_all_e = [
-                np.expand_dims(im, axis=1) for im in images_all]
-            images_all = images_all_e
-        if imshapes_test.pop() == 3:
-            warnings.warn(
-                'Adding a channel dimension of 1 to test images',
-                UserWarning
-            )
-            images_test_all_e = [
-                np.expand_dims(im, axis=1) for im in images_test_all]
-            images_test_all = images_test_all_e
-        
-        lshapes_train = set([len(l.shape) for l in labels_all])
-        assert len(lshapes_train) == 1,\
-        "All labels must have the same dimensionality"
-        lshapes_test = set([len(l.shape) for l in labels_test_all])
-        assert len(lshapes_test) == 1,\
-        "All labels must have the same dimensionality"
-        if num_classes == 1 and lshapes_train.pop() == 3:
-            warnings.warn(
-                'Adding a channel dimension of 1 to training labels',
-                UserWarning
-            )
-            labels_all_e = [
-                np.expand_dims(l, axis=1) for l in labels_all]
-            labels_all = labels_all_e
-        if num_classes == 1 and lshapes_test.pop() == 3:
-            warnings.warn(
-                'Adding a channel dimension of 1 to test labels',
-                UserWarning
-            )
-            labels_test_all_e = [
-                np.expand_dims(l, axis=1) for l in labels_test_all]
-            labels_test_all = labels_test_all_e
+        self.batch_size = kwargs.get("batch_size", 32)
+        (self.images_all, self.labels_all, 
+         self.images_test_all, self.labels_test_all,
+         self.num_classes) = preprocess_training_data(
+                                images_all, labels_all,
+                                images_test_all, labels_test_all,
+                                self.batch_size)
         use_batchnorm = kwargs.get('use_batchnorm', True)
         use_dropouts = kwargs.get('use_dropouts', False)
         upsampling = kwargs.get('upsampling', "bilinear")
@@ -186,13 +118,13 @@ class trainer:
             with_dilation = kwargs.get('with_dilation', True)
             nb_filters = kwargs.get('nb_filters', 16)
             self.net = dilUnet(
-                num_classes, nb_filters, with_dilation,
+                self.num_classes, nb_filters, with_dilation,
                 use_dropouts, use_batchnorm, upsampling
             )
         elif model_type == 'dilnet':
             nb_filters = kwargs.get('nb_filters', 25)
             self.net = dilnet(
-                num_classes, nb_filters, 
+                self.num_classes, nb_filters, 
                 use_dropouts, use_batchnorm, upsampling
             )
         else:
@@ -211,26 +143,21 @@ class trainer:
             self.criterion = losses_.dice_loss()
         elif loss == 'focal':
             self.criterion = losses_.focal_loss()
-        elif loss == 'ce' and num_classes == 1:
+        elif loss == 'ce' and self.num_classes == 1:
             self.criterion = torch.nn.BCEWithLogitsLoss()
-        elif loss == 'ce' and num_classes > 2:
+        elif loss == 'ce' and self.num_classes > 2:
             self.criterion = torch.nn.CrossEntropyLoss()
         else:
             raise NotImplementedError(
-                "Choose between Dice loss ('dice') and cross-entropy loss ('ce')"
+                "Select Dice loss ('dice'), focal loss ('focal') or"
+                " cross-entropy loss ('ce')"
             )
         self.batch_idx_train = np.random.randint(
-            0, len(images_all), training_cycles)
+            0, len(self.images_all), training_cycles)
         self.batch_idx_test = np.random.randint(
-            0, len(images_test_all), training_cycles)
+            0, len(self.images_test_all), training_cycles)
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
-        self.images_all = images_all
-        self.labels_all = labels_all
-        self.images_test_all = images_test_all
-        self.labels_test_all = labels_test_all
         self.training_cycles = training_cycles
-        self.num_classes = num_classes
-        self.batch_size = kwargs.get("batch_size", 32)
         self.print_loss = kwargs.get("print_loss", 100)
         self.savedir = kwargs.get("savedir", "./")
         self.savename = kwargs.get("savename", "model")
