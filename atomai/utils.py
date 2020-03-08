@@ -29,18 +29,18 @@ import warnings
 def load_model(model, weights_path):
     """
     Loads weights saved as pytorch state dictionary into a model skeleton
-    
+
     Args:
         model (pytorch object):
             Initialized pytorch model
         weights_path (str):
             Filepath to trained weights (pytorch state dict)
-    
+
     Returns:
         Model with trained weights loaded in evaluation state
 
     Example:
-    
+
         >>> from atomai.utils import load_model
         >>> # Path to file with trained weights
         >>> weights_path = '/content/simple_model_weights.pt'
@@ -49,7 +49,7 @@ def load_model(model, weights_path):
         >>> # load the weights into the model skeleton
         >>> model = load_model(model, weights_path)
     """
-    torch.manual_seed(0) 
+    torch.manual_seed(0)
     if torch.cuda.device_count() > 0:
         checkpoint = torch.load(weights_path)
     else:
@@ -66,7 +66,7 @@ def average_weights(ensemble):
         ensemble (dict):
             dictionary with trained weights (model's state_dict)
             of models with exact same architecture.
-    
+
     Returns:
         Average weights (as model's state_dict)
     """
@@ -121,7 +121,7 @@ def preprocess_training_data(images_all,
             (3D image tensors stacked along the first dim)
             representing training images
         labels_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or 
+            list or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent training labels (aka masks aka ground truth)
@@ -130,14 +130,14 @@ def preprocess_training_data(images_all,
             (3D image tensors stacked along the first dim)
             representing test images
         labels_test_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or 
+            list or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent test labels (aka masks aka ground truth)
         batch_size (int):
             size of training and test batches
 
-    Returns: 
+    Returns:
         4 lists processed with preprocessed training and test data,
         number of classes inferred from the data
     """
@@ -160,7 +160,7 @@ def preprocess_training_data(images_all,
             images_test_all[:n_test_batches*batch_size], n_test_batches)
         labels_test_all = np.split(
             labels_test_all[:n_test_batches*batch_size], n_test_batches)
-        num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))    
+        num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
     else:
         raise NotImplementedError(
             "Provide training and test data as python list (or dictionary)",
@@ -193,7 +193,7 @@ def preprocess_training_data(images_all,
         images_test_all_e = [
             np.expand_dims(im, axis=1) for im in images_test_all]
         images_test_all = images_test_all_e
-    
+
     lshapes_train = set([len(l.shape) for l in labels_all])
     assert len(lshapes_train) == 1,\
     "All labels must have the same dimensionality"
@@ -216,7 +216,7 @@ def preprocess_training_data(images_all,
         labels_test_all_e = [
             np.expand_dims(l, axis=1) for l in labels_test_all]
         labels_test_all = labels_test_all_e
-    return (images_all, labels_all, 
+    return (images_all, labels_all,
             images_test_all, labels_test_all,
             num_classes)
 
@@ -245,7 +245,7 @@ def img_resize(image_data, rs):
             Image stack with dimensions (n_batches x height x width)
         rs (tuple):
             target width and height
-    
+
     Returns:
         Resized stack of images
     """
@@ -334,13 +334,13 @@ def compare_coordinates(coordinates1,
         plt.figure(figsize=(int(fsize*1.25), fsize))
         plt.imshow(expdata, cmap='gray')
         im = plt.scatter(
-            coordinates1_[:, 1], coordinates1_[:, 0], 
+            coordinates1_[:, 1], coordinates1_[:, 0],
             c=np.array(delta_r), cmap='jet', s=5)
         clrbar = plt.colorbar(im)
         clrbar.set_label('Position deviation (px)')
         plt.show()
     return coordinates1_, coordinates2_, np.array(delta_r)
-            
+
 
 def cv_thresh(imgdata,
               threshold=.5):
@@ -349,15 +349,15 @@ def cv_thresh(imgdata,
     Returns thresholded image.
     """
     _, thresh = cv2.threshold(
-                    imgdata, 
-                    threshold, 1, 
+                    imgdata,
+                    threshold, 1,
                     cv2.THRESH_BINARY)
     return thresh
 
 
-def filter_cells_(imgdata, 
-                  im_thresh=.5, 
-                  blob_thresh=150, 
+def filter_cells_(imgdata,
+                  im_thresh=.5,
+                  blob_thresh=150,
                   filter_='above'):
     """
     Filters out blobs above/below cetrain size
@@ -375,7 +375,7 @@ def filter_cells_(imgdata,
     return label_img
 
 
-def filter_cells(imgdata, 
+def filter_cells(imgdata,
                  im_thresh=0.5,
                  blob_thresh=50,
                  filter_='above'):
@@ -394,7 +394,7 @@ def filter_cells(imgdata,
         filter_ (string):
             Select 'above' or 'below' to remove larger or smaller blobs,
             respectively
-    
+
     Returns:
         Image stack with the same dimensions as the input data
     """
@@ -415,7 +415,7 @@ class Hook():
     layer during forward/backward pass
     see https://www.kaggle.com/sironghuang/
         understanding-pytorch-hooks/notebook
-        
+
     Args:
         module (torch module): single layer or sequential block)
         backward (bool): replace forward_hook with backward_hook
@@ -516,9 +516,9 @@ class MakeAtom:
     2D Gaussian and a corresponding mask
 
     Args:
-        sc (float): 
+        sc (float):
             scale parameter, which determines Gaussian width
-        intensity (float): 
+        intensity (float):
             parameter of 2D gaussian function
         theta (float):
             parameter of 2D gaussian function
@@ -536,7 +536,7 @@ class MakeAtom:
         self.theta = theta
         self.offset = offset
         self.intensity = intensity
-    
+
     def atom2dgaussian(self):
         """
         Models atom as 2d Gaussian
@@ -566,7 +566,7 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
             position of atoms in the experimental data
         *arg (python function):
             function that creates a 2D numpy array with atom and
-            corresponding mask for each atomic coordinate. 
+            corresponding mask for each atomic coordinate.
 
             Example:
 
@@ -575,8 +575,8 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
             >>>     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
             >>>     return atom, mask
 
-            **scale: int
-                controls the atomic mask size      
+        **scale: int
+            controls the atomic mask size
 
     Returns:
         2D numpy array with ground truth data
@@ -633,9 +633,9 @@ class augmentor:
     Applies a sequence of pre-defined operations for data augmentation.
 
     Args:
-        batch_size (int): 
+        batch_size (int):
             number of images in the batch,
-        width (int): 
+        width (int):
             width of images in the batch,
         height (int):
             height of images in the batch,
@@ -649,7 +649,7 @@ class augmentor:
             normalization to (0, 1)
         seed (int):
             determenism
-        **flip (bool): 
+        **flip (bool):
             image vertical/horizonal flipping,
         **rotate90 (bool):
             rotating image by +- 90 deg
@@ -661,8 +661,8 @@ class augmentor:
             dictionary keys are:
             'poisson', 'gauss', 'blur', 'contrast', 'salt and pepper'.
             For each case, you need to specify the range of values.
-            Notice that for poisson noise, 
-            smaller values result in larger noise   
+            Notice that for poisson noise,
+            smaller values result in larger noise
         **resize (tuple):
             values for image resizing (min height, max height, step);
             assumes heght==width
@@ -673,7 +673,7 @@ class augmentor:
         with dimensions (n_images, height, width)
         and (n_images, height, width, channels).
         We can use the augmentor as follows.
-        
+
         >>> # Specify size, dimensions
         >>> batch_size = len(labels_all) # here we will pass through the augmentor all data at once
         >>> dim1, dim2, ch = labels_all.shape[1:]
@@ -688,12 +688,12 @@ class augmentor:
         >>> # Run the augmentor
         >>> imaug = augmentor(
         >>>    batch_size=batch_size, width=dim1, height=dim2, n_channels=ch,
-        >>>    dim_order_in='channel_last', dim_order_out='channel_first', 
+        >>>    dim_order_in='channel_last', dim_order_out='channel_first',
         >>>    noise=noise_dict, zoom=zoom, flip=True, squeeze=True)
-        >>> images_all, labels_all = imaug.run(images_all, labels_all)  
+        >>> images_all, labels_all = imaug.run(images_all, labels_all)
     """
     def __init__(self, batch_size, width, height,
-                 n_channels, dim_order_in='channel_last', 
+                 n_channels, dim_order_in='channel_last',
                  dim_order_out='channel_first', squeeze=False,
                  seed=None, **kwargs):
         self.n, self.w, self.h = batch_size, width, height
@@ -873,7 +873,7 @@ class augmentor:
             if len(np.unique(label)) == labels.shape[-1]:
                 labels_valid.append(label)
                 images_valid.append(image[None, ...])
-        return np.concatenate(images_valid), np.concatenate(labels_valid) 
+        return np.concatenate(images_valid), np.concatenate(labels_valid)
 
 
 def squeeze_channels_(y_train):
@@ -904,9 +904,9 @@ def squeeze_data_(images, labels):
         if unique_labels == labels.shape[1]:
             labels_valid.append(label)
             images_valid.append(image[None, ...])
-    return np.concatenate(images_valid), np.concatenate(labels_valid) 
+    return np.concatenate(images_valid), np.concatenate(labels_valid)
 
-    
+
 def FFTmask(imgsrc, maskratio=10):
     """
     Takes a square real space image and filter out a disk with radius equal to:
