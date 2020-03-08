@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.com/ziatdinovmax/atomai.svg?branch=master)](https://travis-ci.com/ziatdinovmax/atomai)
+[![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
 
 # AtomAI
 **Under active development (expect breaking changes)**
@@ -71,12 +72,15 @@ traj_all, trans_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 
 ## Quickstart: AtomAI in the Cloud
 
-The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb).
+The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
 
-1. Use AtomAI to train a deep NN for atom finding [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
-2. Analyze distortion domains in a single atomic image [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+1. [Use AtomAI to train a deep NN for atom finding](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+
+2. [Analyze distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+
 3. Analyze trajectories of atomic defects in atomic movie - TBA
-4. Prepare training data from experimental image with atomic coordinates (beta) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+
+4. [Prepare training data from experimental image with atomic coordinates (beta)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ## Installation
 First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, install AtomAI via
