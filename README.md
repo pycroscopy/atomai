@@ -75,7 +75,7 @@ traj_all, trans_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 
 The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
 
-1) [Use AtomAI to train a deep NN for atom finding(https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+1) [Use AtomAI to train a deep NN for atom finding](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
 
 2) [Analyze distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
 
