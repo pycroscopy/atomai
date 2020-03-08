@@ -12,7 +12,7 @@ import os
 import time
 import warnings
 
-import atomai.losses as losses_
+import atomai.losses_metrics as losses_metrics_
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -141,9 +141,9 @@ class trainer:
             )
         loss = kwargs.get('loss', "dice")
         if loss == 'dice':
-            self.criterion = losses_.dice_loss()
+            self.criterion = losses_metrics_.dice_loss()
         elif loss == 'focal':
-            self.criterion = losses_.focal_loss()
+            self.criterion = losses_metrics_.focal_loss()
         elif loss == 'ce' and self.num_classes == 1:
             self.criterion = torch.nn.BCEWithLogitsLoss()
         elif loss == 'ce' and self.num_classes > 2:
