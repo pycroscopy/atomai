@@ -35,7 +35,7 @@ class trainer:
             (3D image tensors stacked along the first dim)
             representing training images
         labels_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or 
+            list or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent training labels (aka masks aka ground truth)
@@ -44,7 +44,7 @@ class trainer:
             (3D image tensors stacked along the first dim)
             representing test images
         labels_test_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or 
+            list or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent test labels (aka masks aka ground truth)
@@ -106,7 +106,7 @@ class trainer:
             np.random.seed(batch_seed)
 
         self.batch_size = kwargs.get("batch_size", 32)
-        (self.images_all, self.labels_all, 
+        (self.images_all, self.labels_all,
          self.images_test_all, self.labels_test_all,
          self.num_classes) = preprocess_training_data(
                                 images_all, labels_all,
@@ -125,7 +125,7 @@ class trainer:
         elif model_type == 'dilnet':
             nb_filters = kwargs.get('nb_filters', 25)
             self.net = dilnet(
-                self.num_classes, nb_filters, 
+                self.num_classes, nb_filters,
                 use_dropouts, use_batchnorm, upsampling
             )
         else:
@@ -166,7 +166,9 @@ class trainer:
         self.train_loss, self.test_loss = [], []
 
     def dataloader(self, batch_num, mode='train'):
-        """Generates a batch of training/test images"""
+        """
+        Generates a batch of training/test images
+        """
         # Generate batch of training images with corresponding ground truth
         if mode == 'test':
             images = self.images_test_all[batch_num][:self.batch_size]
@@ -199,7 +201,9 @@ class trainer:
         return loss.item()
 
     def test_step(self, img, lbl):
-        """Forward path for test data"""
+        """
+        Forward path for test data
+        """
         self.net.eval()
         with torch.no_grad():
             prob = self.net.forward(img)
@@ -337,7 +341,9 @@ class predictor:
         return prob
 
     def run(self):
-        """Make prediction"""
+        """
+        Make prediction
+        """
         start_time = time.time()
         if self.image_data.shape[0] < 20 and min(self.image_data.shape[2:4]) < 512:
             decoded_imgs = self.predict(self.image_data)
@@ -415,7 +421,9 @@ class locator:
         return d_coord
 
     def rem_edge_coord(self, coordinates):
-        """Remove coordinates at the image edges"""
+        """
+        Remove coordinates at the image edges
+        """
 
         def coord_edges(coordinates, w, h):
             return [coordinates[0] > w - self.dist_edge,
