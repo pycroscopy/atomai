@@ -75,13 +75,13 @@ traj_all, trans_all, fram_all = imstack.transition_matrix(n_components=10, rmax=
 
 The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
 
-    1. [Use AtomAI to train a deep NN for atom finding] (https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+1) [Use AtomAI to train a deep NN for atom finding(https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
 
-    2. [Analyze distortion domains in a single atomic image]    (https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+2) [Analyze distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
 
-    3. Analyze trajectories of atomic defects in atomic movie - TBA
+3) Analyze trajectories of atomic defects in atomic movie - TBA
 
-    4. [Prepare training data from experimental image with atomic coordinates (beta)]   (https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+4) [Prepare training data from experimental image with atomic coordinates (beta)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ## Installation
 First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, install AtomAI via
