@@ -292,7 +292,7 @@ class imlocal:
         clusters, clusters_mean, clusters_std = [], [], []
         tree = spatial.cKDTree(coordinates_all[:, :2])
         for c0 in coord_class_dict_1[0][:, :2]:
-            d, idx = tree.query(
+            _, idx = tree.query(
                 c0, k=len(coordinates_all), distance_upper_bound=rmax)
             idx = np.delete(idx, np.where(idx == len(coordinates_all))[0])
             cluster_coord = coordinates_all[idx]
@@ -300,7 +300,7 @@ class imlocal:
             clusters_std.append(np.std(cluster_coord[:, :2], axis=0))
             clusters.append(cluster_coord)
         return (np.array(clusters_mean), np.array(clusters_std), clusters)
-        
+
     def get_all_trajectories(self,
                              min_length=0,
                              run_gmm=False,
@@ -358,8 +358,10 @@ class imlocal:
 
     @classmethod
     def renumerate_classes(cls, classes):
-        """Helper functions for renumerating Gaussian mixture model
-         classes for Markov transition analysis"""
+        """
+        Helper functions for renumerating Gaussian mixture model
+        classes for Markov transition analysis
+        """
         diff = np.unique(classes) - np.arange(len(np.unique(classes)))
         diff_d = {cl: d for d, cl in zip(diff, np.unique(classes))}
         classes_renum = [cl - diff_d[cl] for cl in classes]
@@ -418,7 +420,7 @@ class imlocal:
         explained_var = pca.explained_variance_ratio_
         if plot_results:
             # Plotting
-            fig, ax = plt.subplots(1, 1, figsize=(6,6))
+            _, ax = plt.subplots(1, 1, figsize=(6,6))
             ax.plot(explained_var, '-o')
             ax.set_xlim(-0.5, 50)
             ax.set_xlabel('Number of components')
@@ -670,7 +672,7 @@ class transitions:
     def plot_transition_matrix(cls, m, plot_values=False):
         """
         Plots transition matrix
-        
+
         Args:
             m (2D numpy array):
                 transition matrix
