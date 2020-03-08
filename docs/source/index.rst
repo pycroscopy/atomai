@@ -1,4 +1,4 @@
-:github_url: https://github.com/pyro-ppl/numpyro
+:github_url: https://github.com/ziatdinovmax/atomai
 
 
 Welcome to AtomAI's documentation!
