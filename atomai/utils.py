@@ -223,8 +223,12 @@ def preprocess_training_data(images_all,
 
 def torch_format(image_data):
     """
-    Reshapes and normalizes (optionally) image data
-    to make it compatible with pytorch format
+    Reshapes, normalizes and converts image data
+    to pytorch format for model training and prediction
+
+    Args:
+        image_data (3D numpy array):
+            Image stack with dimensions (n_batches x height x width)
     """
     image_data = np.expand_dims(image_data, axis=1)
     image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
@@ -233,7 +237,18 @@ def torch_format(image_data):
 
 
 def img_resize(image_data, rs):
-    """Image resizing"""
+    """
+    Resizes a stack of images
+
+    Args:
+        image_data (3D numpy array):
+            Image stack with dimensions (n_batches x height x width)
+        rs (tuple):
+            target width and height
+    
+    Returns:
+        Resized stack of images
+    """
     if image_data.shape[1:3] == rs:
         return image_data.copy()
     image_data_r = np.zeros(
@@ -249,6 +264,12 @@ def img_pad(image_data, pooling):
     Pads the image if its size (w, h)
     is not divisible by 2**n, where n is a number
     of pooling layers in a network
+
+    Args:
+        image_data (3D numpy array):
+            Image stack with dimensions (n_batches x height x width)
+        pooling (int):
+            number of pooling operations
     """
     # Pad image rows (height)
     while image_data.shape[1] % pooling != 0:
@@ -269,7 +290,13 @@ def img_pad(image_data, pooling):
 
 
 def find_com(image_data):
-    """Find atoms via center of mass methods"""
+    """
+    Find atoms via center of mass methods
+
+    Args:
+        image_data (2D numpy array):
+            2D image (usually an output of neural network)
+    """
     labels, nlabels = ndimage.label(image_data)
     coordinates = np.array(
         ndimage.center_of_mass(
@@ -356,6 +383,20 @@ def filter_cells(imgdata,
     Filters blobs above/below certain size
     for each image in the stack.
     The 'imgdata' must have dimensions (n x h x w).
+
+    Args:
+        imgdata (3D numpy array):
+            stack of images (without channel dimension)
+        im_thresh (float):
+            value at which each image in the stack will be thresholded
+        blob_thresh (int):
+            maximum/mimimun blob size for thresholding
+        filter_ (string):
+            Select 'above' or 'below' to remove larger or smaller blobs,
+            respectively
+    
+    Returns:
+        Image stack with the same dimensions as the input data
     """
     filtered_stack = np.zeros_like(imgdata)
     for i, img in enumerate(imgdata):
@@ -385,16 +426,18 @@ class Hook():
         else:
             self.hook = module.register_backward_hook(self.hook_fn)
 
-    def hook_fn(self, module, input, output):
-        self.input = input
-        self.output = output
+    def hook_fn(self, module, input_, output_):
+        self.input = input_
+        self.output = output_
 
     def close(self):
         self.hook.remove()
 
 
 def mock_forward(model, dims=(1, 64, 64)):
-    """Passes a dummy variable throuh a network"""
+    """
+    Passes a dummy variable throuh a network
+    """
     x = torch.randn(1, dims[0], dims[1], dims[2])
     if next(model.parameters()).is_cuda:
         x = x.cuda()
@@ -406,6 +449,11 @@ def get_nb_classes(weights_path):
     """
     Returns the number of classes used in trained AtomAI models
     from the loaded weights.
+
+    Args:
+        weight_path (str):
+            Path to file with saved weights (.pt extension)
+
     """
     checkpoint = torch.load(weights_path, map_location='cpu')
     last_layer = [k for k in checkpoint.keys()][-1]
@@ -417,7 +465,9 @@ def get_nb_classes(weights_path):
 #####################
 
 def plot_losses(train_loss, test_loss):
-    """Plots train and test losses"""
+    """
+    Plots train and test losses
+    """
     print('Plotting training history')
     _, ax = plt.subplots(1, 1, figsize=(6, 6))
     ax.plot(train_loss, label='Train')
@@ -429,7 +479,9 @@ def plot_losses(train_loss, test_loss):
 
 
 def plot_coord(img, coord, fsize=6):
-    """Plots coordinates (colored according to atom class)"""
+    """
+    Plots coordinates (colored according to atom class)
+    """
     y, x, c = coord.T
     plt.figure(figsize=(fsize, fsize))
     plt.imshow(img, cmap='gray')
@@ -438,8 +490,10 @@ def plot_coord(img, coord, fsize=6):
 
 
 def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
-    """Draws boxes cetered around the extracted dedects"""
-    fig, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
+    """
+    Draws boxes cetered around the extracted dedects
+    """
+    _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
     ax.imshow(imgdata, cmap='gray')
     for point in defcoord:
         startx = int(round(point[0] - bbox))
@@ -484,7 +538,9 @@ class MakeAtom:
         self.intensity = intensity
     
     def atom2dgaussian(self):
-        '''Models atom as 2d Gaussian'''
+        """
+        Models atom as 2d Gaussian
+        """
         a = (np.cos(self.theta)**2)/(2*self.sigma_x**2) +\
             (np.sin(self.theta)**2)/(2*self.sigma_y**2)
         b = -(np.sin(2*self.theta))/(4*self.sigma_x**2) +\
