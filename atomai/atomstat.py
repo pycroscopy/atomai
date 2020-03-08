@@ -208,7 +208,7 @@ class imlocal:
         return flow, np.array(frames)
 
     @classmethod
-    def cluster_xy(cls, coord_class_dict, eps, min_samples=10):
+    def cluster_coord(cls, coord_class_dict, eps, min_samples=10):
         """
         Collapses coordinates from an image stack onto xy plane and
         performs clustering in the xy space. Works for non-overlapping
@@ -219,7 +219,7 @@ class imlocal:
                 dictionary of atomic coordinates (N x 3 numpy arrays])
                 (same format as produced by atomnet.locator)
                 Can also be a list of N x 3 numpy arrays
-                Typically, these are coordinates from a movie (3D image stack)
+                Typically, these are coordinates from a 3D image stack
                 where each element in dict/list corresponds
                 to an individual movie frame
             eps: float
@@ -250,6 +250,54 @@ class imlocal:
         return (np.array(clusters), np.array(clusters_mean),
                 np.array(clusters_std))
 
+    @classmethod
+    def find_coord_clusters(cls, coord_class_dict_1, coord_class_dict_2, rmax):
+        """
+        Takes a single array of xy coordinates (usually associated
+        with a single image) and for each coordinate finds
+        its nearest neighbors (within specified radius) from a separate list of
+        arrays with xy coordinates (where each element in the list usually
+        corresponds to a single image from an image stack). Works for
+        non-overlapping trajectories in atomic movies.
+
+        Args:
+            coord_class_dict_1: dict ot list
+                One-element dictionary or list with atomic coordinates
+                as N x 3 numpy array.
+                (usually an output from atomnet.locator for a single image;
+                can be from other source but should be in the same format)
+            coord_class_dict_2: dict or list
+                Dictionary or list of atomic coordinates (N x 3 numpy arrays)
+                These can be coordinates from a 3D image stack
+                where each element in dict/list corresponds
+                to an individual frame in the stack.
+                (usually an output from atomnet.locator for an image stack;
+                can be from other source but should be in the same format)
+            rmax: int
+                Maximum search radius in pixels
+
+        Returns:
+            Coordinates of points in each identified cluster,
+            center of the mass for each cluster,
+            standard deviation of points in each cluster
+        """
+        coordinates_all = np.empty((0, 3))
+        for k in range(len(coord_class_dict_2)):
+            coordinates_all = np.append(
+                coordinates_all, coord_class_dict_2[k], axis=0)
+
+        clusters, clusters_mean, clusters_std = [], [], []
+        tree = spatial.cKDTree(coordinates_all[:, :2])
+        for c0 in coord_class_dict_1[0][:, :2]:
+            d, idx = tree.query(
+                c0, k=len(coordinates_all), distance_upper_bound=rmax)
+            idx = np.delete(idx, np.where(idx == len(coordinates_all))[0])
+            cluster_coord = coordinates_all[idx]
+            clusters_mean.append(np.mean(cluster_coord[:, :2], axis=0))
+            clusters_std.append(np.std(cluster_coord[:, :2], axis=0))
+            clusters.append(cluster_coord)
+        return (np.array(clusters_mean), np.array(clusters_std), clusters)
+        
     def get_all_trajectories(self,
                              min_length=0,
                              run_gmm=False,
