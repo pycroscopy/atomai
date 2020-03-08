@@ -40,6 +40,7 @@ def load_model(model, weights_path):
         Model with trained weights loaded in evaluation state
 
     Example:
+    
         >>> from atomai.utils import load_model
         >>> # Path to file with trained weights
         >>> weights_path = '/content/simple_model_weights.pt'
@@ -512,6 +513,7 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
             corresponding mask for each atomic coordinate. 
 
             Example:
+
             >>> def create_atomic_mask(r=7, thresh=.2):
             >>>     atom = MakeAtom(r).atom2dgaussian()
             >>>     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
@@ -869,13 +871,13 @@ def FFTmask(imgsrc, maskratio=10):
     return F2, F3
 
 
-def FFTsub(imgsrc, F3):
+def FFTsub(imgsrc, imgfft):
     """
     Takes real space image and filtred FFT.
     Reconstructs real space image and subtracts it from the original.
     Returns normalized image.
     """
-    reconstruction = np.real(fftpack.ifft2(fftpack.ifftshift(F3)))
+    reconstruction = np.real(fftpack.ifft2(fftpack.ifftshift(imgfft)))
     diff = np.abs(imgsrc - reconstruction)
     # normalization
     diff = diff - np.amin(diff)

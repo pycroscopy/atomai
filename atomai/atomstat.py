@@ -1,6 +1,6 @@
 """
 atomstat.py
-========
+===========
 
 Module for statistical analysis of local image descriptors
 
@@ -102,7 +102,7 @@ class imlocal:
                 square subimage side is 2*r
 
         Returns:
-            stack of subimages,
+            stack of subimages and
             (x, y) coordinates of their centers
         """
         img_cr_all = []
@@ -140,10 +140,10 @@ class imlocal:
                 plotting gmm components
 
         Returns:
-            cla (3D numpy array):
-                first dimension correspond to individual mixture component
-            classes (1D numpy array):
-                labels for every subimage in image stack
+            3D numpy array containing averaged images for each gmm class
+            (the 1st dimension correspond to individual mixture components)
+            and 1D numpy array with labels for every subimage
+            in the input image stack.
         """
         clf = mixture.GaussianMixture(
             n_components=n_components,
@@ -195,8 +195,8 @@ class imlocal:
                 in the next one
 
         Returns:
-            numpy array of defect/atom coordinaes form a single trajectory,
-            frames corresponding to this trajectory
+            numpy array of defect/atom coordinaes form a single trajectory
+            and frames corresponding to this trajectory
         """
         flow = np.empty((0, 3))
         frames = []
@@ -511,11 +511,9 @@ class imlocal:
                 controls marker size for loading maps plot
 
         Returns:
-            components (4D numpy array):
-                computed (and reshaped) principal axes
-                for stack of subimages
-            X_vec_t (2D numpy array):
-                Projection of X_vec on the first principal components
+            4D numpy array with computed (and reshaped) principal axes
+            for stack of subimages and 2D numpy array with projection of X_vec
+            on the first principal components
         """
 
         m_s = kwargs.get('marker_size')
@@ -557,11 +555,9 @@ class imlocal:
                 controls marker size for loading maps plot
 
         Returns:
-            components (4D numpy array):
-                computed (and reshaped) independent sources
-                for stack of subimages
-            X_vec_t (2D numpy array):
-                Recovered sources from X_vec
+            4D numpy array with computed (and reshaped) independent sources
+            for stack of subimages and 2D numpy array with recovered sources
+            from X_vec
         """
 
         m_s = kwargs.get('marker_size')
@@ -606,12 +602,9 @@ class imlocal:
                 controls marker size for loading maps plot
 
         Returns:
-            components (4D numpy array):
-                computed (and reshaped) sources
-                for stack of subimages
-            X_vec_t (2D numpy array):
-                Transformed data X_vec according
-                to the trained NMF model
+            4D numpy array with computed (and reshaped) sources
+            for stack of subimages and 2D numpy array with
+            transformed data X_vec according to the trained NMF model
         """
 
         m_s = kwargs.get('marker_size')
@@ -658,8 +651,7 @@ class transitions:
                 show calculated transition rates
 
         Returns:
-            m (2D numpy array):
-                calculated transition matrix
+            Calculated transition matrix as 2D numpy array
         """
         n = 1 + max(self.trace) # number of states
         M = np.zeros(shape=(n, n))
