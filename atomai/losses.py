@@ -13,15 +13,14 @@ class focal_loss(torch.nn.Module):
     FL(p_t) = -alpha*((1-p_t)^gamma))*log(p_t),
     where p_t is a cross-entropy loss for binary classification.
     For more details, see https://arxiv.org/abs/1708.02002.
+
+    Args:
+        alpha (float): "balance" coefficient,
+        gamma (float): "focusing" parameter (>=0),
+        with_logits (bool): indicates if the sigmoid operation was applied
+        at the end of a neural network's forward path.
     """
     def __init__(self, alpha=0.5, gamma=2, with_logits=True):
-        """
-        Args:
-            alpha (float): "balance" coefficient,
-            gamma (float): "focusing" parameter (>=0),
-            with_logits (bool): indicates if the sigmoid operation was applied
-            at the end of a neural network's forward path.
-        """
         super(focal_loss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma

@@ -1,4 +1,7 @@
 """
+atomstat.py
+========
+
 Module for statistical analysis of local image descriptors
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
@@ -19,18 +22,18 @@ class imlocal:
     (make sure you have extra dimensions for channel and batch size).
 
     Args:
-        network_output: 4D numpy array
+        network_output (4D numpy array):
             batch_size x height x width x channels
-        coord_class_dict_all: dict
+        coord_class_dict_all (dict):
             prediction from atomnet.locator
             (can be from other but must be the same format)
             Each element is a N x 3 numpy array,
             where N is a number of detected atoms/defects,
             the first 2 columns are xy coordinates
             and the third columns is class (starts with 0)
-        crop_size: int
+        crop_size (int):
             half of the side of the square for subimage cropping
-        coord_class: int
+        coord_class (int):
             class of atoms/defects around around which
             the subimages will be cropped; in the atomnet.locator output
             the class is the 3rd column (the first two are xy positions)
@@ -57,12 +60,12 @@ class imlocal:
         in the neural network output
 
         Args:
-            imgdata: 4D numpy array
+            imgdata (4D numpy array):
                 Prediction of a neural network with dimensions
                 (batch_size x height x width x channels)
-            coord: N x 3 numpy array
+            coord (N x 3 numpy array):
                 (x, y, class) coordinates data
-            d: int
+            d (int):
                 defines size of a square subimage
 
         Returns:
@@ -90,12 +93,12 @@ class imlocal:
         for a single image
 
         Args:
-            imgdata: 3D numpy array
+            imgdata (3D numpy array):
                 Prediction of a neural network with dimensions
                 (height x width x channels)
-            coord: N x 2 numpy array
+            coord (N x 2 numpy array):
                 (x, y) coordinates
-            r: int
+            r (int):
                 square subimage side is 2*r
 
         Returns:
@@ -124,22 +127,22 @@ class imlocal:
             random_state=1,
             plot_results=False):
         """
-        Applies Gaussian mixture model to image stack
+        Applies Gaussian mixture model to image stack.
 
         Args:
-            n_components: int
+            n_components (int):
                 number of components
-            covariance: str
+            covariance (str):
                 type of covariance ('full', 'diag', 'tied', 'spherical')
-            random_state: int
+            random_state (int):
                 random state instance
-            plot_results: bool
+            plot_results (bool):
                 plotting gmm components
 
         Returns:
-            cla: 3D numpy array
-                First dimension correspond to individual mixture component
-            classes: 1D numpy array
+            cla (3D numpy array):
+                first dimension correspond to individual mixture component
+            classes (1D numpy array):
                 labels for every subimage in image stack
         """
         clf = mixture.GaussianMixture(
@@ -180,13 +183,13 @@ class imlocal:
         Extracts a trajectory of a single defect/atom from image stack
 
         Args:
-            coord_class_dict: dict
+            coord_class_dict (dict):
                 dictionary of atomic coordinates
                 (same format as produced by atomnet.locator)
-            start_coord: N x 2 numpy array
+            start_coord (N x 2 numpy array):
                 coordinate of defect/atom in the first frame
                 whose trajectory we are going to track
-            rmax: int
+            rmax (int):
                 max allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor
                 in the next one
@@ -215,18 +218,18 @@ class imlocal:
         trajectories.
 
         Args:
-            coord_class_dict: dict
+            coord_class_dict (dict):
                 dictionary of atomic coordinates (N x 3 numpy arrays])
                 (same format as produced by atomnet.locator)
                 Can also be a list of N x 3 numpy arrays
                 Typically, these are coordinates from a 3D image stack
                 where each element in dict/list corresponds
                 to an individual movie frame
-            eps: float
+            eps (float):
                 max distance between two points for one to be considered
                 as in the neighborhood of the other
                 (see sklearn.cluster.DBSCAN).
-            min_samples: int
+            min_samples (int):
                 minmum number of points for a "cluster"
 
         Returns:
@@ -261,19 +264,19 @@ class imlocal:
         non-overlapping trajectories in atomic movies.
 
         Args:
-            coord_class_dict_1: dict ot list
+            coord_class_dict_1 (dict ot list):
                 One-element dictionary or list with atomic coordinates
                 as N x 3 numpy array.
                 (usually an output from atomnet.locator for a single image;
                 can be from other source but should be in the same format)
-            coord_class_dict_2: dict or list
+            coord_class_dict_2 (dict or list):
                 Dictionary or list of atomic coordinates (N x 3 numpy arrays)
                 These can be coordinates from a 3D image stack
                 where each element in dict/list corresponds
                 to an individual frame in the stack.
                 (usually an output from atomnet.locator for an image stack;
                 can be from other source but should be in the same format)
-            rmax: int
+            rmax (int):
                 Maximum search radius in pixels
 
         Returns:
@@ -309,21 +312,20 @@ class imlocal:
         Gaussian mixture model to a stack of local descriptors (subimages).
 
         Args:
-            min_length: int
+            min_length (int):
                 minimal length of trajectory to return
-            run_gmm: bool
+            run_gmm (bool):
                 optional GMM separation into different classes
-            rmax: int
+            rmax (int):
                 max allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor
                 in the next one
-        **Kwargs
-            n_components: int
+            **n_components (int):
                 number of components for  Gaussian mixture model
-            covariance: str
+            **covariance (str):
                 type of covariance for Gaussian mixture model
                 ('full', 'diag', 'tied', 'spherical')
-            random_state: int
+            **random_state (int):
                 random state instance for Gaussian mixture model
 
         Returns:
@@ -376,18 +378,18 @@ class imlocal:
         Calculates transition probability for each trajectory.
 
         Args:
-            n_components: int
+            n_components (int):
                 number of components for  Gaussian mixture model
-            covariance: str
+            covariance (str):
                 type of covariance for Gaussian mixture model
                 ('full', 'diag', 'tied', 'spherical')
-            random_state: int
+            random_state (int):
                 random state instance for Gaussian mixture model
-            rmax: int
+            rmax (int):
                 max allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor
                 in the next one
-            min_length: int
+            min_length (int):
                 minimal length of trajectory to return
 
         Returns:
@@ -435,22 +437,20 @@ class imlocal:
         Plots decomposition "eigenvectors" and their loading maps
 
         Args:
-            components: 4D numpy array
+            components (4D numpy array):
                 computed (and reshaped)
                 principal axes / independent sources / factorization matrix
                 for stack of subimages
-            X_vec_t: 2D numpy array
+            X_vec_t (2D numpy array):
                 Projection of X_vec on the first principal components /
                 Recovered sources from X_vec /
                 transformed X_vec according to the learned NMF model
                 (is used to create "loading maps")
-            img_hw: tuple
+            img_hw (tuple):
                 height and width of the "mother image"
-            com_: n x 2 numpy array
+            com_ (n x 2 numpy array):
                 (x, y) coordinates of the extracted subimages
-
-        **Kwargs:
-            marker_size: int
+            **marker_size (int):
                 controls marker size for loading maps plot
         """
         m_s = kwargs.get("marker_size", 32)
@@ -498,25 +498,23 @@ class imlocal:
         Computes PCA eigenvectors and their loading maps
         for a stack of subimages. Intended to be used for
         finding domains ("blocks") (e.g. ferroic domains)
-        in a _single image_.
+        in a single image.
 
         Args:
-            n_components: int
+            n_components (int):
                 number of PCA components
-            random_state: int
+            random_state (int):
                 random state instance
-            plot_results: bool
+            plot_results (bool):
                 Plots computed eigenvectors and loading maps
-
-        **Kwargs:
-            marker_size: int
+            **marker_size (int):
                 controls marker size for loading maps plot
 
         Returns:
-            components: 4D numpy array
+            components (4D numpy array):
                 computed (and reshaped) principal axes
                 for stack of subimages
-            X_vec_t: 2D numpy array
+            X_vec_t (2D numpy array):
                 Projection of X_vec on the first principal components
         """
 
@@ -546,25 +544,23 @@ class imlocal:
         Computes ICA independent souces and their loading maps
         for a stack of subimages. Intended to be used for
         finding domains ("blocks") (e.g. ferroic domains)
-        in a _single image_.
+        in a single image.
 
         Args:
-            n_components: int
+            n_components (int):
                 number of ICA components
-            random_state: int
+            random_state (int):
                 random state instance
-            plot_results: bool
+            plot_results (bool):
                 Plots computed eigenvectors and loading maps
-
-        **Kwargs:
-            marker_size: int
+            **marker_size (int):
                 controls marker size for loading maps plot
 
         Returns:
-            components: 4D numpy array
+            components (4D numpy array):
                 computed (and reshaped) independent sources
                 for stack of subimages
-            X_vec_t: 2D numpy array
+            X_vec_t (2D numpy array):
                 Recovered sources from X_vec
         """
 
@@ -595,27 +591,25 @@ class imlocal:
         Computes sources and their loading maps
         for a stack of subimages. Intended to be used for
         finding domains ("blocks") (e.g. ferroic domains)
-        in a _single image_.
+        in a single image.
 
         Args:
-            n_components: int
+            n_components (int):
                 number of NMF components
-            random_state: int
+            random_state (int):
                 random state instance
-            plot_results: bool
+            plot_results (bool):
                 Plots computed eigenvectors and loading maps
-
-        **Kwargs:
-            max_iterations: int
+            **max_iterations (int):
                 Maximum number of iterations before timing out
-            marker_size: int
+            **marker_size (int):
                 controls marker size for loading maps plot
 
         Returns:
-            components: 4D numpy array
+            components (4D numpy array):
                 computed (and reshaped) sources
                 for stack of subimages
-            X_vec_t: 2D numpy array
+            X_vec_t (2D numpy array):
                 Transformed data X_vec according
                 to the trained NMF model
         """
@@ -643,8 +637,9 @@ class imlocal:
 class transitions:
     """
     Calculates and displays (optionally) Markov transition matrix
+
     Args:
-        trace: 1D numpy array or list
+        trace (1D numpy array or python list):
             sequence of states/classes
     """
     def __init__(self, trace):
@@ -655,13 +650,15 @@ class transitions:
                                     plot_values=False):
         """
         Calculates Markov transition matrix
+
         Args:
-            plot_results: bool
+            plot_results (bool):
                 plot calculated transition matrix
-            plot_values: bool
+            plot_values (bool):
                 show calculated transition rates
+
         Returns:
-            m: 2D numpy array
+            m (2D numpy array):
                 calculated transition matrix
         """
         n = 1 + max(self.trace) # number of states
@@ -681,10 +678,11 @@ class transitions:
     def plot_transition_matrix(cls, m, plot_values=False):
         """
         Plots transition matrix
+        
         Args:
-            m: 2D numpy array
+            m (2D numpy array):
                 transition matrix
-            plot_values: bool
+            plot_values (bool):
                 show calculated transtion rates
         """
         print('Transition matrix')

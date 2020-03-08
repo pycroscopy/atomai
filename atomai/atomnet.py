@@ -1,4 +1,7 @@
 """
+atomnet.py
+========
+
 Module for training neural networks
 and making predictions with trained models
 
@@ -27,59 +30,57 @@ class trainer:
     for semantic segmentation of noisy experimental data
 
     Args:
-        images_all: list / dict / 4D numpy array
+        images_all (list / dict / 4D numpy array):
             list or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing training images
-        labels_all: list / dict / 4D numpy array
+        labels_all (list / dict / 4D numpy array):
             list or dictionary of 3D numpy arrays or 
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent training labels (aka masks aka ground truth)
-        images_test_all: list / dict / 4D numpy array
+        images_test_all (list / dict / 4D numpy array):
             list or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing test images
-        labels_test_all: list / dict / 4D numpy array
+        labels_test_all (list / dict / 4D numpy array):
             list or dictionary of 3D numpy arrays or 
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent test labels (aka masks aka ground truth)
-        training_cycles: int
+        training_cycles (int):
             number of training 'epochs' (1 epoch == 1 batch)
-        model_type: str
+        model_type (str):
             Type of mode to choose from the package ('dilUnet' or 'dilnet')
-        seed: int
+        seed (int):
             deterministic mode for model training
-        batch_seed: int
+        batch_seed (int):
             separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
-
-    **Kwargs:
-        batch_size: int
+        **batch_size (int):
             size of training and test batches
-        use_batchnorm: bool
+        **use_batchnorm (bool):
             Apply batch normalization after each convolutional layer
-        use_dropouts: bool
+        **use_dropouts (bool):
             Apply dropouts in the three inner blocks in the middle of a network
-        loss: str
+        **loss (str):
             type of loss for model training ('ce', 'dice' or 'focal')
-        upsampling mode: str
+        **upsampling_mode (str):
             "bilinear" or "nearest" upsampling method
-        nb_filters: int
+        **nb_filters (int):
             number of convolutional filters in the first convolutional block
             (this number doubles in the consequtive block(s),
             see definition of dilUnet and dilnet models for details)
-        with_dilation: bool
+        **with_dilation (bool):
             use / not use dilated convolutions in the bottleneck of dilUnet
-        print_loss: int
+        **print_loss (int):
             prints loss every n-th epoch
-        savedir: str
+        **savedir (str):
             directory to automatically save intermediate and final weights
-        savename: str
+        **savename (str):
             filename for model weights
             (appended with "_test_weights_best.pt" and "_weights_final.pt")
-        plot_training_history: bool
+        **plot_training_history (bool):
             Plot training and test curves vs epochs at the end of training
     """
     def __init__(self,
@@ -165,6 +166,7 @@ class trainer:
         self.train_loss, self.test_loss = [], []
 
     def dataloader(self, batch_num, mode='train'):
+        """Generates a batch of training/test images"""
         # Generate batch of training images with corresponding ground truth
         if mode == 'test':
             images = self.images_test_all[batch_num][:self.batch_size]
@@ -183,7 +185,11 @@ class trainer:
         return images, labels
 
     def train_step(self, img, lbl):
-        """Forward --> Backward --> Optimize"""
+        """
+        Propagates image(s) through a network to get model's prediction
+        and compares predicted value with ground truth; then performs
+        backpropagation to compute gradients and optimizes weights.
+        """
         self.net.train()
         self.optimizer.zero_grad()
         prob = self.net.forward(img)
@@ -201,6 +207,10 @@ class trainer:
         return loss.item()
 
     def run(self):
+        """
+        Trains a neural network. Saves the best (on test data)
+        and final model weights.
+        """
         for e in range(self.training_cycles):
             # Get training images/labels
             images, labels = self.dataloader(
@@ -247,23 +257,22 @@ class trainer:
 
 class predictor:
     """
-    Predictions with a trained neural network
+    Prediction with a trained neural network
 
     Args:
-        image_data: 2D or 3D numpy array
+        image_data (2D or 3D numpy array):
             image stack or a single image (all greyscale)
-        trained_model: object
+        trained_model (pytorch object):
             trained pytorch model (skeleton+weights)
-        resize: tuple / 2-element list
+        resize (tuple / 2-element list):
             target dimensions for optional image(s) resizing
-        use_gpu: bool
+        use_gpu (bool):
             use gpu device for inference
-        seed: int
+        seed (int):
             sets seed for random number generators
-    Kwargs:
-        **nb_classes: int
+        **nb_classes (int):
             number of classes in the model
-        **downsampled: int or float
+        **downsampled (int or float):
             downsampling factor
      """
     def __init__(self,
@@ -307,8 +316,10 @@ class predictor:
         self.use_gpu = use_gpu
 
     def predict(self, images):
-        '''Returns 'probability' of each pixel
-           in image belonging to an atom'''
+        """
+        Returns 'probability' of each pixel
+        in image(s) belonging to an atom/defect
+        """
         if self.use_gpu:
             images = images.cuda()
         self.model.eval()
@@ -326,7 +337,7 @@ class predictor:
         return prob
 
     def run(self):
-        '''Make prediction'''
+        """Make prediction"""
         start_time = time.time()
         if self.image_data.shape[0] < 20 and min(self.image_data.shape[2:4]) < 512:
             decoded_imgs = self.predict(self.image_data)
@@ -349,13 +360,13 @@ class locator:
     Transforms pixel data from NN output into coordinate data
 
     Args:
-        decoded_imgs: 4D numpy array
+        decoded_imgs (4D numpy array):
             the output of a neural network (softmax/sigmoid layer)
-        threshold: float
+        threshold (float):
             value at which the neural network output is thresholded
-        dist_edge: int
+        dist_edge (int):
             distance within image boundaries not to consider
-        dim_order: str
+        dim_order (str):
             'channel_last' or 'channel_first' (Default: 'channel last')
     """
     def __init__(self,
@@ -381,9 +392,11 @@ class locator:
         self.dist_edge = dist_edge
 
     def run(self):
-        '''Extract all atomic coordinates in image
+        """
+        Extract all atomic coordinates in image
         via CoM method & store data as a dictionary
-        (key: frame number)'''
+        (key: frame number)
+        """
 
         d_coord = {}
         for i, decoded_img in enumerate(self.nn_output):
@@ -402,7 +415,7 @@ class locator:
         return d_coord
 
     def rem_edge_coord(self, coordinates):
-        '''Remove coordinates at the image edges'''
+        """Remove coordinates at the image edges"""
 
         def coord_edges(coordinates, w, h):
             return [coordinates[0] > w - self.dist_edge,

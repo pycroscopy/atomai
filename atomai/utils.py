@@ -31,9 +31,9 @@ def load_model(model, weights_path):
     Loads weights saved as pytorch state dictionary into a model skeleton
     
     Args:
-        model: pytorch object
+        model (pytorch object):
             Initialized pytorch model
-        weights_path: str
+        weights_path (str):
             Filepath to trained weights (pytorch state dict)
     
     Returns:
@@ -62,7 +62,7 @@ def average_weights(ensemble):
     Averages weights of all models in the ensemble
 
     Args:
-        ensemble: dict
+        ensemble (dict):
             dictionary with trained weights (model's state_dict)
             of models with exact same architecture.
     
@@ -81,9 +81,9 @@ def average_weights(ensemble):
     return ensemble_state_dict
 
 
-#####################
+#######################
 # GPU characteristics #
-#####################
+#######################
 
 
 def gpu_usage_map(cuda_device):
@@ -115,25 +115,25 @@ def preprocess_training_data(images_all,
     Preprocess training and test data
 
     Args:
-        images_all: list / dict / 4D numpy array
+        images_all (list / dict / 4D numpy array):
             list or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing training images
-        labels_all: list / dict / 4D numpy array
+        labels_all (list / dict / 4D numpy array):
             list or dictionary of 3D numpy arrays or 
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent training labels (aka masks aka ground truth)
-        images_test_all: list / dict / 4D numpy array
+        images_test_all (list / dict / 4D numpy array):
             list or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing test images
-        labels_test_all: list / dict / 4D numpy array
+        labels_test_all (list / dict / 4D numpy array):
             list or dictionary of 3D numpy arrays or 
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent test labels (aka masks aka ground truth)
-        batch_size: int
+        batch_size (int):
             size of training and test batches
 
     Returns: 
@@ -221,8 +221,10 @@ def preprocess_training_data(images_all,
 
 
 def torch_format(image_data):
-    '''Reshapes and normalizes (optionally) image data
-    to make it compatible with pytorch format'''
+    """
+    Reshapes and normalizes (optionally) image data
+    to make it compatible with pytorch format
+    """
     image_data = np.expand_dims(image_data, axis=1)
     image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
     image_data = torch.from_numpy(image_data).float()
@@ -230,7 +232,7 @@ def torch_format(image_data):
 
 
 def img_resize(image_data, rs):
-    '''Image resizing'''
+    """Image resizing"""
     if image_data.shape[1:3] == rs:
         return image_data.copy()
     image_data_r = np.zeros(
@@ -242,9 +244,11 @@ def img_resize(image_data, rs):
 
 
 def img_pad(image_data, pooling):
-    '''Pads the image if its size (w, h)
+    """
+    Pads the image if its size (w, h)
     is not divisible by 2**n, where n is a number
-    of pooling layers in a network'''
+    of pooling layers in a network
+    """
     # Pad image rows (height)
     while image_data.shape[1] % pooling != 0:
         d0, _, d2 = image_data.shape
@@ -258,13 +262,13 @@ def img_pad(image_data, pooling):
     return image_data
 
 
-#####################
+######################
 # Atomic coordinates #
-#####################
+######################
 
 
 def find_com(image_data):
-    '''Find atoms via center of mass methods'''
+    """Find atoms via center of mass methods"""
     labels, nlabels = ndimage.label(image_data)
     coordinates = np.array(
         ndimage.center_of_mass(
@@ -359,10 +363,9 @@ def filter_cells(imgdata,
     return filtered_stack
 
 
-
-#####################
+##########################
 # NN structure inference #
-#####################
+##########################
 
 class Hook():
     """
@@ -372,7 +375,7 @@ class Hook():
         understanding-pytorch-hooks/notebook
         
     Args:
-        module: torch modul(single layer or sequential block)
+        module (torch module): single layer or sequential block)
         backward (bool): replace forward_hook with backward_hook
     """
     def __init__(self, module, backward=False):
@@ -390,7 +393,7 @@ class Hook():
 
 
 def mock_forward(model, dims=(1, 64, 64)):
-    '''Passes a dummy variable throuh a network'''
+    """Passes a dummy variable throuh a network"""
     x = torch.randn(1, dims[0], dims[1], dims[2])
     if next(model.parameters()).is_cuda:
         x = x.cuda()
@@ -434,7 +437,7 @@ def plot_coord(img, coord, fsize=6):
 
 
 def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
-    '''Draws boxes cetered around the extracted dedects'''
+    """Draws boxes cetered around the extracted dedects"""
     fig, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
     ax.imshow(imgdata, cmap='gray')
     for point in defcoord:
@@ -448,9 +451,9 @@ def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
     plt.show()
 
 
-#####################
+#############################
 # Training data preparation #
-#####################
+#############################
 
 class MakeAtom:
     """
@@ -458,13 +461,13 @@ class MakeAtom:
     2D Gaussian and a corresponding mask
 
     Args:
-        sc: float 
+        sc (float): 
             scale parameter, which determines Gaussian width
-        intensity: float 
+        intensity (float): 
             parameter of 2D gaussian function
-        theta: float
+        theta (float):
             parameter of 2D gaussian function
-        offset: float:
+        offset (float):
             parameter of 2D gaussian function
     """
     def __init__(self, sc, cfp=2, intensity=1, theta=0, offset=0):
@@ -500,21 +503,21 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     where all atoms are one class. Notice that it will round fractional pixels.
 
     Args:
-        lattice: 2D numpy array
+        lattice (2D numpy array):
             experimental image as 2D numpy array
-        xy_atoms: 2 x N numpy array
+        xy_atoms (2 x N numpy array):
             position of atoms in the experimental data
-        *args: python function
+        *arg (python function):
             function that creates a 2D numpy array with atom and
             corresponding mask for each atomic coordinate. 
 
-            For example,
+            Example:
             >>> def create_atomic_mask(r=7, thresh=.2):
             >>>     atom = MakeAtom(r).atom2dgaussian()
             >>>     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
             >>>     return atom, mask
 
-        **scale: int
+            **scale: int
                 controls the atomic mask size      
 
     Returns:
@@ -572,47 +575,47 @@ class augmentor:
     Applies a sequence of pre-defined operations for data augmentation.
 
     Args:
-        batch_size: int 
+        batch_size (int): 
             number of images in the batch,
-        width: int 
+        width (int): 
             width of images in the batch,
-        height: int
+        height (int):
             height of images in the batch,
-        channels:
+        channels (int):
             number of classes (channels) in the ground truth
-        dim_order_in: str
+        dim_order_in (str):
             channel first or channel last ordering in the input masks
-        dim_order_out: str
+        dim_order_out (str):
             channel first or channel last ordering in the output masks
-        norm: int 
+        norm (bool):
             normalization to (0, 1)
-        seed: int
+        seed (int):
             determenism
-    **Kwargs:
-        flip: bool 
+        **flip (bool): 
             image vertical/horizonal flipping,
-        rotate90: bool
+        **rotate90 (bool):
             rotating image by +- 90 deg
-        zoom: tuple
+        **zoom (tuple):
             values for zooming-in (min height, max height, step);
             assumes height==width
-        noise: dict
+        **noise (dict):
             dictionary of with range of noise values for each type of noise;
             dictionary keys are:
             'poisson', 'gauss', 'blur', 'contrast', 'salt and pepper'.
             For each case, you need to specify the range of values.
             Notice that for poisson noise, 
-            smaller values result in larger noise.   
-         resize: tuple
+            smaller values result in larger noise   
+        **resize (tuple):
             values for image resizing (min height, max height, step);
-            assumes heght==width.
+            assumes heght==width
 
-        Example:
+    Examples:
         Suppose we have a stack of images
         and a stack of masks (aka labels aka ground truth)
         with dimensions (n_images, height, width)
         and (n_images, height, width, channels).
-        We can use the augmentor as follows:
+        We can use the augmentor as follows.
+        
         >>> # Specify size, dimensions
         >>> batch_size = len(labels_all) # here we will pass through the augmentor all data at once
         >>> dim1, dim2, ch = labels_all.shape[1:]

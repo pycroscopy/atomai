@@ -1,4 +1,7 @@
 """
+models.py
+========
+
 Deep learning models and various custom NN blocks
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
@@ -10,26 +13,26 @@ import torch.nn.functional as F
 
 
 class dilUnet(nn.Module):
-    '''
+    """
     Builds a fully convolutional Unet-like neural network model
 
     Args:
-        nb_classes: int
+        nb_classes (int):
             number of classes in the ground truth
-        nb_filters: int
+        nb_filters (int):
             number of filters in 1st convolutional block
             (gets multibplied by 2 in each next block)
-        use_dropout: bool
+        use_dropout (bool):
             use / not use dropout in the 3 inner layers
-        batch_norm: bool
+        batch_norm (bool):
             use / not use batch normalization after each convolutional layer
-        upsampling mode: str
+        upsampling mode (str):
             "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,
             but adds additional (small) randomness;
             for full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
-    '''
+    """
     def __init__(self,
                  nb_classes=1,
                  nb_filters=16,
@@ -117,27 +120,27 @@ class dilUnet(nn.Module):
 
 
 class dilnet(nn.Module):
-    '''
+    """
     Builds  a fully convolutional neural network model
     by utilizing a combination of regular and dilated convolutions
 
     Args:
-        nb_classes: int
+        nb_classes (int):
             number of classes in the ground truth
-        nb_filters: int
+        nb_filters (int):
             number of filters in 1st convolutional block
             (gets multiplied by 2 in each next block)
-        use_dropout: bool
+        use_dropout (bool):
             use / not use dropout in the 3 inner layers
-        batch_norm: bool
+        batch_norm (bool):
             use / not use batch normalization after each convolutional layer
-        upsampling mode: str
+        upsampling mode (str):
             "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,
             but adds additional (small) randomness;
             for full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
-    '''
+    """
 
     def __init__(self,
                  nb_classes=1,
@@ -185,11 +188,11 @@ class dilnet(nn.Module):
 
 
 class conv2dblock(nn.Module):
-    '''
+    """
     Creates block(s) consisting of convolutional
     layer, leaky relu and (optionally) dropout and
     batch normalization
-    '''
+    """
     def __init__(self, nb_layers, input_channels, output_channels,
                  kernel_size=3, stride=1, padding=1, use_batchnorm=False,
                  lrelu_a=0.01, dropout_=0):
@@ -217,12 +220,12 @@ class conv2dblock(nn.Module):
 
 
 class upsample_block(nn.Module):
-    '''
+    """
     Defines upsampling block performed using
     bilinear interpolation followed by 1-by-1
     convolution (the latter can be used to reduce
     a number of feature channels)
-    '''
+    """
     def __init__(self,
                  input_channels,
                  output_channels,
@@ -246,10 +249,10 @@ class upsample_block(nn.Module):
 
 
 class dilated_block(nn.Module):
-    '''
+    """
     Creates a "pyramid" with dilated convolutional
     layers (aka atrous convolutions)
-    '''
+    """
     def __init__(self, input_channels, output_channels,
                  dilation_values, padding_values,
                  kernel_size=3, stride=1, lrelu_a=0.01,
