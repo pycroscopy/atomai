@@ -1,0 +1,1008 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>atomai.utils &#8212; AtomAI 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for atomai.utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">utils.py</span>
+<span class="sd">========</span>
+
+<span class="sd">Utility functions</span>
+
+<span class="sd">Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span><span class="p">,</span> <span class="n">fftpack</span><span class="p">,</span> <span class="n">spatial</span>
+<span class="kn">from</span> <span class="nn">sklearn.feature_extraction.image</span> <span class="kn">import</span> <span class="n">extract_patches_2d</span>
+<span class="kn">from</span> <span class="nn">skimage</span> <span class="kn">import</span> <span class="n">exposure</span>
+<span class="kn">from</span> <span class="nn">skimage.util</span> <span class="kn">import</span> <span class="n">random_noise</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">matplotlib.patches</span> <span class="k">as</span> <span class="nn">patches</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+
+<span class="c1">#####################</span>
+<span class="c1"># Model weights #</span>
+<span class="c1">#####################</span>
+
+
+<span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">weights_path</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads weights saved as pytorch state dictionary into a model skeleton</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        model (pytorch object):</span>
+<span class="sd">            Initialized pytorch model</span>
+<span class="sd">        weights_path (str):</span>
+<span class="sd">            Filepath to trained weights (pytorch state dict)</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Model with trained weights loaded in evaluation state</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; from atomai.utils import load_model</span>
+<span class="sd">        &gt;&gt;&gt; # Path to file with trained weights</span>
+<span class="sd">        &gt;&gt;&gt; weights_path = &#39;/content/simple_model_weights.pt&#39;</span>
+<span class="sd">        &gt;&gt;&gt; # initialize model (by default all models trained are &#39;dilUnet&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; model = models.dilUnet(nb_classes=3)</span>
+<span class="sd">        &gt;&gt;&gt; # load the weights into the model skeleton</span>
+<span class="sd">        &gt;&gt;&gt; model = load_model(model, weights_path)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> 
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">weights_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">weights_path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">)</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">average_weights</span><span class="p">(</span><span class="n">ensemble</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Averages weights of all models in the ensemble</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ensemble (dict):</span>
+<span class="sd">            dictionary with trained weights (model&#39;s state_dict)</span>
+<span class="sd">            of models with exact same architecture.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Average weights (as model&#39;s state_dict)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ensemble_state_dict</span> <span class="o">=</span> <span class="n">ensemble</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">ensemble_state_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+        <span class="n">w_aver</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">ensemble</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="n">w_aver</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="n">ensemble_state_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">w_aver</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">w_aver</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ensemble_state_dict</span>
+
+
+<span class="c1">#######################</span>
+<span class="c1"># GPU characteristics #</span>
+<span class="c1">#######################</span>
+
+
+<span class="k">def</span> <span class="nf">gpu_usage_map</span><span class="p">(</span><span class="n">cuda_device</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the current GPU memory usage</span>
+<span class="sd">    Adapted with changes from</span>
+<span class="sd">    https://discuss.pytorch.org/t/access-gpu-memory-usage-in-pytorch/3192/4</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="s1">&#39;nvidia-smi&#39;</span><span class="p">,</span> <span class="s1">&#39;--id=&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">cuda_device</span><span class="p">),</span>
+            <span class="s1">&#39;--query-gpu=memory.used,memory.total,utilization.gpu&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;--format=csv,nounits,noheader&#39;</span>
+        <span class="p">],</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+    <span class="n">gpu_usage</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">gpu_usage</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+
+
+<span class="c1">#####################</span>
+<span class="c1"># Image preprocessing #</span>
+<span class="c1">#####################</span>
+
+<span class="k">def</span> <span class="nf">preprocess_training_data</span><span class="p">(</span><span class="n">images_all</span><span class="p">,</span>
+                             <span class="n">labels_all</span><span class="p">,</span>
+                             <span class="n">images_test_all</span><span class="p">,</span>
+                             <span class="n">labels_test_all</span><span class="p">,</span>
+                             <span class="n">batch_size</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Preprocess training and test data</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        images_all (list / dict / 4D numpy array):</span>
+<span class="sd">            list or dictionary of 4D numpy arrays or 4D numpy array</span>
+<span class="sd">            (3D image tensors stacked along the first dim)</span>
+<span class="sd">            representing training images</span>
+<span class="sd">        labels_all (list / dict / 4D numpy array):</span>
+<span class="sd">            list or dictionary of 3D numpy arrays or </span>
+<span class="sd">            4D (binary) / 3D (multiclass) numpy array</span>
+<span class="sd">            where 3D / 2D image are tensors stacked along the first dim</span>
+<span class="sd">            which represent training labels (aka masks aka ground truth)</span>
+<span class="sd">        images_test_all (list / dict / 4D numpy array):</span>
+<span class="sd">            list or dictionary of 4D numpy arrays or 4D numpy array</span>
+<span class="sd">            (3D image tensors stacked along the first dim)</span>
+<span class="sd">            representing test images</span>
+<span class="sd">        labels_test_all (list / dict / 4D numpy array):</span>
+<span class="sd">            list or dictionary of 3D numpy arrays or </span>
+<span class="sd">            4D (binary) / 3D (multiclass) numpy array</span>
+<span class="sd">            where 3D / 2D image are tensors stacked along the first dim</span>
+<span class="sd">            which represent test labels (aka masks aka ground truth)</span>
+<span class="sd">        batch_size (int):</span>
+<span class="sd">            size of training and test batches</span>
+
+<span class="sd">    Returns: </span>
+<span class="sd">        4 lists processed with preprocessed training and test data,</span>
+<span class="sd">        number of classes inferred from the data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="nb">type</span><span class="p">(</span><span class="n">images_all</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">labels_all</span><span class="p">)</span>\
+    <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">images_test_all</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">labels_test_all</span><span class="p">),</span>\
+    <span class="s2">&quot;Provide all training and test data in the same format&quot;</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">labels_all</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">lab</span><span class="p">))</span> <span class="k">for</span> <span class="n">lab</span> <span class="ow">in</span> <span class="n">labels_all</span><span class="p">]))</span>
+    <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">labels_all</span><span class="p">)</span> <span class="o">==</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">lab</span><span class="p">))</span> <span class="k">for</span> <span class="n">lab</span> <span class="ow">in</span> <span class="n">labels_all</span><span class="o">.</span><span class="n">values</span><span class="p">()]))</span>
+    <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">labels_all</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">n_train_batches</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divmod</span><span class="p">(</span><span class="n">labels_all</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batch_size</span><span class="p">)</span>
+        <span class="n">n_test_batches</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divmod</span><span class="p">(</span><span class="n">labels_test_all</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batch_size</span><span class="p">)</span>
+        <span class="n">images_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+            <span class="n">images_all</span><span class="p">[:</span><span class="n">n_train_batches</span><span class="o">*</span><span class="n">batch_size</span><span class="p">],</span> <span class="n">n_train_batches</span><span class="p">)</span>
+        <span class="n">labels_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+            <span class="n">labels_all</span><span class="p">[:</span><span class="n">n_train_batches</span><span class="o">*</span><span class="n">batch_size</span><span class="p">],</span> <span class="n">n_train_batches</span><span class="p">)</span>
+        <span class="n">images_test_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+            <span class="n">images_test_all</span><span class="p">[:</span><span class="n">n_test_batches</span><span class="o">*</span><span class="n">batch_size</span><span class="p">],</span> <span class="n">n_test_batches</span><span class="p">)</span>
+        <span class="n">labels_test_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+            <span class="n">labels_test_all</span><span class="p">[:</span><span class="n">n_test_batches</span><span class="o">*</span><span class="n">batch_size</span><span class="p">],</span> <span class="n">n_test_batches</span><span class="p">)</span>
+        <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">lab</span><span class="p">))</span> <span class="k">for</span> <span class="n">lab</span> <span class="ow">in</span> <span class="n">labels_all</span><span class="p">]))</span>    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;Provide training and test data as python list (or dictionary)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;of numpy arrays or as 4D (images)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;and 4D/3D (labels for single/multi class) numpy arrays&quot;</span>
+        <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">num_classes</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">,</span>\
+    <span class="s2">&quot;Confirm that you have a class corresponding to background&quot;</span>
+    <span class="n">num_classes</span> <span class="o">=</span> <span class="n">num_classes</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">num_classes</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">num_classes</span>
+
+    <span class="n">imshapes_train</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">im</span> <span class="ow">in</span> <span class="n">images_all</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">imshapes_train</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span>\
+    <span class="s2">&quot;All training images must have the same dimensionality&quot;</span>
+    <span class="n">imshapes_test</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">im</span> <span class="ow">in</span> <span class="n">images_test_all</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">imshapes_test</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span>\
+    <span class="s2">&quot;All test images must have the same dimensionality&quot;</span>
+    <span class="k">if</span> <span class="n">imshapes_train</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s1">&#39;Adding a channel dimension of 1 to training images&#39;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span>
+        <span class="p">)</span>
+        <span class="n">images_all_e</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">im</span> <span class="ow">in</span> <span class="n">images_all</span><span class="p">]</span>
+        <span class="n">images_all</span> <span class="o">=</span> <span class="n">images_all_e</span>
+    <span class="k">if</span> <span class="n">imshapes_test</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s1">&#39;Adding a channel dimension of 1 to test images&#39;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span>
+        <span class="p">)</span>
+        <span class="n">images_test_all_e</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">im</span> <span class="ow">in</span> <span class="n">images_test_all</span><span class="p">]</span>
+        <span class="n">images_test_all</span> <span class="o">=</span> <span class="n">images_test_all_e</span>
+    
+    <span class="n">lshapes_train</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">l</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">labels_all</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">lshapes_train</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span>\
+    <span class="s2">&quot;All labels must have the same dimensionality&quot;</span>
+    <span class="n">lshapes_test</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">l</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">labels_test_all</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">lshapes_test</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span>\
+    <span class="s2">&quot;All labels must have the same dimensionality&quot;</span>
+    <span class="k">if</span> <span class="n">num_classes</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">lshapes_train</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s1">&#39;Adding a channel dimension of 1 to training labels&#39;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span>
+        <span class="p">)</span>
+        <span class="n">labels_all_e</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">labels_all</span><span class="p">]</span>
+        <span class="n">labels_all</span> <span class="o">=</span> <span class="n">labels_all_e</span>
+    <span class="k">if</span> <span class="n">num_classes</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">lshapes_test</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s1">&#39;Adding a channel dimension of 1 to test labels&#39;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span>
+        <span class="p">)</span>
+        <span class="n">labels_test_all_e</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">labels_test_all</span><span class="p">]</span>
+        <span class="n">labels_test_all</span> <span class="o">=</span> <span class="n">labels_test_all_e</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">images_all</span><span class="p">,</span> <span class="n">labels_all</span><span class="p">,</span> 
+            <span class="n">images_test_all</span><span class="p">,</span> <span class="n">labels_test_all</span><span class="p">,</span>
+            <span class="n">num_classes</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">torch_format</span><span class="p">(</span><span class="n">image_data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reshapes and normalizes (optionally) image data</span>
+<span class="sd">    to make it compatible with pytorch format</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">image_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">image_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">image_data</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="n">image_data</span><span class="p">))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span>
+    <span class="n">image_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">image_data</span>
+
+
+<span class="k">def</span> <span class="nf">img_resize</span><span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">rs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Image resizing&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">image_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="n">rs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">image_data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">image_data_r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">image_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rs</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">img</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">image_data</span><span class="p">):</span>
+        <span class="n">img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="p">(</span><span class="n">rs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rs</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">image_data_r</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">img</span>
+    <span class="k">return</span> <span class="n">image_data_r</span>
+
+
+<span class="k">def</span> <span class="nf">img_pad</span><span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">pooling</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pads the image if its size (w, h)</span>
+<span class="sd">    is not divisible by 2**n, where n is a number</span>
+<span class="sd">    of pooling layers in a network</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Pad image rows (height)</span>
+    <span class="k">while</span> <span class="n">image_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">%</span> <span class="n">pooling</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">d0</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">d2</span> <span class="o">=</span> <span class="n">image_data</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">image_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">d0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">d2</span><span class="p">))),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># Pad image columns (width)</span>
+    <span class="k">while</span> <span class="n">image_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">%</span> <span class="n">pooling</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">image_data</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">image_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">image_data</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">d0</span><span class="p">,</span> <span class="n">d1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">image_data</span>
+
+
+<span class="c1">######################</span>
+<span class="c1"># Atomic coordinates #</span>
+<span class="c1">######################</span>
+
+
+<span class="k">def</span> <span class="nf">find_com</span><span class="p">(</span><span class="n">image_data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Find atoms via center of mass methods&quot;&quot;&quot;</span>
+    <span class="n">labels</span><span class="p">,</span> <span class="n">nlabels</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="n">image_data</span><span class="p">)</span>
+    <span class="n">coordinates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="n">ndimage</span><span class="o">.</span><span class="n">center_of_mass</span><span class="p">(</span>
+            <span class="n">image_data</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nlabels</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">coordinates</span> <span class="o">=</span> <span class="n">coordinates</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">coordinates</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">coordinates</span>
+
+
+<span class="k">def</span> <span class="nf">compare_coordinates</span><span class="p">(</span><span class="n">coordinates1</span><span class="p">,</span>
+                        <span class="n">coordinates2</span><span class="p">,</span>
+                        <span class="n">d_max</span><span class="p">,</span>
+                        <span class="n">plot_results</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Finds difference between predicted (&#39;coordinates1&#39;)</span>
+<span class="sd">    and &quot;true&quot; (&#39;coordinates2&#39;) coordinates using scipy.spatialcKDTree method.</span>
+<span class="sd">    Use &#39;d_max&#39; to set maximum search radius. If plotting, pass figure size</span>
+<span class="sd">    and experimental image using keyword arguments &#39;fsize&#39; and &#39;expdata&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">coordinates1_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">coordinates2_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">delta_r</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coordinates1</span><span class="p">:</span>
+        <span class="n">dist</span><span class="p">,</span> <span class="n">idx</span> <span class="o">=</span> <span class="n">spatial</span><span class="o">.</span><span class="n">cKDTree</span><span class="p">(</span><span class="n">coordinates2</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dist</span> <span class="o">&lt;</span> <span class="n">d_max</span><span class="p">:</span>
+            <span class="n">coordinates1_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">coordinates1_</span><span class="p">,</span> <span class="p">[</span><span class="n">c</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">coordinates2_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">coordinates2_</span><span class="p">,</span> <span class="p">[</span><span class="n">coordinates2</span><span class="p">[</span><span class="n">idx</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">delta_r</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dist</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">plot_results</span><span class="p">:</span>
+        <span class="n">fsize</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fsize&#39;</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+        <span class="n">expdata</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;expdata&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">expdata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>\
+        <span class="s2">&quot;For plotting, provide 2D image via &#39;expdata&#39; keyword&quot;</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">fsize</span><span class="o">*</span><span class="mf">1.25</span><span class="p">),</span> <span class="n">fsize</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">expdata</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+        <span class="n">im</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">coordinates1_</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">coordinates1_</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> 
+            <span class="n">c</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">delta_r</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">clrbar</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">)</span>
+        <span class="n">clrbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s1">&#39;Position deviation (px)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">coordinates1_</span><span class="p">,</span> <span class="n">coordinates2_</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">delta_r</span><span class="p">)</span>
+            
+
+<span class="k">def</span> <span class="nf">cv_thresh</span><span class="p">(</span><span class="n">imgdata</span><span class="p">,</span>
+              <span class="n">threshold</span><span class="o">=.</span><span class="mi">5</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper for opencv binary threshold method.</span>
+<span class="sd">    Returns thresholded image.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">thresh</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span>
+                    <span class="n">imgdata</span><span class="p">,</span> 
+                    <span class="n">threshold</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> 
+                    <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_BINARY</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">thresh</span>
+
+
+<span class="k">def</span> <span class="nf">filter_cells_</span><span class="p">(</span><span class="n">imgdata</span><span class="p">,</span> 
+                  <span class="n">im_thresh</span><span class="o">=.</span><span class="mi">5</span><span class="p">,</span> 
+                  <span class="n">blob_thresh</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> 
+                  <span class="n">filter_</span><span class="o">=</span><span class="s1">&#39;above&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Filters out blobs above/below cetrain size</span>
+<span class="sd">    in the thresholded neural network output</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">imgdata</span> <span class="o">=</span> <span class="n">cv_thresh</span><span class="p">(</span><span class="n">imgdata</span><span class="p">,</span> <span class="n">im_thresh</span><span class="p">)</span>
+    <span class="n">label_img</span><span class="p">,</span> <span class="n">cc_num</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="n">imgdata</span><span class="p">)</span>
+    <span class="n">cc_areas</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">imgdata</span><span class="p">,</span> <span class="n">label_img</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="n">cc_num</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">filter</span> <span class="o">==</span> <span class="s1">&#39;above&#39;</span><span class="p">:</span>
+        <span class="n">area_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">cc_areas</span> <span class="o">&gt;</span> <span class="n">blob_thresh</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">area_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">cc_areas</span> <span class="o">&lt;</span> <span class="n">blob_thresh</span><span class="p">)</span>
+    <span class="n">label_img</span><span class="p">[</span><span class="n">area_mask</span><span class="p">[</span><span class="n">label_img</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">label_img</span><span class="p">[</span><span class="n">label_img</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">label_img</span>
+
+
+<span class="k">def</span> <span class="nf">filter_cells</span><span class="p">(</span><span class="n">imgdata</span><span class="p">,</span> 
+                 <span class="n">im_thresh</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                 <span class="n">blob_thresh</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+                 <span class="n">filter_</span><span class="o">=</span><span class="s1">&#39;above&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Filters blobs above/below certain size</span>
+<span class="sd">    for each image in the stack.</span>
+<span class="sd">    The &#39;imgdata&#39; must have dimensions (n x h x w).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">filtered_stack</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">imgdata</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">img</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">imgdata</span><span class="p">):</span>
+        <span class="n">filtered_stack</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">filter_cells_</span><span class="p">(</span>
+            <span class="n">img</span><span class="p">,</span> <span class="n">im_thresh</span><span class="p">,</span> <span class="n">blob_thresh</span><span class="p">,</span> <span class="n">filter_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">filtered_stack</span>
+
+
+<span class="c1">##########################</span>
+<span class="c1"># NN structure inference #</span>
+<span class="c1">##########################</span>
+
+<span class="k">class</span> <span class="nc">Hook</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the input and output of a</span>
+<span class="sd">    layer during forward/backward pass</span>
+<span class="sd">    see https://www.kaggle.com/sironghuang/</span>
+<span class="sd">        understanding-pytorch-hooks/notebook</span>
+<span class="sd">        </span>
+<span class="sd">    Args:</span>
+<span class="sd">        module (torch module): single layer or sequential block)</span>
+<span class="sd">        backward (bool): replace forward_hook with backward_hook</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">backward</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">backward</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hook</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">register_forward_hook</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hook_fn</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hook</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">register_backward_hook</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hook_fn</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">hook_fn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input</span> <span class="o">=</span> <span class="nb">input</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="n">output</span>
+
+    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hook</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">mock_forward</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)):</span>
+    <span class="sd">&quot;&quot;&quot;Passes a dummy variable throuh a network&quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dims</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">next</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span><span class="o">.</span><span class="n">is_cuda</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">cuda</span><span class="p">()</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span> <span class="nf">get_nb_classes</span><span class="p">(</span><span class="n">weights_path</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the number of classes used in trained AtomAI models</span>
+<span class="sd">    from the loaded weights.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">weights_path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">)</span>
+    <span class="n">last_layer</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">checkpoint</span><span class="o">.</span><span class="n">keys</span><span class="p">()][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">[</span><span class="n">last_layer</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+
+
+<span class="c1">#####################</span>
+<span class="c1"># Vizualization #</span>
+<span class="c1">#####################</span>
+
+<span class="k">def</span> <span class="nf">plot_losses</span><span class="p">(</span><span class="n">train_loss</span><span class="p">,</span> <span class="n">test_loss</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plots train and test losses&quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Plotting training history&#39;</span><span class="p">)</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">train_loss</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Train&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">test_loss</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Test&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Epoch&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Loss&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">plot_coord</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">coord</span><span class="p">,</span> <span class="n">fsize</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plots coordinates (colored according to atom class)&quot;&quot;&quot;</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">coord</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">fsize</span><span class="p">,</span> <span class="n">fsize</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdYlGn&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">draw_boxes</span><span class="p">(</span><span class="n">imgdata</span><span class="p">,</span> <span class="n">defcoord</span><span class="p">,</span> <span class="n">bbox</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">fsize</span><span class="o">=</span><span class="mi">6</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Draws boxes cetered around the extracted dedects&quot;&quot;&quot;</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">fsize</span><span class="p">,</span> <span class="n">fsize</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">imgdata</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">defcoord</span><span class="p">:</span>
+        <span class="n">startx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">bbox</span><span class="p">))</span>
+        <span class="n">starty</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bbox</span><span class="p">))</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">patches</span><span class="o">.</span><span class="n">Rectangle</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">starty</span><span class="p">,</span> <span class="n">startx</span><span class="p">),</span> <span class="n">bbox</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">bbox</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">fill</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s1">&#39;orange&#39;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+
+<span class="c1">#############################</span>
+<span class="c1"># Training data preparation #</span>
+<span class="c1">#############################</span>
+
+<span class="k">class</span> <span class="nc">MakeAtom</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates an image of atom modelled as</span>
+<span class="sd">    2D Gaussian and a corresponding mask</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        sc (float): </span>
+<span class="sd">            scale parameter, which determines Gaussian width</span>
+<span class="sd">        intensity (float): </span>
+<span class="sd">            parameter of 2D gaussian function</span>
+<span class="sd">        theta (float):</span>
+<span class="sd">            parameter of 2D gaussian function</span>
+<span class="sd">        offset (float):</span>
+<span class="sd">            parameter of 2D gaussian function</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sc</span><span class="p">,</span> <span class="n">cfp</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">intensity</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">theta</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">sc</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">sc</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xo</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">yo</span> <span class="o">=</span> <span class="n">sc</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">sc</span><span class="o">/</span><span class="mi">2</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sc</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sc</span><span class="p">,</span> <span class="n">sc</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma_y</span> <span class="o">=</span> <span class="n">sc</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span> <span class="n">sc</span><span class="o">/</span><span class="mi">4</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">theta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">offset</span> <span class="o">=</span> <span class="n">offset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">intensity</span> <span class="o">=</span> <span class="n">intensity</span>
+    
+    <span class="k">def</span> <span class="nf">atom2dgaussian</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Models atom as 2d Gaussian&#39;&#39;&#39;</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span>\
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span>\
+             <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span>\
+            <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">intensity</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span>
+            <span class="o">-</span><span class="p">(</span><span class="n">a</span><span class="o">*</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">xo</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">b</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">xo</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">yo</span><span class="p">)</span> <span class="o">+</span>\
+            <span class="n">c</span><span class="o">*</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">yo</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">g</span>
+
+
+<span class="k">def</span> <span class="nf">create_lattice_mask</span><span class="p">(</span><span class="n">lattice</span><span class="p">,</span> <span class="n">xy_atoms</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given experimental image and xy atomic coordinates</span>
+<span class="sd">    creates ground truth image. Currently works only for the case</span>
+<span class="sd">    where all atoms are one class. Notice that it will round fractional pixels.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lattice (2D numpy array):</span>
+<span class="sd">            experimental image as 2D numpy array</span>
+<span class="sd">        xy_atoms (2 x N numpy array):</span>
+<span class="sd">            position of atoms in the experimental data</span>
+<span class="sd">        *arg (python function):</span>
+<span class="sd">            function that creates a 2D numpy array with atom and</span>
+<span class="sd">            corresponding mask for each atomic coordinate. </span>
+
+<span class="sd">            Example:</span>
+<span class="sd">            &gt;&gt;&gt; def create_atomic_mask(r=7, thresh=.2):</span>
+<span class="sd">            &gt;&gt;&gt;     atom = MakeAtom(r).atom2dgaussian()</span>
+<span class="sd">            &gt;&gt;&gt;     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)</span>
+<span class="sd">            &gt;&gt;&gt;     return atom, mask</span>
+
+<span class="sd">            **scale: int</span>
+<span class="sd">                controls the atomic mask size      </span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        2D numpy array with ground truth data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">create_mask_func</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">create_mask_func</span> <span class="o">=</span> <span class="n">create_atom_mask_pair</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scale&quot;</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+    <span class="n">lattice_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">lattice</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">xy_atoms</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">xy_atoms</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">create_mask_func</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+        <span class="n">r_m</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">r_m1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">r_m</span> <span class="o">+</span> <span class="o">.</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">r_m2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">r_m</span> <span class="o">-</span> <span class="o">.</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">lattice_mask</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="n">r_m1</span><span class="p">:</span><span class="n">x</span><span class="o">+</span><span class="n">r_m2</span><span class="p">,</span> <span class="n">y</span><span class="o">-</span><span class="n">r_m1</span><span class="p">:</span><span class="n">y</span><span class="o">+</span><span class="n">r_m2</span><span class="p">]</span> <span class="o">=</span> <span class="n">mask</span>
+    <span class="k">return</span> <span class="n">lattice_mask</span>
+
+
+<span class="k">def</span> <span class="nf">create_atom_mask_pair</span><span class="p">(</span><span class="n">r</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">thresh</span><span class="o">=.</span><span class="mi">2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function for creating atomic masks</span>
+<span class="sd">    from 2D gaussian via simple thresholding</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">atom</span> <span class="o">=</span> <span class="n">MakeAtom</span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="o">.</span><span class="n">atom2dgaussian</span><span class="p">()</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="n">thresh</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_BINARY</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">atom</span><span class="p">,</span> <span class="n">mask</span>
+
+
+<span class="k">def</span> <span class="nf">extract_patches_</span><span class="p">(</span><span class="n">lattice_im</span><span class="p">,</span> <span class="n">lattice_mask</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">num_patches</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extracts subimages of the selected size from the &#39;mother images&#39; of</span>
+<span class="sd">    atomic lattice and the corresponding mask</span>
+<span class="sd">    (atomic contours with constant pixel values)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">patch_size</span><span class="p">)</span> <span class="o">==</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="n">patch_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">patch_size</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">)</span>
+    <span class="n">images</span> <span class="o">=</span> <span class="n">extract_patches_2d</span><span class="p">(</span>
+        <span class="n">lattice_im</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">max_patches</span><span class="o">=</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">extract_patches_2d</span><span class="p">(</span>
+        <span class="n">lattice_mask</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">max_patches</span><span class="o">=</span><span class="n">num_patches</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">images</span><span class="p">,</span> <span class="n">labels</span>
+
+
+<div class="viewcode-block" id="augmentor"><a class="viewcode-back" href="../../utils.html#atomai.utils.augmentor">[docs]</a><span class="k">class</span> <span class="nc">augmentor</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Applies a sequence of pre-defined operations for data augmentation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        batch_size (int): </span>
+<span class="sd">            number of images in the batch,</span>
+<span class="sd">        width (int): </span>
+<span class="sd">            width of images in the batch,</span>
+<span class="sd">        height (int):</span>
+<span class="sd">            height of images in the batch,</span>
+<span class="sd">        channels (int):</span>
+<span class="sd">            number of classes (channels) in the ground truth</span>
+<span class="sd">        dim_order_in (str):</span>
+<span class="sd">            channel first or channel last ordering in the input masks</span>
+<span class="sd">        dim_order_out (str):</span>
+<span class="sd">            channel first or channel last ordering in the output masks</span>
+<span class="sd">        norm (bool):</span>
+<span class="sd">            normalization to (0, 1)</span>
+<span class="sd">        seed (int):</span>
+<span class="sd">            determenism</span>
+<span class="sd">        **flip (bool): </span>
+<span class="sd">            image vertical/horizonal flipping,</span>
+<span class="sd">        **rotate90 (bool):</span>
+<span class="sd">            rotating image by +- 90 deg</span>
+<span class="sd">        **zoom (tuple):</span>
+<span class="sd">            values for zooming-in (min height, max height, step);</span>
+<span class="sd">            assumes height==width</span>
+<span class="sd">        **noise (dict):</span>
+<span class="sd">            dictionary of with range of noise values for each type of noise;</span>
+<span class="sd">            dictionary keys are:</span>
+<span class="sd">            &#39;poisson&#39;, &#39;gauss&#39;, &#39;blur&#39;, &#39;contrast&#39;, &#39;salt and pepper&#39;.</span>
+<span class="sd">            For each case, you need to specify the range of values.</span>
+<span class="sd">            Notice that for poisson noise, </span>
+<span class="sd">            smaller values result in larger noise   </span>
+<span class="sd">        **resize (tuple):</span>
+<span class="sd">            values for image resizing (min height, max height, step);</span>
+<span class="sd">            assumes heght==width</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        Suppose we have a stack of images</span>
+<span class="sd">        and a stack of masks (aka labels aka ground truth)</span>
+<span class="sd">        with dimensions (n_images, height, width)</span>
+<span class="sd">        and (n_images, height, width, channels).</span>
+<span class="sd">        We can use the augmentor as follows.</span>
+<span class="sd">        </span>
+<span class="sd">        &gt;&gt;&gt; # Specify size, dimensions</span>
+<span class="sd">        &gt;&gt;&gt; batch_size = len(labels_all) # here we will pass through the augmentor all data at once</span>
+<span class="sd">        &gt;&gt;&gt; dim1, dim2, ch = labels_all.shape[1:]</span>
+<span class="sd">        &gt;&gt;&gt; # Define image distortion/noise parameters</span>
+<span class="sd">        &gt;&gt;&gt; zoom = (256-128, 256+1, 8)</span>
+<span class="sd">        &gt;&gt;&gt; noise_dict = {}</span>
+<span class="sd">        &gt;&gt;&gt; noise_dict[&#39;poisson&#39;] = (80, 130)</span>
+<span class="sd">        &gt;&gt;&gt; noise_dict[&#39;gauss&#39;] = (1, 400)</span>
+<span class="sd">        &gt;&gt;&gt; noise_dict[&#39;blur&#39;] = (1, 40)</span>
+<span class="sd">        &gt;&gt;&gt; noise_dict[&#39;contrast&#39;] = (50, 400)</span>
+<span class="sd">        &gt;&gt;&gt; noise_dict[&#39;salt and pepper&#39;] = (1, 50)</span>
+<span class="sd">        &gt;&gt;&gt; # Run the augmentor</span>
+<span class="sd">        &gt;&gt;&gt; imaug = augmentor(</span>
+<span class="sd">        &gt;&gt;&gt;    batch_size=batch_size, width=dim1, height=dim2, n_channels=ch,</span>
+<span class="sd">        &gt;&gt;&gt;    dim_order_in=&#39;channel_last&#39;, dim_order_out=&#39;channel_first&#39;, </span>
+<span class="sd">        &gt;&gt;&gt;    noise=noise_dict, zoom=zoom, flip=True, squeeze=True)</span>
+<span class="sd">        &gt;&gt;&gt; images_all, labels_all = imaug.run(images_all, labels_all)  </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span>
+                 <span class="n">n_channels</span><span class="p">,</span> <span class="n">dim_order_in</span><span class="o">=</span><span class="s1">&#39;channel_last&#39;</span><span class="p">,</span> 
+                 <span class="n">dim_order_out</span><span class="o">=</span><span class="s1">&#39;channel_first&#39;</span><span class="p">,</span> <span class="n">squeeze</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span> <span class="o">=</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ch</span> <span class="o">=</span> <span class="n">n_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim_order_in</span> <span class="o">=</span> <span class="n">dim_order_in</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim_order_out</span> <span class="o">=</span> <span class="n">dim_order_out</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">squeeze</span> <span class="o">=</span> <span class="n">squeeze</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flip</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;flip&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rotate90</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rotate90&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zoom</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;zoom&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">noise</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;noise&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resize</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;resize&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+<div class="viewcode-block" id="augmentor.run"><a class="viewcode-back" href="../../utils.html#atomai.utils.augmentor.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Applies a sequence of augmentation procedures</span>
+<span class="sd">        to images and (except for noise) ground truth</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_order_in</span> <span class="o">==</span> <span class="s1">&#39;channel_first&#39;</span><span class="p">:</span>
+            <span class="n">masks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">masks</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_order_in</span> <span class="o">==</span> <span class="s1">&#39;channel_last&#39;</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Use &#39;channel_first&#39; or &#39;channel_last&#39;&quot;</span><span class="p">)</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="p">(</span><span class="n">images</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="n">images</span><span class="p">))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flip</span><span class="p">:</span>
+            <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_flip</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_noise</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zoom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_zoom</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_resize</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">squeeze</span><span class="p">:</span>
+            <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">squeeze_data</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_order_out</span> <span class="o">==</span> <span class="s1">&#39;channel_first&#39;</span><span class="p">:</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">squeeze</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">ch</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">masks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">masks</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim_order_out</span> <span class="o">==</span> <span class="s1">&#39;channel_last&#39;</span><span class="p">:</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Use &#39;channel_first&#39; or &#39;channel_last&#39;&quot;</span><span class="p">)</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="p">(</span><span class="n">images</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="n">images</span><span class="p">))</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">ptp</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">images</span><span class="p">,</span> <span class="n">masks</span></div>
+
+<div class="viewcode-block" id="augmentor.batch_noise"><a class="viewcode-back" href="../../utils.html#atomai.utils.augmentor.batch_noise">[docs]</a>    <span class="k">def</span> <span class="nf">batch_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span><span class="p">,):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Takes an image stack and applies</span>
+<span class="sd">        various types of noise to each image</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">make_pnoise</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">l</span><span class="p">):</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">image</span><span class="p">))</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="p">(</span><span class="n">l</span><span class="o">/</span><span class="mi">50</span><span class="p">)</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">vals</span><span class="p">))</span>
+            <span class="n">image_n_filt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">image</span> <span class="o">*</span> <span class="n">vals</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">vals</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">image_n_filt</span>
+        <span class="n">pnoise_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise</span><span class="p">[</span><span class="s1">&#39;poisson&#39;</span><span class="p">]</span>
+        <span class="n">spnoise_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise</span><span class="p">[</span><span class="s1">&#39;salt and pepper&#39;</span><span class="p">]</span>
+        <span class="n">gnoise_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise</span><span class="p">[</span><span class="s1">&#39;gauss&#39;</span><span class="p">]</span>
+        <span class="n">blevel_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise</span><span class="p">[</span><span class="s1">&#39;blur&#39;</span><span class="p">]</span>
+        <span class="n">c_level_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">noise</span><span class="p">[</span><span class="s1">&#39;contrast&#39;</span><span class="p">]</span>
+        <span class="n">X_batch_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">img</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">X_batch</span><span class="p">):</span>
+            <span class="n">pnoise</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">pnoise_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pnoise_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">spnoise</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">spnoise_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">spnoise_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">gnoise</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">gnoise_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">gnoise_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">blevel</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">blevel_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">blevel_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">clevel</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">c_level_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c_level_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">filters</span><span class="o">.</span><span class="n">gaussian_filter</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">blevel</span><span class="o">*</span><span class="mf">1e-2</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">make_pnoise</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">pnoise</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">random_noise</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;gaussian&#39;</span><span class="p">,</span> <span class="n">var</span><span class="o">=</span><span class="n">gnoise</span><span class="o">*</span><span class="mf">1e-4</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">random_noise</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;pepper&#39;</span><span class="p">,</span> <span class="n">amount</span><span class="o">=</span><span class="n">spnoise</span><span class="o">*</span><span class="mf">1e-4</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">random_noise</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;salt&#39;</span><span class="p">,</span> <span class="n">amount</span><span class="o">=</span><span class="n">spnoise</span><span class="o">*</span><span class="mf">5e-5</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">exposure</span><span class="o">.</span><span class="n">adjust_gamma</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">clevel</span><span class="o">*</span><span class="mf">1e-2</span><span class="p">)</span>
+            <span class="n">X_batch_a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">img</span>
+        <span class="k">return</span> <span class="n">X_batch_a</span><span class="p">,</span> <span class="n">y_batch</span></div>
+
+<div class="viewcode-block" id="augmentor.batch_zoom"><a class="viewcode-back" href="../../utils.html#atomai.utils.augmentor.batch_zoom">[docs]</a>    <span class="k">def</span> <span class="nf">batch_zoom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Crops and then resizes to the original size</span>
+<span class="sd">        all images in one batch</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">zoom_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zoom</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">zoom</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">zoom</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">X_batch_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">))</span>
+        <span class="n">y_batch_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ch</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">gt</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span><span class="p">)):</span>
+            <span class="n">rs</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">zoom_list</span><span class="p">)</span>
+            <span class="n">w1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="o">-</span><span class="n">rs</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">w2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rs</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="o">-</span><span class="n">rs</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">h1</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="o">-</span><span class="n">rs</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">h2</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">rs</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="o">-</span><span class="n">rs</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">img</span><span class="p">[</span><span class="n">w1</span><span class="p">:</span><span class="n">w2</span><span class="p">,</span> <span class="n">h1</span><span class="p">:</span><span class="n">h2</span><span class="p">]</span>
+            <span class="n">gt</span> <span class="o">=</span> <span class="n">gt</span><span class="p">[</span><span class="n">w1</span><span class="p">:</span><span class="n">w2</span><span class="p">,</span> <span class="n">h1</span><span class="p">:</span><span class="n">h2</span><span class="p">]</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">))</span>
+            <span class="n">gt</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">))</span>
+            <span class="c1">#_, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)</span>
+            <span class="n">gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">gt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gt</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">X_batch_a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">img</span>
+            <span class="n">y_batch_a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">gt</span>
+        <span class="k">return</span> <span class="n">X_batch_a</span><span class="p">,</span> <span class="n">y_batch_a</span></div>
+
+<div class="viewcode-block" id="augmentor.batch_flip"><a class="viewcode-back" href="../../utils.html#atomai.utils.augmentor.batch_flip">[docs]</a>    <span class="k">def</span> <span class="nf">batch_flip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flips and rotates all images and in one batch</span>
+<span class="sd">        and correponding labels (ground truth)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">X_batch_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">))</span>
+        <span class="n">y_batch_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ch</span><span class="p">))</span>
+        <span class="n">int_r</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotate90</span> <span class="k">else</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">gt</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span><span class="p">)):</span>
+            <span class="n">flip_type</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">int_r</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">int_r</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">flip_type</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">ROTATE_90_CLOCKWISE</span><span class="p">)</span>
+                <span class="n">gt</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">ROTATE_90_CLOCKWISE</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">flip_type</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">ROTATE_90_COUNTERCLOCKWISE</span><span class="p">)</span>
+                <span class="n">gt</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">ROTATE_90_COUNTERCLOCKWISE</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">flip_type</span><span class="p">)</span>
+                <span class="n">gt</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="n">flip_type</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gt</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">X_batch_a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">img</span>
+            <span class="n">y_batch_a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">gt</span>
+        <span class="k">return</span> <span class="n">X_batch_a</span><span class="p">,</span> <span class="n">y_batch_a</span></div>
+
+<div class="viewcode-block" id="augmentor.batch_resize"><a class="viewcode-back" href="../../utils.html#atomai.utils.augmentor.batch_resize">[docs]</a>    <span class="k">def</span> <span class="nf">batch_resize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Resize all images in one batch and</span>
+<span class="sd">        corresponding labels (ground truth)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rs_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">resize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">rs</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">rs_arr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">X_batch</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">rs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span>
+        <span class="n">X_batch_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">rs</span><span class="p">,</span> <span class="n">rs</span><span class="p">))</span>
+        <span class="n">y_batch_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">rs</span><span class="p">,</span> <span class="n">rs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ch</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">gt</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">X_batch</span><span class="p">,</span> <span class="n">y_batch</span><span class="p">)):</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">rs</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">INTER_CUBIC</span><span class="p">)</span>
+            <span class="n">gt</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">rs</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">INTER_CUBIC</span><span class="p">)</span>
+            <span class="c1">#_, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)</span>
+            <span class="n">gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">gt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gt</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">gt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">X_batch_a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">img</span>
+            <span class="n">y_batch_a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">gt</span>
+        <span class="k">return</span> <span class="n">X_batch_a</span><span class="p">,</span> <span class="n">y_batch_a</span></div>
+
+<div class="viewcode-block" id="augmentor.squeeze_data"><a class="viewcode-back" href="../../utils.html#atomai.utils.augmentor.squeeze_data">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">squeeze_data</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Squeezes channels in each training image and</span>
+<span class="sd">        filters out image-label pairs where some pixels have multiple values.</span>
+<span class="sd">        As a result the number of image-label-pairs returned may be different</span>
+<span class="sd">        from the number of image-label pairs in the original data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">squeeze_channels</span><span class="p">(</span><span class="n">label</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Squeezes multiple channel into a single channel for a single label</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">label_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">label</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">label</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">label_</span> <span class="o">+=</span> <span class="n">label</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">c</span><span class="p">]</span> <span class="o">*</span> <span class="n">c</span>
+            <span class="k">return</span> <span class="n">label_</span>
+
+        <span class="k">if</span> <span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">images</span><span class="p">,</span> <span class="n">labels</span>
+        <span class="n">images_valid</span><span class="p">,</span> <span class="n">labels_valid</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">image</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">images</span><span class="p">):</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">squeeze_channels</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">label</span><span class="p">))</span> <span class="o">==</span> <span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">labels_valid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+                <span class="n">images_valid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">images_valid</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">labels_valid</span><span class="p">)</span> </div></div>
+
+
+<span class="k">def</span> <span class="nf">squeeze_channels_</span><span class="p">(</span><span class="n">y_train</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Squeezes multiple channel into a single channel for a batch of labels.</span>
+<span class="sd">    Assumes &#39;channel first ordering&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">y_train_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">y_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">y_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]))</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">y_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">y_train_</span> <span class="o">+=</span> <span class="n">y_train</span><span class="p">[:,</span> <span class="n">c</span><span class="p">]</span> <span class="o">*</span> <span class="n">c</span>
+    <span class="k">return</span> <span class="n">y_train_</span>
+
+
+<span class="k">def</span> <span class="nf">squeeze_data_</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Squeezes channels in each training image and</span>
+<span class="sd">    filters out image-label pairs where some pixels have multiple values.</span>
+<span class="sd">    As a result the number of image-label-pairs returned may be different</span>
+<span class="sd">    from the number of image-label pairs in the original data.</span>
+<span class="sd">    Assumes &#39;channel first&#39; ordering</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">images</span><span class="p">,</span> <span class="n">labels</span>
+    <span class="n">images_valid</span><span class="p">,</span> <span class="n">labels_valid</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">image</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">images</span><span class="p">):</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">squeeze_channels_</span><span class="p">(</span><span class="n">label</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+        <span class="n">unique_labels</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">label</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">unique_labels</span> <span class="o">==</span> <span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">labels_valid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+            <span class="n">images_valid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">image</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">images_valid</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">labels_valid</span><span class="p">)</span> 
+
+    
+<span class="k">def</span> <span class="nf">FFTmask</span><span class="p">(</span><span class="n">imgsrc</span><span class="p">,</span> <span class="n">maskratio</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes a square real space image and filter out a disk with radius equal to:</span>
+<span class="sd">    1/maskratio * image size.</span>
+<span class="sd">    Retruns FFT transform of the image and the filtered FFT transform</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Take the fourier transform of the image.</span>
+    <span class="n">F1</span> <span class="o">=</span> <span class="n">fftpack</span><span class="o">.</span><span class="n">fft2</span><span class="p">((</span><span class="n">imgsrc</span><span class="p">))</span>
+    <span class="c1"># Now shift so that low spatial frequencies are in the center.</span>
+    <span class="n">F2</span> <span class="o">=</span> <span class="p">(</span><span class="n">fftpack</span><span class="o">.</span><span class="n">fftshift</span><span class="p">((</span><span class="n">F1</span><span class="p">)))</span>
+    <span class="c1"># copy the array and zero out the center</span>
+    <span class="n">F3</span> <span class="o">=</span> <span class="n">F2</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">imgsrc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="n">maskratio</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">imgsrc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ogrid</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="o">*</span><span class="n">l</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="o">*</span><span class="n">l</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">l</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">l</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">l</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">l</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">l</span><span class="o">*</span><span class="n">l</span>
+    <span class="n">F3</span><span class="p">[</span><span class="n">m</span><span class="o">-</span><span class="n">l</span><span class="p">:</span><span class="n">m</span><span class="o">+</span><span class="n">l</span><span class="p">,</span> <span class="n">m</span><span class="o">-</span><span class="n">l</span><span class="p">:</span><span class="n">m</span><span class="o">+</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">F3</span><span class="p">[</span><span class="n">m</span><span class="o">-</span><span class="n">l</span><span class="p">:</span><span class="n">m</span><span class="o">+</span><span class="n">l</span><span class="p">,</span> <span class="n">m</span><span class="o">-</span><span class="n">l</span><span class="p">:</span><span class="n">m</span><span class="o">+</span><span class="n">l</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mask</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">F2</span><span class="p">,</span> <span class="n">F3</span>
+
+
+<span class="k">def</span> <span class="nf">FFTsub</span><span class="p">(</span><span class="n">imgsrc</span><span class="p">,</span> <span class="n">F3</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes real space image and filtred FFT.</span>
+<span class="sd">    Reconstructs real space image and subtracts it from the original.</span>
+<span class="sd">    Returns normalized image.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">reconstruction</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">fftpack</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">fftpack</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">F3</span><span class="p">)))</span>
+    <span class="n">diff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">imgsrc</span> <span class="o">-</span> <span class="n">reconstruction</span><span class="p">)</span>
+    <span class="c1"># normalization</span>
+    <span class="n">diff</span> <span class="o">=</span> <span class="n">diff</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+    <span class="n">diff</span> <span class="o">=</span> <span class="n">diff</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">diff</span>
+
+
+<span class="k">def</span> <span class="nf">threshImg</span><span class="p">(</span><span class="n">diff</span><span class="p">,</span> <span class="n">threshL</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">threshH</span><span class="o">=</span><span class="mf">0.75</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Takes in difference image, low and high thresold values,</span>
+<span class="sd">    and outputs a map of all defects.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">threshIL</span> <span class="o">=</span> <span class="n">diff</span> <span class="o">&lt;</span> <span class="n">threshL</span>
+    <span class="n">threshIH</span> <span class="o">=</span> <span class="n">diff</span> <span class="o">&gt;</span> <span class="n">threshH</span>
+    <span class="n">threshI</span> <span class="o">=</span> <span class="n">threshIL</span> <span class="o">+</span> <span class="n">threshIH</span>
+    <span class="k">return</span> <span class="n">threshI</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">AtomAI</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Training and Prediction:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../atomnet.html">atomnet</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Analysis:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../atomstat.html">atomstat</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Models:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../models.html">models</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Utilities:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../utils.html">utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../losses.html">losses</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Maxim Ziatdinov.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

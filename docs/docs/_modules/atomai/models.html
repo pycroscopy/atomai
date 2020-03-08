@@ -1,0 +1,399 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>atomai.models &#8212; AtomAI 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for atomai.models</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">models.py</span>
+<span class="sd">========</span>
+
+<span class="sd">Deep learning models and various custom NN blocks</span>
+
+<span class="sd">Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+
+
+<div class="viewcode-block" id="dilUnet"><a class="viewcode-back" href="../../models.html#atomai.models.dilUnet">[docs]</a><span class="k">class</span> <span class="nc">dilUnet</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Builds a fully convolutional Unet-like neural network model</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        nb_classes (int):</span>
+<span class="sd">            number of classes in the ground truth</span>
+<span class="sd">        nb_filters (int):</span>
+<span class="sd">            number of filters in 1st convolutional block</span>
+<span class="sd">            (gets multibplied by 2 in each next block)</span>
+<span class="sd">        use_dropout (bool):</span>
+<span class="sd">            use / not use dropout in the 3 inner layers</span>
+<span class="sd">        batch_norm (bool):</span>
+<span class="sd">            use / not use batch normalization after each convolutional layer</span>
+<span class="sd">        upsampling mode (str):</span>
+<span class="sd">            &quot;bilinear&quot; or &quot;nearest&quot; upsampling method.</span>
+<span class="sd">            Bilinear is usually more accurate,</span>
+<span class="sd">            but adds additional (small) randomness;</span>
+<span class="sd">            for full reproducibility, consider using &#39;nearest&#39;</span>
+<span class="sd">            (this assumes that all other sources of randomness are fixed)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">nb_classes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                 <span class="n">nb_filters</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+                 <span class="n">with_dilation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">use_dropout</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">batch_norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">upsampling_mode</span><span class="o">=</span><span class="s2">&quot;bilinear&quot;</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">dilUnet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">dropout_vals</span> <span class="o">=</span> <span class="p">[</span><span class="o">.</span><span class="mi">1</span><span class="p">,</span> <span class="o">.</span><span class="mi">2</span><span class="p">,</span> <span class="o">.</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">use_dropout</span> <span class="k">else</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+            <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nb_filters</span><span class="p">,</span>
+            <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c2</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+            <span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c3</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+            <span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span>
+            <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span><span class="p">,</span>
+            <span class="n">dropout_</span><span class="o">=</span><span class="n">dropout_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">with_dilation</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bn</span> <span class="o">=</span> <span class="n">dilated_block</span><span class="p">(</span>
+                <span class="n">nb_filters</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span>
+                <span class="n">dilation_values</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+                <span class="n">padding_values</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+                <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span><span class="p">,</span>
+                <span class="n">dropout_</span><span class="o">=</span><span class="n">dropout_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bn</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+                <span class="mi">3</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span>
+                <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span><span class="p">,</span>
+                <span class="n">dropout_</span><span class="o">=</span><span class="n">dropout_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">upsample_block1</span> <span class="o">=</span> <span class="n">upsample_block</span><span class="p">(</span>
+            <span class="n">nb_filters</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="n">upsampling_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c4</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+            <span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span>
+            <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span><span class="p">,</span>
+            <span class="n">dropout_</span><span class="o">=</span><span class="n">dropout_vals</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">upsample_block2</span> <span class="o">=</span> <span class="n">upsample_block</span><span class="p">(</span>
+            <span class="n">nb_filters</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="n">upsampling_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c5</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+            <span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">upsample_block3</span> <span class="o">=</span> <span class="n">upsample_block</span><span class="p">(</span>
+            <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="n">upsampling_mode</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c6</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+            <span class="mi">1</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="p">,</span>
+            <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">px</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">nb_filters</span><span class="p">,</span> <span class="n">nb_classes</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="dilUnet.forward"><a class="viewcode-back" href="../../models.html#atomai.models.dilUnet.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Defines a forward path&#39;&#39;&#39;</span>
+        <span class="c1"># Contracting path</span>
+        <span class="n">c1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">d1</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">c1</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">c2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c2</span><span class="p">(</span><span class="n">d1</span><span class="p">)</span>
+        <span class="n">d2</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">c2</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">c3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c3</span><span class="p">(</span><span class="n">d2</span><span class="p">)</span>
+        <span class="n">d3</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">c3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="c1"># Bottleneck layer</span>
+        <span class="n">bn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bn</span><span class="p">(</span><span class="n">d3</span><span class="p">)</span>
+        <span class="c1"># Expanding path</span>
+        <span class="n">u3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upsample_block1</span><span class="p">(</span><span class="n">bn</span><span class="p">)</span>
+        <span class="n">u3</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">c3</span><span class="p">,</span> <span class="n">u3</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">u3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c4</span><span class="p">(</span><span class="n">u3</span><span class="p">)</span>
+        <span class="n">u2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upsample_block2</span><span class="p">(</span><span class="n">u3</span><span class="p">)</span>
+        <span class="n">u2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">c2</span><span class="p">,</span> <span class="n">u2</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">u2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c5</span><span class="p">(</span><span class="n">u2</span><span class="p">)</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">upsample_block3</span><span class="p">(</span><span class="n">u2</span><span class="p">)</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">c1</span><span class="p">,</span> <span class="n">u1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c6</span><span class="p">(</span><span class="n">u1</span><span class="p">)</span>
+        <span class="c1"># Final layer used for pixel-wise convolution</span>
+        <span class="n">px</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">px</span><span class="p">(</span><span class="n">u1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">px</span></div></div>
+
+
+<div class="viewcode-block" id="dilnet"><a class="viewcode-back" href="../../models.html#atomai.models.dilnet">[docs]</a><span class="k">class</span> <span class="nc">dilnet</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Builds  a fully convolutional neural network model</span>
+<span class="sd">    by utilizing a combination of regular and dilated convolutions</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        nb_classes (int):</span>
+<span class="sd">            number of classes in the ground truth</span>
+<span class="sd">        nb_filters (int):</span>
+<span class="sd">            number of filters in 1st convolutional block</span>
+<span class="sd">            (gets multiplied by 2 in each next block)</span>
+<span class="sd">        use_dropout (bool):</span>
+<span class="sd">            use / not use dropout in the 3 inner layers</span>
+<span class="sd">        batch_norm (bool):</span>
+<span class="sd">            use / not use batch normalization after each convolutional layer</span>
+<span class="sd">        upsampling mode (str):</span>
+<span class="sd">            &quot;bilinear&quot; or &quot;nearest&quot; upsampling method.</span>
+<span class="sd">            Bilinear is usually more accurate,</span>
+<span class="sd">            but adds additional (small) randomness;</span>
+<span class="sd">            for full reproducibility, consider using &#39;nearest&#39;</span>
+<span class="sd">            (this assumes that all other sources of randomness are fixed)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">nb_classes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                 <span class="n">nb_filters</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+                 <span class="n">use_dropout</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">batch_norm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">upsampling_mode</span><span class="o">=</span><span class="s2">&quot;bilinear&quot;</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">dilnet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">dropout_vals</span> <span class="o">=</span> <span class="p">[</span><span class="o">.</span><span class="mi">3</span><span class="p">,</span> <span class="o">.</span><span class="mi">3</span><span class="p">]</span> <span class="k">if</span> <span class="n">use_dropout</span> <span class="k">else</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+                    <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nb_filters</span><span class="p">,</span>
+                    <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">at1</span> <span class="o">=</span> <span class="n">dilated_block</span><span class="p">(</span>
+                    <span class="n">nb_filters</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="n">dilation_values</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="n">padding_values</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+                    <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span><span class="p">,</span> <span class="n">dropout_</span><span class="o">=</span><span class="n">dropout_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">at2</span> <span class="o">=</span> <span class="n">dilated_block</span><span class="p">(</span>
+                    <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="n">dilation_values</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="n">padding_values</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+                    <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span><span class="p">,</span> <span class="n">dropout_</span><span class="o">=</span><span class="n">dropout_vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">up1</span> <span class="o">=</span> <span class="n">upsample_block</span><span class="p">(</span>
+                    <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="p">,</span>
+                    <span class="n">mode</span><span class="o">=</span><span class="n">upsampling_mode</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">c2</span> <span class="o">=</span> <span class="n">conv2dblock</span><span class="p">(</span>
+                    <span class="mi">3</span><span class="p">,</span> <span class="n">nb_filters</span><span class="o">*</span><span class="mi">2</span><span class="p">,</span> <span class="n">nb_filters</span><span class="p">,</span>
+                    <span class="n">use_batchnorm</span><span class="o">=</span><span class="n">batch_norm</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">px</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">nb_filters</span><span class="p">,</span> <span class="n">nb_classes</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="dilnet.forward"><a class="viewcode-back" href="../../models.html#atomai.models.dilnet.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Defines a forward path&#39;&#39;&#39;</span>
+        <span class="n">c1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">d1</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">c1</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">at1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">at1</span><span class="p">(</span><span class="n">d1</span><span class="p">)</span>
+        <span class="n">at2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">at2</span><span class="p">(</span><span class="n">at1</span><span class="p">)</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">up1</span><span class="p">(</span><span class="n">at2</span><span class="p">)</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">c1</span><span class="p">,</span> <span class="n">u1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">u1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">c2</span><span class="p">(</span><span class="n">u1</span><span class="p">)</span>
+        <span class="n">px</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">px</span><span class="p">(</span><span class="n">u1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">px</span></div></div>
+
+
+<div class="viewcode-block" id="conv2dblock"><a class="viewcode-back" href="../../models.html#atomai.models.conv2dblock">[docs]</a><span class="k">class</span> <span class="nc">conv2dblock</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates block(s) consisting of convolutional</span>
+<span class="sd">    layer, leaky relu and (optionally) dropout and</span>
+<span class="sd">    batch normalization</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nb_layers</span><span class="p">,</span> <span class="n">input_channels</span><span class="p">,</span> <span class="n">output_channels</span><span class="p">,</span>
+                 <span class="n">kernel_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">use_batchnorm</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">lrelu_a</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">dropout_</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Initializes module parameters&#39;&#39;&#39;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">conv2dblock</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nb_layers</span><span class="p">):</span>
+            <span class="n">input_channels</span> <span class="o">=</span> <span class="n">output_channels</span> <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">input_channels</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">input_channels</span><span class="p">,</span>
+                                   <span class="n">output_channels</span><span class="p">,</span>
+                                   <span class="n">kernel_size</span><span class="o">=</span><span class="n">kernel_size</span><span class="p">,</span>
+                                   <span class="n">stride</span><span class="o">=</span><span class="n">stride</span><span class="p">,</span>
+                                   <span class="n">padding</span><span class="o">=</span><span class="n">padding</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">dropout_</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout_</span><span class="p">))</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">LeakyReLU</span><span class="p">(</span><span class="n">negative_slope</span><span class="o">=</span><span class="n">lrelu_a</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">use_batchnorm</span><span class="p">:</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm2d</span><span class="p">(</span><span class="n">output_channels</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">block</span><span class="p">)</span>
+
+<div class="viewcode-block" id="conv2dblock.forward"><a class="viewcode-back" href="../../models.html#atomai.models.conv2dblock.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Forward path&#39;&#39;&#39;</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">output</span></div></div>
+
+
+<div class="viewcode-block" id="upsample_block"><a class="viewcode-back" href="../../models.html#atomai.models.upsample_block">[docs]</a><span class="k">class</span> <span class="nc">upsample_block</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Defines upsampling block performed using</span>
+<span class="sd">    bilinear interpolation followed by 1-by-1</span>
+<span class="sd">    convolution (the latter can be used to reduce</span>
+<span class="sd">    a number of feature channels)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">input_channels</span><span class="p">,</span>
+                 <span class="n">output_channels</span><span class="p">,</span>
+                 <span class="n">scale_factor</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                 <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;bilinear&quot;</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Initializes module parameters&#39;&#39;&#39;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">upsample_block</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;bilinear&#39;</span> <span class="ow">or</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;nearest&#39;</span><span class="p">,</span>\
+            <span class="s2">&quot;use &#39;bilinear&#39; or &#39;nearest&#39; for upsampling mode&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_factor</span> <span class="o">=</span> <span class="n">scale_factor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span>
+            <span class="n">input_channels</span><span class="p">,</span> <span class="n">output_channels</span><span class="p">,</span>
+            <span class="n">kernel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="upsample_block.forward"><a class="viewcode-back" href="../../models.html#atomai.models.upsample_block.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Defines a forward path&#39;&#39;&#39;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">scale_factor</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_factor</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mode</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">conv</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="dilated_block"><a class="viewcode-back" href="../../models.html#atomai.models.dilated_block">[docs]</a><span class="k">class</span> <span class="nc">dilated_block</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a &quot;pyramid&quot; with dilated convolutional</span>
+<span class="sd">    layers (aka atrous convolutions)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_channels</span><span class="p">,</span> <span class="n">output_channels</span><span class="p">,</span>
+                 <span class="n">dilation_values</span><span class="p">,</span> <span class="n">padding_values</span><span class="p">,</span>
+                 <span class="n">kernel_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">lrelu_a</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+                 <span class="n">use_batchnorm</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dropout_</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializes module parameters&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">dilated_block</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">atrous_module</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">dil</span><span class="p">,</span> <span class="n">pad</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">dilation_values</span><span class="p">,</span> <span class="n">padding_values</span><span class="p">)):</span>
+            <span class="n">input_channels</span> <span class="o">=</span> <span class="n">output_channels</span> <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">input_channels</span>
+            <span class="n">atrous_module</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">input_channels</span><span class="p">,</span>
+                                           <span class="n">output_channels</span><span class="p">,</span>
+                                           <span class="n">kernel_size</span><span class="o">=</span><span class="n">kernel_size</span><span class="p">,</span>
+                                           <span class="n">stride</span><span class="o">=</span><span class="n">stride</span><span class="p">,</span>
+                                           <span class="n">padding</span><span class="o">=</span><span class="n">pad</span><span class="p">,</span>
+                                           <span class="n">dilation</span><span class="o">=</span><span class="n">dil</span><span class="p">,</span>
+                                           <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">dropout_</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">atrous_module</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout_</span><span class="p">))</span>
+            <span class="n">atrous_module</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">LeakyReLU</span><span class="p">(</span><span class="n">negative_slope</span><span class="o">=</span><span class="n">lrelu_a</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">use_batchnorm</span><span class="p">:</span>
+                <span class="n">atrous_module</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm2d</span><span class="p">(</span><span class="n">output_channels</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atrous_module</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">atrous_module</span><span class="p">)</span>
+
+<div class="viewcode-block" id="dilated_block.forward"><a class="viewcode-back" href="../../models.html#atomai.models.dilated_block.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Forward path&#39;&#39;&#39;</span>
+        <span class="n">atrous_layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">conv_layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">atrous_module</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">conv_layer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">atrous_layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">atrous_layers</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">AtomAI</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Training and Prediction:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../atomnet.html">atomnet</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Analysis:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../atomstat.html">atomstat</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Models:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../models.html">models</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Utilities:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../utils.html">utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../losses.html">losses</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Maxim Ziatdinov.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
