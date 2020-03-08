@@ -95,5 +95,3 @@ First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, instal
 2) Add more examples/notebooks together with pre-trained models
 
 3) Add more test modules
-
-4) Add docs
