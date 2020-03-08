@@ -1,4 +1,4 @@
-:github_url: https://github.com/ziatdinovmax.atomai
+:github_url: https://github.com/ziatdinovmax/atomai
 
 
 Welcome to AtomAI's documentation!
