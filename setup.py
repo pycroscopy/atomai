@@ -15,7 +15,7 @@ if __name__ == "__main__":
         name='atomai',
         python_requires='>=3.6',
         version='0.1.0',
-        description='Deep/machine learning for atom-resolved data',
+        description='Deep and machine learning for atom-resolved data',
         long_description=open(os.path.join(module_dir, 'README.md')).read(),
         long_description_content_type='text/markdown',
         url='https://github.com/ziatdinovmax/atomai',
