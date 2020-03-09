@@ -134,8 +134,8 @@ class trainer:
             with_dilation = kwargs.get('with_dilation', True)
             nb_filters = kwargs.get('nb_filters', 16)
             self.net = dilUnet(
-                self.num_classes, nb_filters, with_dilation,
-                use_dropouts, use_batchnorm, upsampling
+                self.num_classes, nb_filters, use_dropouts,
+                use_batchnorm, upsampling, with_dilation,
             )
         elif model_type == 'dilnet':
             nb_filters = kwargs.get('nb_filters', 25)
@@ -179,6 +179,15 @@ class trainer:
         self.savename = kwargs.get("savename", "model")
         self.plot_training_history = kwargs.get("plot_training_history", True)
         self.train_loss, self.test_loss = [], []
+        self.meta_state_dict = {
+            'model_type': model_type,
+            'batchnorm': use_batchnorm,
+            'dropout': use_dropouts,
+            'upsampling': upsampling,
+            'nb_filters': nb_filters,
+            'nb_classes': self.num_classes,
+            'weights': self.net.state_dict()
+        }
 
     def dataloader(self, batch_num, mode='train'):
         """
@@ -256,11 +265,13 @@ class trainer:
                           gpu_usage[0], gpu_usage[1]))
             # Save model weights (if test loss decreased)
             if e > 0 and self.test_loss[-1] < min(self.test_loss[: -1]):
-                torch.save(self.net.state_dict(),
-                   os.path.join(self.savedir, self.savename+'_test_weights_best.pt'))
+                torch.save(self.meta_state_dict,
+                   os.path.join(self.savedir,
+                   self.savename+'_test_weights_best.tar'))
         # Save final model weights
-        torch.save(self.net.state_dict(),
-                   os.path.join(self.savedir, self.savename+'_weights_final.pt'))
+        torch.save(self.meta_state_dict,
+                   os.path.join(self.savedir,
+                   self.savename+'_weights_final.tar'))
         # Run evaluation (by passing all the test data) on the final model
         running_loss_test = 0
         for idx in range(len(self.images_test_all)):

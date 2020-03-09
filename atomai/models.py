@@ -35,10 +35,10 @@ class dilUnet(nn.Module):
     def __init__(self,
                  nb_classes=1,
                  nb_filters=16,
-                 with_dilation=True,
                  use_dropout=False,
                  batch_norm=True,
-                 upsampling_mode="bilinear"):
+                 upsampling_mode="bilinear",
+                 with_dilation=True):
         """
         Initializes model parameters
         """
@@ -359,3 +359,43 @@ class dilated_block(nn.Module):
             x = conv_layer(x)
             atrous_layers.append(x.unsqueeze(-1))
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
+
+
+def load_model(meta_state_dict):
+    """
+    Loads trained AtomAI models
+
+    Args:
+        meta_state_dict (str):
+            filepath to dictionary with trained weights and key information
+            about model's structure (stored during and after model training
+            with atomnet.trainer)
+
+    Returns:
+        Model in evaluation state
+    """
+    torch.manual_seed(0)
+    if torch.cuda.device_count() > 0:
+        meta_dict = torch.load(meta_state_dict)
+    else:
+        meta_dict = torch.load(meta_state_dict, map_location='cpu')
+    model_type = meta_dict['model_type']
+    batchnorm = meta_dict['batchnorm']
+    dropout = meta_dict['dropout']
+    upsampling = meta_dict['upsampling']
+    nb_filters = meta_dict['nb_filters']
+    nb_classes = meta_dict['nb_classes']
+    checkpoint = meta_dict['weights']
+    if model_type == 'dilUnet':
+        model = dilUnet(
+            nb_classes, nb_filters, dropout, batchnorm, upsampling)
+    elif model_type == 'dilnet':
+        model = dilnet(
+            nb_classes, nb_filters, dropout, batchnorm, upsampling)
+    else:
+        raise NotImplementedError(
+            "Select between 'dilUnet' and 'dilnet' neural networks"
+        )
+    model.load_state_dict(checkpoint)
+    return model.eval()
+
