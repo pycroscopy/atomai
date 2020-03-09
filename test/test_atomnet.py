@@ -4,7 +4,7 @@ import torch
 from atomai import atomnet, models
 from atomai.utils import load_model
 import pytest
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_equal
 
 test_img = os.path.join(
     os.path.dirname(__file__), 'test_data/test_img.npy')
@@ -59,10 +59,10 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
     y_train, y_test = gen_labels(lbl_dims_in, n_atoms)
     m = atomnet.trainer(
         X_train, y_train, X_test, y_test, training_cycles=1, batch_size=4)
-    assert m.images_all[0].ndim == img_dims_out
-    assert m.images_test_all[0].ndim == img_dims_out
-    assert m.labels_all[0].ndim == lbl_dims_out
-    assert m.labels_test_all[0].ndim == lbl_dims_out
+    assert_equal(m.images_all[0].ndim, img_dims_out)
+    assert_equal(m.images_test_all[0].ndim, img_dims_out)
+    assert_equal(m.labels_all[0].ndim, lbl_dims_out)
+    assert_equal(m.labels_test_all[0].ndim, lbl_dims_out)
 
 
 @pytest.mark.parametrize(
