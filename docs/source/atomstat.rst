@@ -1,15 +1,15 @@
 Local descriptors analysis
-=============================
+========================
 
-imlocal
-----------
+Analysis of local sub-images
+----------------------------
 .. autoclass:: atomai.atomstat.imlocal
     :members:
     :undoc-members:
     :member-order: bysource
 
-transitions
------------
+Transitions
+------------
 .. autoclass:: atomai.atomstat.transitions
     :members:
     :undoc-members:

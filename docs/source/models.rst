@@ -2,31 +2,31 @@ Fully convolutional neural networks
 ====================================
 
 
-dilUnet
-----------
+dilUnet model
+-------------
 .. autoclass:: atomai.models.dilUnet
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-dilnet
-----------
+dilnet model
+------------
 .. autoclass:: atomai.models.dilnet
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-conv2dblock
-------------
+Convolutional block
+-------------------
 .. autoclass:: atomai.models.conv2dblock
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-dilated_block
+Dilated block
 --------------
 .. autoclass:: atomai.models.dilated_block
     :members:
@@ -34,8 +34,8 @@ dilated_block
     :member-order: bysource
     :show-inheritance:
 
-upsample_block
----------------
+Upsampling block
+-----------------
 .. autoclass:: atomai.models.upsample_block
     :members:
     :undoc-members:
