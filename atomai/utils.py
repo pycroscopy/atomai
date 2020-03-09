@@ -142,9 +142,10 @@ def preprocess_training_data(images_all,
         4 lists processed with preprocessed training and test data,
         number of classes inferred from the data
     """
-    assert type(images_all) == type(labels_all)\
-    == type(images_test_all) == type(labels_test_all),\
-    "Provide all training and test data in the same format"
+    if not (type(images_all) == type(labels_all) ==
+            type(images_test_all) == type(labels_test_all)):
+        raise AssertionError(
+            "Provide all training and test data in the same format")
     if type(labels_all) == list:
         num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
     elif type(labels_all) == dict:
@@ -168,16 +169,19 @@ def preprocess_training_data(images_all,
             "of numpy arrays or as 4D (images)",
             "and 4D/3D (labels for single/multi class) numpy arrays"
         )
-    assert num_classes != 1,\
-    "Confirm that you have a class corresponding to background"
+    if num_classes == 1:
+        raise AssertionError(
+            "Confirm that you have a class corresponding to background")
     num_classes = num_classes - 1 if num_classes == 2 else num_classes
 
     imshapes_train = set([len(im.shape) for im in images_all])
-    assert len(imshapes_train) == 1,\
-    "All training images must have the same dimensionality"
+    if len(imshapes_train) != 1:
+        raise AssertionError(
+            "All training images must have the same dimensionality")
     imshapes_test = set([len(im.shape) for im in images_test_all])
-    assert len(imshapes_test) == 1,\
-    "All test images must have the same dimensionality"
+    if len(imshapes_test) != 1:
+        raise AssertionError(
+            "All test images must have the same dimensionality")
     if imshapes_train.pop() == 3:
         warnings.warn(
             'Adding a channel dimension of 1 to training images',
@@ -196,11 +200,13 @@ def preprocess_training_data(images_all,
         images_test_all = images_test_all_e
 
     lshapes_train = set([len(l.shape) for l in labels_all])
-    assert len(lshapes_train) == 1,\
-    "All labels must have the same dimensionality"
+    if len(lshapes_train) != 1:
+        raise AssertionError(
+         "All labels must have the same dimensionality")
     lshapes_test = set([len(l.shape) for l in labels_test_all])
-    assert len(lshapes_test) == 1,\
-    "All labels must have the same dimensionality"
+    if len(lshapes_test) != 1:
+        raise AssertionError(
+            "All labels must have the same dimensionality")
     if num_classes == 1 and lshapes_train.pop() == 3:
         warnings.warn(
             'Adding a channel dimension of 1 to training labels',
