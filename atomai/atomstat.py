@@ -23,20 +23,46 @@ class imlocal:
 
     Args:
         network_output (4D numpy array):
-            batch_size x height x width x channels
+            Batch_size x height x width x channels
         coord_class_dict_all (dict):
-            prediction from atomnet.locator
+            Prediction from atomnet.locator
             (can be from other but must be the same format)
             Each element is a N x 3 numpy array,
             where N is a number of detected atoms/defects,
             the first 2 columns are xy coordinates
             and the third columns is class (starts with 0)
         crop_size (int):
-            half of the side of the square for subimage cropping
+            Half of the side of the square for subimage cropping
         coord_class (int):
-            class of atoms/defects around around which
+            Class of atoms/defects around around which
             the subimages will be cropped; in the atomnet.locator output
             the class is the 3rd column (the first two are xy positions)
+
+    Examples:
+
+    Identify atomic distortion domains a single image (the image should contain
+    a sufficiently large number of unit cells (> 10**3) for this analysis):
+
+        >>> # First obtain a "cleaned" image and atomic coordinates using a trained model
+        >>> nn_input, nn_output = atomnet.predictor(expdata, model, use_gpu=False).run()
+        >>> coordinates = atomnet.locator(nn_output).run()
+        >>> # Now get local image descriptors using atomstat.imlocal
+        >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=16, coord_class=1)
+        >>> # Compute PCA scree plot to estimate the number of components/sources
+        >>> imstack.pca_scree_plot(plot_results=True);
+        >>> # Do PCA analysis and plot results
+        >>> pca_results = imstack.imblock_pca(n_components=4, plot_results=True)
+        >>> # Do NMF analysis and plot results
+        >>> pca_results = imstack.imblock_nmf(n_components=4, plot_results=True)
+
+    Analyze atomic/defect trajectories from movies (3D image stack):
+
+        >>> # Get local descriptors (such as subimages centered around impurities)
+        >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
+        >>> # Calculate Gaussian mixture model (GMM) components
+        >>> components_img, classes_list = imstack.gmm(n_components=10, plot_results=True)
+        >>> # Calculate GMM components and transition probabilities for different trajectories
+        >>> traj_all, trans_all, fram_all = imstack.transition_matrix(n_components=10, rmax=10)
     """
     def __init__(self,
                  network_output,
@@ -66,7 +92,7 @@ class imlocal:
             coord (N x 3 numpy array):
                 (x, y, class) coordinates data
             d (int):
-                defines size of a square subimage
+                Defines size of a square subimage
 
         Returns:
             stack of subimages,
@@ -99,7 +125,7 @@ class imlocal:
             coord (N x 2 numpy array):
                 (x, y) coordinates
             r (int):
-                square subimage side is 2*r
+                Square subimage side is 2*r
 
         Returns:
             stack of subimages and
@@ -131,13 +157,13 @@ class imlocal:
 
         Args:
             n_components (int):
-                number of components
+                Number of components
             covariance (str):
-                type of covariance ('full', 'diag', 'tied', 'spherical')
+                Type of covariance ('full', 'diag', 'tied', 'spherical')
             random_state (int):
-                random state instance
+                Random state instance
             plot_results (bool):
-                plotting gmm components
+                Plotting gmm components
 
         Returns:
             3D numpy array containing averaged images for each gmm class
@@ -184,18 +210,18 @@ class imlocal:
 
         Args:
             coord_class_dict (dict):
-                dictionary of atomic coordinates
+                Dictionary of atomic coordinates
                 (same format as produced by atomnet.locator)
             start_coord (N x 2 numpy array):
-                coordinate of defect/atom in the first frame
+                Coordinate of defect/atom in the first frame
                 whose trajectory we are going to track
             rmax (int):
-                max allowed distance (projected on xy plane) between defect
+                Max allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor
                 in the next one
 
         Returns:
-            numpy array of defect/atom coordinaes form a single trajectory
+            Numpy array of defect/atom coordinaes form a single trajectory
             and frames corresponding to this trajectory
         """
         flow = np.empty((0, 3))
@@ -219,18 +245,18 @@ class imlocal:
 
         Args:
             coord_class_dict (dict):
-                dictionary of atomic coordinates (N x 3 numpy arrays])
+                Dictionary of atomic coordinates (N x 3 numpy arrays])
                 (same format as produced by atomnet.locator)
                 Can also be a list of N x 3 numpy arrays
                 Typically, these are coordinates from a 3D image stack
                 where each element in dict/list corresponds
                 to an individual movie frame
             eps (float):
-                max distance between two points for one to be considered
+                Max distance between two points for one to be considered
                 as in the neighborhood of the other
                 (see sklearn.cluster.DBSCAN).
             min_samples (int):
-                minmum number of points for a "cluster"
+                Minmum number of points for a "cluster"
 
         Returns:
             Coordinates of points in each identified cluster,
@@ -313,20 +339,20 @@ class imlocal:
 
         Args:
             min_length (int):
-                minimal length of trajectory to return
+                Minimal length of trajectory to return
             run_gmm (bool):
-                optional GMM separation into different classes
+                Optional GMM separation into different classes
             rmax (int):
-                max allowed distance (projected on xy plane) between defect
+                Max allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor
                 in the next one
             **n_components (int):
-                number of components for  Gaussian mixture model
+                Number of components for  Gaussian mixture model
             **covariance (str):
-                type of covariance for Gaussian mixture model
+                Type of covariance for Gaussian mixture model
                 ('full', 'diag', 'tied', 'spherical')
             **random_state (int):
-                random state instance for Gaussian mixture model
+                Random state instance for Gaussian mixture model
 
         Returns:
             list defects/atoms trajectories (each trajectory is numpy array),
@@ -381,18 +407,18 @@ class imlocal:
 
         Args:
             n_components (int):
-                number of components for  Gaussian mixture model
+                Number of components for  Gaussian mixture model
             covariance (str):
-                type of covariance for Gaussian mixture model
+                Type of covariance for Gaussian mixture model
                 ('full', 'diag', 'tied', 'spherical')
             random_state (int):
-                random state instance for Gaussian mixture model
+                Random state instance for Gaussian mixture model
             rmax (int):
-                max allowed distance (projected on xy plane) between defect
+                Max allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor
                 in the next one
             min_length (int):
-                minimal length of trajectory to return
+                Minimal length of trajectory to return
 
         Returns:
             list defects/atoms trajectories,
@@ -440,7 +466,7 @@ class imlocal:
 
         Args:
             components (4D numpy array):
-                computed (and reshaped)
+                Computed (and reshaped)
                 principal axes / independent sources / factorization matrix
                 for stack of subimages
             X_vec_t (2D numpy array):
@@ -449,11 +475,11 @@ class imlocal:
                 transformed X_vec according to the learned NMF model
                 (is used to create "loading maps")
             img_hw (tuple):
-                height and width of the "mother image"
+                Height and width of the "mother image"
             com_ (n x 2 numpy array):
                 (x, y) coordinates of the extracted subimages
             **marker_size (int):
-                controls marker size for loading maps plot
+                Controls marker size for loading maps plot
         """
         m_s = kwargs.get("marker_size", 32)
         com_ = xy_centers
@@ -504,13 +530,13 @@ class imlocal:
 
         Args:
             n_components (int):
-                number of PCA components
+                Number of PCA components
             random_state (int):
-                random state instance
+                Random state instance
             plot_results (bool):
                 Plots computed eigenvectors and loading maps
             **marker_size (int):
-                controls marker size for loading maps plot
+                Controls marker size for loading maps plot
 
         Returns:
             4D numpy array with computed (and reshaped) principal axes
@@ -548,9 +574,9 @@ class imlocal:
 
         Args:
             n_components (int):
-                number of ICA components
+                Number of ICA components
             random_state (int):
-                random state instance
+                Random state instance
             plot_results (bool):
                 Plots computed eigenvectors and loading maps
             **marker_size (int):
@@ -593,15 +619,15 @@ class imlocal:
 
         Args:
             n_components (int):
-                number of NMF components
+                Number of NMF components
             random_state (int):
-                random state instance
+                Random state instance
             plot_results (bool):
                 Plots computed eigenvectors and loading maps
             **max_iterations (int):
                 Maximum number of iterations before timing out
             **marker_size (int):
-                controls marker size for loading maps plot
+                Controls marker size for loading maps plot
 
         Returns:
             4D numpy array with computed (and reshaped) sources
@@ -648,9 +674,9 @@ class transitions:
 
         Args:
             plot_results (bool):
-                plot calculated transition matrix
+                Plot calculated transition matrix
             plot_values (bool):
-                show calculated transition rates
+                Show calculated transition rates
 
         Returns:
             Calculated transition matrix as 2D numpy array
@@ -675,9 +701,9 @@ class transitions:
 
         Args:
             m (2D numpy array):
-                transition matrix
+                Transition matrix
             plot_values (bool):
-                show calculated transtion rates
+                Show calculated transtion rates
         """
         print('Transition matrix')
         _, ax = plt.subplots(1, 1, figsize=(6, 6))

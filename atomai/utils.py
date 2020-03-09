@@ -44,9 +44,10 @@ def load_model(model, weights_path):
         >>> from atomai.utils import load_model
         >>> # Path to file with trained weights
         >>> weights_path = '/content/simple_model_weights.pt'
-        >>> # initialize model (by default all models trained are 'dilUnet')
+        >>> # Initialize model (by default all trained models are 'dilUnet')
+        >>> # Here you can also use nb_classes = utils.get_nb_classes(weights_path)
         >>> model = models.dilUnet(nb_classes=3)
-        >>> # load the weights into the model skeleton
+        >>> # Load the weights into the model skeleton
         >>> model = load_model(model, weights_path)
     """
     torch.manual_seed(0)
@@ -64,7 +65,7 @@ def average_weights(ensemble):
 
     Args:
         ensemble (dict):
-            dictionary with trained weights (model's state_dict)
+            Dictionary with trained weights (model's state_dict)
             of models with exact same architecture.
 
     Returns:
@@ -117,25 +118,25 @@ def preprocess_training_data(images_all,
 
     Args:
         images_all (list / dict / 4D numpy array):
-            list or dictionary of 4D numpy arrays or 4D numpy array
+            List or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing training images
         labels_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or
+            List or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent training labels (aka masks aka ground truth)
         images_test_all (list / dict / 4D numpy array):
-            list or dictionary of 4D numpy arrays or 4D numpy array
+            List or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing test images
         labels_test_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or
+            List or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent test labels (aka masks aka ground truth)
         batch_size (int):
-            size of training and test batches
+            Size of training and test batches
 
     Returns:
         4 lists processed with preprocessed training and test data,
@@ -244,7 +245,7 @@ def img_resize(image_data, rs):
         image_data (3D numpy array):
             Image stack with dimensions (n_batches x height x width)
         rs (tuple):
-            target width and height
+            Target width and height
 
     Returns:
         Resized stack of images
@@ -269,7 +270,8 @@ def img_pad(image_data, pooling):
         image_data (3D numpy array):
             Image stack with dimensions (n_batches x height x width)
         pooling (int):
-            number of pooling operations
+            Downsampling factor (equal to 2**n, where n is a number
+            of pooling operations)
     """
     # Pad image rows (height)
     while image_data.shape[1] % pooling != 0:
@@ -517,13 +519,13 @@ class MakeAtom:
 
     Args:
         sc (float):
-            scale parameter, which determines Gaussian width
+            Scale parameter, which determines Gaussian width
         intensity (float):
-            parameter of 2D gaussian function
+            Parameter of 2D gaussian function
         theta (float):
-            parameter of 2D gaussian function
+            Parameter of 2D gaussian function
         offset (float):
-            parameter of 2D gaussian function
+            Parameter of 2D gaussian function
     """
     def __init__(self, sc, cfp=2, intensity=1, theta=0, offset=0):
         if sc % 2 == 0:
@@ -561,11 +563,11 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
 
     Args:
         lattice (2D numpy array):
-            experimental image as 2D numpy array
+            Experimental image as 2D numpy array
         xy_atoms (2 x N numpy array):
-            position of atoms in the experimental data
+            Position of atoms in the experimental data
         *arg (python function):
-            function that creates a 2D numpy array with atom and
+            Function that creates a 2D numpy array with atom and
             corresponding mask for each atomic coordinate.
 
             Example:
@@ -576,7 +578,7 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
             >>>     return atom, mask
 
         **scale: int
-            controls the atomic mask size
+            Controls the atomic mask size
 
     Returns:
         2D numpy array with ground truth data
@@ -634,37 +636,37 @@ class augmentor:
 
     Args:
         batch_size (int):
-            number of images in the batch,
+            Number of images in the batch,
         width (int):
-            width of images in the batch,
+            Width of images in the batch,
         height (int):
-            height of images in the batch,
+            Height of images in the batch,
         channels (int):
-            number of classes (channels) in the ground truth
+            Number of classes (channels) in the ground truth
         dim_order_in (str):
-            channel first or channel last ordering in the input masks
+            Channel first or channel last ordering in the input masks
         dim_order_out (str):
-            channel first or channel last ordering in the output masks
+            Channel first or channel last ordering in the output masks
         norm (bool):
-            normalization to (0, 1)
+            Normalization to (0, 1)
         seed (int):
-            determenism
+            Determenism
         **flip (bool):
-            image vertical/horizonal flipping,
+            Image vertical/horizonal flipping,
         **rotate90 (bool):
-            rotating image by +- 90 deg
+            Rotating image by +- 90 deg
         **zoom (tuple):
-            values for zooming-in (min height, max height, step);
+            Values for zooming-in (min height, max height, step);
             assumes height==width
         **noise (dict):
-            dictionary of with range of noise values for each type of noise;
-            dictionary keys are:
+            Dictionary of with range of noise values for each type of noise.
+            Dictionary keys are:
             'poisson', 'gauss', 'blur', 'contrast', 'salt and pepper'.
             For each case, you need to specify the range of values.
             Notice that for poisson noise,
             smaller values result in larger noise
         **resize (tuple):
-            values for image resizing (min height, max height, step);
+            Values for image resizing (min height, max height, step);
             assumes heght==width
 
     Examples:

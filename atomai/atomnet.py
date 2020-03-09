@@ -1,6 +1,6 @@
 """
 atomnet.py
-========
+==========
 
 Module for training neural networks
 and making predictions with trained models
@@ -31,57 +31,70 @@ class trainer:
 
     Args:
         images_all (list / dict / 4D numpy array):
-            list or dictionary of 4D numpy arrays or 4D numpy array
+            List or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing training images
         labels_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or
+            List or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent training labels (aka masks aka ground truth)
         images_test_all (list / dict / 4D numpy array):
-            list or dictionary of 4D numpy arrays or 4D numpy array
+            List or dictionary of 4D numpy arrays or 4D numpy array
             (3D image tensors stacked along the first dim)
             representing test images
         labels_test_all (list / dict / 4D numpy array):
-            list or dictionary of 3D numpy arrays or
+            List or dictionary of 3D numpy arrays or
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D image are tensors stacked along the first dim
             which represent test labels (aka masks aka ground truth)
         training_cycles (int):
-            number of training 'epochs' (1 epoch == 1 batch)
+            Number of training 'epochs' (1 epoch == 1 batch)
         model_type (str):
             Type of mode to choose from the package ('dilUnet' or 'dilnet')
         seed (int):
-            deterministic mode for model training
+            Deterministic mode for model training
         batch_seed (int):
-            separate seed for generating a sequence of batches
+            Separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
         **batch_size (int):
-            size of training and test batches
+            Size of training and test batches
         **use_batchnorm (bool):
             Apply batch normalization after each convolutional layer
         **use_dropouts (bool):
             Apply dropouts in the three inner blocks in the middle of a network
         **loss (str):
-            type of loss for model training ('ce', 'dice' or 'focal')
+            Type of loss for model training ('ce', 'dice' or 'focal')
         **upsampling_mode (str):
             "bilinear" or "nearest" upsampling method
         **nb_filters (int):
-            number of convolutional filters in the first convolutional block
+            Number of convolutional filters in the first convolutional block
             (this number doubles in the consequtive block(s),
             see definition of dilUnet and dilnet models for details)
         **with_dilation (bool):
-            use / not use dilated convolutions in the bottleneck of dilUnet
+            Use / not use dilated convolutions in the bottleneck of dilUnet
         **print_loss (int):
-            prints loss every n-th epoch
+            Prints loss every n-th epoch
         **savedir (str):
-            directory to automatically save intermediate and final weights
+            Directory to automatically save intermediate and final weights
         **savename (str):
-            filename for model weights
+            Filename for model weights
             (appended with "_test_weights_best.pt" and "_weights_final.pt")
         **plot_training_history (bool):
-            Plot training and test curves vs epochs at the end of training
+            Plots training and test curves vs epochs at the end of training
+
+    Example:
+
+    >>> # Load 4 numpy arrays with training and test data
+    >>> dataset = np.load('training_data.npz')
+    >>> images_all = dataset['X_train']
+    >>> labels_all = dataset['y_train']
+    >>> images_test_all = dataset['X_test']
+    >>> labels_test_all = dataset['y_test']
+    >>> # Train a model
+    >>> netr = atomnet.trainer(
+    >>> images_all, labels_all, images_test_all, labels_test_all, training_cycles=500)
+    >>> trained_model = netr.run()
     """
     def __init__(self,
                  images_all,
@@ -265,20 +278,30 @@ class predictor:
 
     Args:
         image_data (2D or 3D numpy array):
-            image stack or a single image (all greyscale)
+            Image stack or a single image (all greyscale)
         trained_model (pytorch object):
-            trained pytorch model (skeleton+weights)
+            Trained pytorch model (skeleton+weights)
         resize (tuple / 2-element list):
-            target dimensions for optional image(s) resizing
+            Target dimensions for optional image(s) resizing
         use_gpu (bool):
-            use gpu device for inference
+            Use gpu device for inference
         seed (int):
-            sets seed for random number generators
+            Sets seed for random number generators
         **nb_classes (int):
-            number of classes in the model
+            Number of classes in the model
         **downsampled (int or float):
-            downsampling factor
-     """
+            Downsampling factor (equal to 2**n where n is a number
+            of pooling operations)
+
+    Example:
+
+        >>> # Here we load new experimental data (as 2D or 3D numpy array)
+        >>> expdata = np.load('expdata-test.npy')
+        >>> # Get prediction from a trained model
+        >>> nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
+        >>> # it returns the input to NN as well in case the image was resized, etc.
+    
+    """
     def __init__(self,
                  image_data,
                  trained_model,
@@ -367,13 +390,18 @@ class locator:
 
     Args:
         decoded_imgs (4D numpy array):
-            the output of a neural network (softmax/sigmoid layer)
+            Output of a neural network (softmax/sigmoid layer)
         threshold (float):
-            value at which the neural network output is thresholded
+            Value at which the neural network output is thresholded
         dist_edge (int):
-            distance within image boundaries not to consider
+            Distance within image boundaries not to consider
         dim_order (str):
             'channel_last' or 'channel_first' (Default: 'channel last')
+
+    Example:
+
+        >>> # Transform utput of atomnet.predictor to atomic classes and coordinates
+        >>> coordinates = atomnet.locator(nn_output).run()
     """
     def __init__(self,
                  nn_output,
