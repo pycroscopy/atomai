@@ -45,7 +45,7 @@ def load_model(model, weights_path):
         >>> # Path to file with trained weights
         >>> weights_path = '/content/simple_model_weights.pt'
         >>> # Initialize model (by default all trained models are 'dilUnet')
-        >>> # Here you can also use nb_classes = utils.get_nb_classes(weights_path)
+        >>> # You can also use nb_classes=utils.nb_filters_classes(weights_path)[1]
         >>> model = models.dilUnet(nb_classes=3)
         >>> # Load the weights into the model skeleton
         >>> model = load_model(model, weights_path)
@@ -453,10 +453,10 @@ def mock_forward(model, dims=(1, 64, 64)):
     return out
 
 
-def get_nb_classes(weights_path):
+def nb_filters_classes(weights_path):
     """
-    Returns the number of classes used in trained AtomAI models
-    from the loaded weights.
+    Inferes the number of filters and the number of classes
+    used in trained AtomAI models from the loaded weights.
 
     Args:
         weight_path (str):
@@ -464,8 +464,10 @@ def get_nb_classes(weights_path):
 
     """
     checkpoint = torch.load(weights_path, map_location='cpu')
-    last_layer = [k for k in checkpoint.keys()][-1]
-    return list(checkpoint[last_layer].size())[0]
+    tensor_shapes = [v.shape for v in checkpoint.values() if len(v.shape) > 1]
+    nb_classes = tensor_shapes[-1][0]
+    nb_filters = tensor_shapes[0][0]
+    return nb_filters, nb_classes
 
 
 #####################
