@@ -267,11 +267,11 @@ class trainer:
             if e > 0 and self.test_loss[-1] < min(self.test_loss[: -1]):
                 torch.save(self.meta_state_dict,
                    os.path.join(self.savedir,
-                   self.savename+'_test_weights_best.tar'))
+                   self.savename+'_metadict_best_test_weights.tar'))
         # Save final model weights
         torch.save(self.meta_state_dict,
                    os.path.join(self.savedir,
-                   self.savename+'_weights_final.tar'))
+                   self.savename+'_metadict_final_weights.tar'))
         # Run evaluation (by passing all the test data) on the final model
         running_loss_test = 0
         for idx in range(len(self.images_test_all)):
