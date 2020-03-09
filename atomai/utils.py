@@ -26,7 +26,7 @@ import warnings
 #####################
 
 
-def load_model(model, weights_path):
+def load_weights(model, weights_path):
     """
     Loads weights saved as pytorch state dictionary into a model skeleton
 
@@ -41,14 +41,14 @@ def load_model(model, weights_path):
 
     Example:
 
-        >>> from atomai.utils import load_model
+        >>> from atomai.utils import load_weights
         >>> # Path to file with trained weights
         >>> weights_path = '/content/simple_model_weights.pt'
         >>> # Initialize model (by default all trained models are 'dilUnet')
         >>> # You can also use nb_classes=utils.nb_filters_classes(weights_path)[1]
         >>> model = models.dilUnet(nb_classes=3)
         >>> # Load the weights into the model skeleton
-        >>> model = load_model(model, weights_path)
+        >>> model = load_weights(model, weights_path)
     """
     torch.manual_seed(0)
     if torch.cuda.device_count() > 0:
