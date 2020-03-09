@@ -76,7 +76,7 @@ def test_trainer_loss_selection(loss_user, n_atoms, criterion_):
     m = atomnet.trainer(
         X_train, y_train, X_test, y_test,
         training_cycles=1, batch_size=4, loss=loss_user)
-    assert str(m.criterion) == criterion_
+    assert_equal(str(m.criterion), criterion_)
 
 @pytest.mark.parametrize(
     "n_atoms, tensor_type",
@@ -86,9 +86,9 @@ def test_trainer_dataloader(n_atoms, tensor_type):
     m = atomnet.trainer(
         X_train, y_train, X_test, y_test, training_cycles=1, batch_size=4)
     X_train_, y_train_ = m.dataloader(0)
-    assert y_train_.dtype == tensor_type
-    assert len(X_train) == len(y_train)
-    assert X_train_.is_cuda == torch.cuda.is_available()
+    assert_equal(y_train_.dtype, tensor_type)
+    assert_equal(len(X_train), len(y_train))
+    assert_equal(X_train_.is_cuda, torch.cuda.is_available())
 
 
 def test_trainer_determinism():
