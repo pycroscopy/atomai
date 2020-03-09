@@ -39,6 +39,9 @@ class dilUnet(nn.Module):
                  use_dropout=False,
                  batch_norm=True,
                  upsampling_mode="bilinear"):
+        """
+        Initializes model parameters
+        """
         super(dilUnet, self).__init__()
         dropout_vals = [.1, .2, .1] if use_dropout else [0, 0, 0]
         self.c1 = conv2dblock(
@@ -148,6 +151,9 @@ class dilnet(nn.Module):
                  use_dropout=False,
                  batch_norm=True,
                  upsampling_mode="bilinear"):
+        """
+        Initializes model parameters
+        """
         super(dilnet, self).__init__()
         dropout_vals = [.3, .3] if use_dropout else [0, 0]
         self.c1 = conv2dblock(
@@ -270,8 +276,9 @@ class upsample_block(nn.Module):
         Initializes module parameters
         """
         super(upsample_block, self).__init__()
-        assert mode == 'bilinear' or mode == 'nearest',\
-            "use 'bilinear' or 'nearest' for upsampling mode"
+         if not any([mode=='bilinear', mode=='nearest']):
+            raise NotImplementedError(
+                "use 'bilinear' or 'nearest' for upsampling mode")
         self.scale_factor = scale_factor
         self.mode = mode
         self.conv = nn.Conv2d(
