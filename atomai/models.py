@@ -18,19 +18,18 @@ class dilUnet(nn.Module):
 
     Args:
         nb_classes (int):
-            number of classes in the ground truth
+            Number of classes in the ground truth
         nb_filters (int):
-            number of filters in 1st convolutional block
+            Number of filters in 1st convolutional block
             (gets multibplied by 2 in each next block)
         use_dropout (bool):
-            use / not use dropout in the 3 inner layers
+            Use / not use dropout in the 3 inner layers
         batch_norm (bool):
-            use / not use batch normalization after each convolutional layer
+            Use / not use batch normalization after each convolutional layer
         upsampling mode (str):
-            "bilinear" or "nearest" upsampling method.
-            Bilinear is usually more accurate,
-            but adds additional (small) randomness;
-            for full reproducibility, consider using 'nearest'
+            Select between "bilinear" or "nearest" upsampling method.
+            Bilinear is usually more accurate,but adds additional (small)
+            randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
     """
     def __init__(self,
@@ -126,19 +125,18 @@ class dilnet(nn.Module):
 
     Args:
         nb_classes (int):
-            number of classes in the ground truth
+            Number of classes in the ground truth
         nb_filters (int):
-            number of filters in 1st convolutional block
+            Number of filters in 1st convolutional block
             (gets multiplied by 2 in each next block)
         use_dropout (bool):
-            use / not use dropout in the 3 inner layers
+            Use / not use dropout in the 3 inner layers
         batch_norm (bool):
-            use / not use batch normalization after each convolutional layer
+            Use / not use batch normalization after each convolutional layer
         upsampling mode (str):
-            "bilinear" or "nearest" upsampling method.
-            Bilinear is usually more accurate,
-            but adds additional (small) randomness;
-            for full reproducibility, consider using 'nearest'
+            Select between "bilinear" or "nearest" upsampling method.
+            Bilinear is usually more accurate,but adds additional (small)
+            randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
     """
 
@@ -189,9 +187,29 @@ class dilnet(nn.Module):
 
 class conv2dblock(nn.Module):
     """
-    Creates block(s) consisting of convolutional
-    layer, leaky relu and (optionally) dropout and
-    batch normalization
+    Creates block of layers each consisting of convolution operation,
+    leaky relu and (optionally) dropout and batch normalization
+
+    Args:
+        nb_layers (int):
+            Number of layers in the block
+        input_channels (int):
+            Number of input channels for the block
+        output_channels (int):
+            Number of the output channels for the block
+        kernel_size (int):
+            Size of convolutional filter (in pixels)
+        stride (int):
+            Stride of convolutional filter
+        padding (int):
+            Value for edge padding
+        use_batchnorm (bool):
+            Add batch normalization to each layer in the block
+        lrelu_a (float)
+            Value of alpha parameter in leaky ReLU activation
+            for each layer in the block
+        dropout_ (float):
+            Dropout value for each layer in the block
     """
     def __init__(self, nb_layers, input_channels, output_channels,
                  kernel_size=3, stride=1, padding=1, use_batchnorm=False,
@@ -221,10 +239,19 @@ class conv2dblock(nn.Module):
 
 class upsample_block(nn.Module):
     """
-    Defines upsampling block performed using
-    bilinear interpolation followed by 1-by-1
-    convolution (the latter can be used to reduce
-    a number of feature channels)
+    Defines upsampling block performed using bilinear
+    or nearest-neigbor interpolation followed by 1-by-1 convolution
+    (the latter can be used to reduce a number of feature channels)
+
+    Args:
+        input_channels (int):
+            Number of input channels for the block
+        output_channels (int):
+            Number of the output channels for the block
+        scale_factor (positive int):
+            Scale factor for upsampling
+        mode (str):
+            Upsampling mode. Select between "bilinear" and "nearest"
     """
     def __init__(self,
                  input_channels,
@@ -252,6 +279,32 @@ class dilated_block(nn.Module):
     """
     Creates a "pyramid" with dilated convolutional
     layers (aka atrous convolutions)
+
+    Args:
+        input_channels (int):
+            Number of input channels for the block
+        output_channels (int):
+            Number of the output channels for the block
+        dilation_values (list of ints):
+            List of dilation rates for each convolution layer in the block
+            (for example, dilation_values = [2, 4, 6] means that the dilated
+            block will 3 layers with dilation values of 2, 4, and 6).
+        padding_values (list of ints):
+            Edge padding for each dilated layer. The number of elements in this
+            list should be equal to that in the dilated_values list and
+            typically they can have the same values.
+        kernel_size (int):
+            Size of convolutional filter (in pixels)
+        stride (int):
+            Stride of convolutional filter
+        use_batchnorm (bool):
+            Add batch normalization to each layer in the block
+        lrelu_a (float)
+            Value of alpha parameter in leaky ReLU activation
+            for each layer in the block
+        dropout_ (float):
+            Dropout value for each layer in the block
+
     """
     def __init__(self, input_channels, output_channels,
                  dilation_values, padding_values,
