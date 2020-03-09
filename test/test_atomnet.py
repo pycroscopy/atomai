@@ -2,7 +2,7 @@ import os
 import numpy as np
 import torch
 from atomai import atomnet, models
-from atomai.utils import load_model
+from atomai.utils import load_weights
 import pytest
 from numpy.testing import assert_allclose, assert_equal
 
@@ -78,6 +78,7 @@ def test_trainer_loss_selection(loss_user, n_atoms, criterion_):
         training_cycles=1, batch_size=4, loss=loss_user)
     assert_equal(str(m.criterion), criterion_)
 
+
 @pytest.mark.parametrize(
     "n_atoms, tensor_type",
     [(1, torch.float32), (2, torch.int64)])
@@ -115,7 +116,7 @@ def test_trainer_determinism():
 def test_atomfind(weights_, nb_classes, coord_expected):
     test_img_ = np.load(test_img)
     coordinates_expected = np.load(coord_expected)
-    model_ = load_model(models.dilUnet(nb_classes), weights_)
+    model_ = load_weights(models.dilUnet(nb_classes), weights_)
     _, nn_output = atomnet.predictor(test_img_, model_).run()
     coordinates_ = atomnet.locator(nn_output).run()
     assert_allclose(coordinates_[0], coordinates_expected)
