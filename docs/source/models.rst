@@ -41,3 +41,7 @@ upsample_block
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
+
+Load trained models
+--------------------
+.. autofunction:: atomai.models.load_model
