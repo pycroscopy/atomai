@@ -1,22 +1,20 @@
 Model Training and Prediction
 =============================
 
-Trainer
-----------
+Model training
+---------------
 .. autoclass:: atomai.atomnet.trainer
     :members:
     :undoc-members:
     :member-order: bysource
 
-Predictor
-----------
+Predictions
+-----------
 .. autoclass:: atomai.atomnet.predictor
     :members:
     :undoc-members:
     :member-order: bysource
 
-Locator
-----------
 .. autoclass:: atomai.atomnet.locator
     :members:
     :undoc-members:

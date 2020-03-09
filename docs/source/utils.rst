@@ -2,12 +2,6 @@ Utility Functions
 =============================
 
 
-Trained weights
-----------------
-.. autofunction:: atomai.utils.load_model
-.. autofunction:: atomai.utils.average_weights
-
-
 Training data preparation
 -------------------------
 .. autoclass:: atomai.utils.augmentor
@@ -42,3 +36,9 @@ Atomic Coordinates
 .. autofunction:: atomai.utils.filter_cells
 .. autofunction:: atomai.utils.filter_cells_
 .. autofunction:: atomai.utils.cv_thresh
+
+Trained weights
+----------------
+.. autofunction:: atomai.utils.load_weights
+.. autofunction:: atomai.utils.average_weights
+.. autofunction:: atomai.utils.nb_filters_classes

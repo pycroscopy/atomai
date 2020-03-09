@@ -10,7 +10,8 @@ Welcome to AtomAI's documentation!
    :maxdepth: 1
    :caption: Notes
 
-   README <readme_link>
+   ReadMe <readme_link>
+   License <license_link>
 
 .. toctree::
    :maxdepth: 3
