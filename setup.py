@@ -26,7 +26,7 @@ if __name__ == "__main__":
         zip_safe=False,
         install_requires=[
             'torch>=1.0.0',
-            'numpy>=1.16.4', 
+            'numpy>=1.16.4',
             'scipy>=1.3.0',
             'scikit-learn>=0.22.1',
             'scikit-image==0.16.2',

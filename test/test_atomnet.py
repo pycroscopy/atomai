@@ -19,18 +19,20 @@ test_model_m = os.path.join(
 
 
 def gen_dummy_data(n_atoms):
-    """Generate dummy train and test variables"""
+    """
+    Generate dummy train and test variables
+    """
     X_train = np.random.random(size=(25, 32, 32))
     X_test = np.random.random(size=(10, 32, 32))
     y_train = np.random.randint(0, n_atoms+1, size=(25, 32, 32))
     y_test = np.random.randint(0, n_atoms+1, size=(10, 32, 32))
-    return X_train, y_train, X_test, y_test 
+    return X_train, y_train, X_test, y_test
 
 
 @pytest.mark.parametrize(
     "img_dims_in, lbl_dims_in, n_atoms, img_dims_out, lbl_dims_out",
     [(3, 3, 1, 4, 4), (3, 3, 2, 4, 3), (4, 3, 1, 4, 4), (4, 3, 2, 4, 3)])
-def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms, 
+def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
                             img_dims_out, lbl_dims_out):
 
     def gen_data(dims):
@@ -65,7 +67,7 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
 
 @pytest.mark.parametrize(
     "loss_user, criterion_, n_atoms",
-     [("dice", "dice_loss()", 1), 
+     [("dice", "dice_loss()", 1),
      ("focal", "focal_loss()", 1),
      ("ce", "BCEWithLogitsLoss()", 1),
      ("ce", "CrossEntropyLoss()", 2)])
@@ -92,7 +94,7 @@ def test_trainer_dataloader(n_atoms, tensor_type):
 def test_trainer_determinism():
     X_train, y_train, X_test, y_test = gen_dummy_data(1)
     m1 = atomnet.trainer(
-        X_train, y_train, X_test, y_test, 
+        X_train, y_train, X_test, y_test,
         training_cycles=5, batch_size=4, upsampling="nearest")
     m1.run()
     loss1 = m1.train_loss[-1]
@@ -101,13 +103,13 @@ def test_trainer_determinism():
         training_cycles=5, batch_size=4, upsampling="nearest")
     m2.run()
     loss2 = m2.train_loss[-1]
-    assert_allclose(loss1, loss2) 
+    assert_allclose(loss1, loss2)
     for p1, p2 in zip(m1.net.parameters(), m2.net.parameters()):
         assert_allclose(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
 
 
 @pytest.mark.parametrize(
-    "weights_, nb_classes, coord_expected", 
+    "weights_, nb_classes, coord_expected",
     [(test_model_s, 1, test_coord_s),
     (test_model_m, 3, test_coord_m)])
 def test_atomfind(weights_, nb_classes, coord_expected):

@@ -93,7 +93,9 @@ class dilUnet(nn.Module):
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
     def forward(self, x):
-        '''Defines a forward path'''
+        """
+        Defines a forward path
+        """
         # Contracting path
         c1 = self.c1(x)
         d1 = F.max_pool2d(c1, kernel_size=2, stride=2)
@@ -173,7 +175,9 @@ class dilnet(nn.Module):
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
     def forward(self, x):
-        '''Defines a forward path'''
+        """
+        Defines a forward path
+        """
         c1 = self.c1(x)
         d1 = F.max_pool2d(c1, kernel_size=2, stride=2)
         at1 = self.at1(d1)
@@ -214,7 +218,9 @@ class conv2dblock(nn.Module):
     def __init__(self, nb_layers, input_channels, output_channels,
                  kernel_size=3, stride=1, padding=1, use_batchnorm=False,
                  lrelu_a=0.01, dropout_=0):
-        '''Initializes module parameters'''
+        """
+        Initializes module parameters
+        """
         super(conv2dblock, self).__init__()
         block = []
         for idx in range(nb_layers):
@@ -232,7 +238,9 @@ class conv2dblock(nn.Module):
         self.block = nn.Sequential(*block)
 
     def forward(self, x):
-        '''Forward path'''
+        """
+        Forward path
+        """
         output = self.block(x)
         return output
 
@@ -258,7 +266,9 @@ class upsample_block(nn.Module):
                  output_channels,
                  scale_factor=2,
                  mode="bilinear"):
-        '''Initializes module parameters'''
+        """
+        Initializes module parameters
+        """
         super(upsample_block, self).__init__()
         assert mode == 'bilinear' or mode == 'nearest',\
             "use 'bilinear' or 'nearest' for upsampling mode"
@@ -269,7 +279,9 @@ class upsample_block(nn.Module):
             kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
-        '''Defines a forward path'''
+        """
+        Defines a forward path
+        """
         x = F.interpolate(
             x, scale_factor=self.scale_factor, mode=self.mode)
         return self.conv(x)
@@ -310,7 +322,9 @@ class dilated_block(nn.Module):
                  dilation_values, padding_values,
                  kernel_size=3, stride=1, lrelu_a=0.01,
                  use_batchnorm=False, dropout_=0):
-        """Initializes module parameters"""
+        """
+        Initializes module parameters
+        """
         super(dilated_block, self).__init__()
         atrous_module = []
         for idx, (dil, pad) in enumerate(zip(dilation_values, padding_values)):
@@ -330,7 +344,9 @@ class dilated_block(nn.Module):
         self.atrous_module = nn.Sequential(*atrous_module)
 
     def forward(self, x):
-        '''Forward path'''
+        """
+        Forward path
+        """
         atrous_layers = []
         for conv_layer in self.atrous_module:
             x = conv_layer(x)

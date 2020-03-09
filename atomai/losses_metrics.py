@@ -1,5 +1,8 @@
 """
-Custom pytorch loss functions
+losses_metrics.py
+=================
+
+Custom pytorch loss functions and metrics
 """
 
 import torch
@@ -15,10 +18,13 @@ class focal_loss(torch.nn.Module):
     For more details, see https://arxiv.org/abs/1708.02002.
 
     Args:
-        alpha (float): "balance" coefficient,
-        gamma (float): "focusing" parameter (>=0),
-        with_logits (bool): indicates if the sigmoid operation was applied
-        at the end of a neural network's forward path.
+        alpha (float):
+            "balance" coefficient,
+        gamma (float):
+            "focusing" parameter (>=0),
+        with_logits (bool):
+            indicates if the sigmoid operation was applied
+            at the end of a neural network's forward path.
     """
     def __init__(self, alpha=0.5, gamma=2, with_logits=True):
         super(focal_loss, self).__init__()
@@ -27,7 +33,9 @@ class focal_loss(torch.nn.Module):
         self.logits = with_logits
 
     def forward(self, images, labels):
-        """Calculate focal loss"""
+        """
+        Calculate loss
+        """
         if self.logits:
             CE_loss = F.binary_cross_entropy_with_logits(images, labels)
         else:
@@ -47,6 +55,9 @@ class dice_loss(torch.nn.Module):
         self.eps = eps
 
     def forward(self, logits, labels):
+        """
+        Calculate loss
+        """
         num_classes = logits.shape[1]
         if num_classes == 1:
             true_1_hot = torch.eye(num_classes + 1)[labels.squeeze(1).to(torch.int64)]

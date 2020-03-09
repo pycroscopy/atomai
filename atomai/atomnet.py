@@ -93,7 +93,7 @@ class trainer:
     >>> labels_test_all = dataset['y_test']
     >>> # Train a model
     >>> netr = atomnet.trainer(
-    >>>     images_all, labels_all, 
+    >>>     images_all, labels_all,
     >>>     images_test_all, labels_test_all,
     >>>     training_cycles=500)
     >>> trained_model = netr.run()
@@ -302,7 +302,7 @@ class predictor:
         >>> # Get prediction from a trained model
         >>> # (it also returns the input to NN in case the image was resized, etc.)
         >>> nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
-    
+
     """
     def __init__(self,
                  image_data,
