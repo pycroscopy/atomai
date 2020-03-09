@@ -276,7 +276,7 @@ class upsample_block(nn.Module):
         Initializes module parameters
         """
         super(upsample_block, self).__init__()
-        if not any([mode=='bilinear', mode=='nearest']):
+        if not any([mode == 'bilinear', mode == 'nearest']):
             raise NotImplementedError(
                 "use 'bilinear' or 'nearest' for upsampling mode")
         self.scale_factor = scale_factor
