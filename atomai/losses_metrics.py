@@ -68,7 +68,7 @@ class dice_loss(torch.nn.Module):
             pos_prob = torch.sigmoid(logits)
             neg_prob = 1 - pos_prob
             probas = torch.cat([pos_prob, neg_prob], dim=1)
-        else: # performance on multi-class case has not been tested yet
+        else:
             true_1_hot = torch.eye(num_classes)[labels.squeeze(1).to(torch.int64)]
             true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
             probas = F.softmax(logits, dim=1)
