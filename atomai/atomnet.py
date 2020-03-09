@@ -93,7 +93,9 @@ class trainer:
     >>> labels_test_all = dataset['y_test']
     >>> # Train a model
     >>> netr = atomnet.trainer(
-    >>> images_all, labels_all, images_test_all, labels_test_all, training_cycles=500)
+    >>>     images_all, labels_all, 
+    >>>     images_test_all, labels_test_all,
+    >>>     training_cycles=500)
     >>> trained_model = netr.run()
     """
     def __init__(self,
@@ -298,8 +300,8 @@ class predictor:
         >>> # Here we load new experimental data (as 2D or 3D numpy array)
         >>> expdata = np.load('expdata-test.npy')
         >>> # Get prediction from a trained model
+        >>> # (it also returns the input to NN in case the image was resized, etc.)
         >>> nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
-        >>> # it returns the input to NN as well in case the image was resized, etc.
     
     """
     def __init__(self,

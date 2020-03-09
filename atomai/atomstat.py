@@ -40,8 +40,7 @@ class imlocal:
 
     Examples:
 
-    Identify atomic distortion domains a single image (the image should contain
-    a sufficiently large number of unit cells (> 10**3) for this analysis):
+    Identification of distortion domains in a single atomic image:
 
         >>> # First obtain a "cleaned" image and atomic coordinates using a trained model
         >>> nn_input, nn_output = atomnet.predictor(expdata, model, use_gpu=False).run()
@@ -55,7 +54,7 @@ class imlocal:
         >>> # Do NMF analysis and plot results
         >>> pca_results = imstack.imblock_nmf(n_components=4, plot_results=True)
 
-    Analyze atomic/defect trajectories from movies (3D image stack):
+    Analysis of atomic/defect trajectories from movies (3D image stack):
 
         >>> # Get local descriptors (such as subimages centered around impurities)
         >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
