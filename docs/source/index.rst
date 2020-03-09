@@ -15,7 +15,7 @@ Welcome to AtomAI's documentation!
 
 .. toctree::
    :maxdepth: 3
-   :caption: Package Reference
+   :caption: Package Content
 
    atomnet
    atomstat
