@@ -8,7 +8,6 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import subprocess
-import random
 import torch
 import numpy as np
 import cv2
@@ -721,7 +720,6 @@ class augmentor:
         self.noise = kwargs.get('noise')
         self.resize = kwargs.get('resize')
         if seed is not None:
-            random.seed(seed)
             np.random.seed(seed)
 
     def run(self, images, masks):
@@ -774,11 +772,11 @@ class augmentor:
         c_level_range = self.noise['contrast']
         X_batch_a = np.zeros((self.n, self.w, self.h))
         for i, img in enumerate(X_batch):
-            pnoise = random.randint(pnoise_range[0], pnoise_range[1])
-            spnoise = random.randint(spnoise_range[0], spnoise_range[1])
-            gnoise = random.randint(gnoise_range[0], gnoise_range[1])
-            blevel = random.randint(blevel_range[0], blevel_range[1])
-            clevel = random.randint(c_level_range[0], c_level_range[1])
+            pnoise = np.random.randint(pnoise_range[0], pnoise_range[1])
+            spnoise = np.random.randint(spnoise_range[0], spnoise_range[1])
+            gnoise = np.random.randint(gnoise_range[0], gnoise_range[1])
+            blevel = np.random.randint(blevel_range[0], blevel_range[1])
+            clevel = np.random.randint(c_level_range[0], c_level_range[1])
             img = ndimage.filters.gaussian_filter(img, blevel*1e-2)
             img = make_pnoise(img, pnoise)
             img = random_noise(img, mode='gaussian', var=gnoise*1e-4)
@@ -797,7 +795,7 @@ class augmentor:
         X_batch_a = np.zeros((self.n, self.w, self.h))
         y_batch_a = np.zeros((self.n, self.w, self.h, self.ch))
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
-            rs = random.choice(zoom_list)
+            rs = np.random.choice(zoom_list)
             w1 = int((self.w-rs)/2)
             w2 = int(rs + (self.w-rs)/2)
             h1 = int((self.h-rs)/2)
@@ -823,7 +821,7 @@ class augmentor:
         y_batch_a = np.zeros((self.n, self.w, self.h, self.ch))
         int_r = (-1, 3) if self.rotate90 else (-1, 1)
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
-            flip_type = random.randint(int_r[0], int_r[1])
+            flip_type = np.random.randint(int_r[0], int_r[1])
             if flip_type == 3:
                 img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
                 gt = cv2.rotate(gt, cv2.ROTATE_90_CLOCKWISE)
@@ -845,7 +843,7 @@ class augmentor:
         corresponding labels (ground truth)
         """
         rs_arr = np.arange(self.resize[0], self.resize[1], self.resize[2])
-        rs = random.choice(rs_arr)
+        rs = np.random.choice(rs_arr)
         if X_batch.shape[1:3] == (rs, rs):
             return X_batch, y_batch
         X_batch_a = np.zeros((self.n, rs, rs))
