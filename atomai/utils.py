@@ -337,8 +337,9 @@ def compare_coordinates(coordinates1,
     if plot_results:
         fsize = kwargs.get('fsize', 20)
         expdata = kwargs.get('expdata')
-        assert expdata is not None,\
-        "For plotting, provide 2D image via 'expdata' keyword"
+        if expdata is None:
+            raise AssertionError(
+                "For plotting, provide 2D image via 'expdata' keyword")
         plt.figure(figsize=(int(fsize*1.25), fsize))
         plt.imshow(expdata, cmap='gray')
         im = plt.scatter(
