@@ -649,8 +649,9 @@ class imlocal:
         components = components.reshape(
             n_components, self.d1, self.d2, self.d3)
         if plot_results:
-            assert self.network_output.shape[0] == 1,\
-            "The 'mother image' dimensions must be (1 x h x w x c)"
+            if self.network_output.shape[0] != 1:
+                raise AssertionError(
+                    "The 'mother image' dimensions must be (1 x h x w x c)")
             self.plot_decomposition_results(
                 components, X_vec_t,
                 self.network_output.shape[1:3],
