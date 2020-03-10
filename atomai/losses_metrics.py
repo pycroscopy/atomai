@@ -27,6 +27,9 @@ class focal_loss(torch.nn.Module):
             at the end of a neural network's forward path.
     """
     def __init__(self, alpha=0.5, gamma=2, with_logits=True):
+        """
+        Parameter initialization
+        """
         super(focal_loss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
@@ -34,7 +37,7 @@ class focal_loss(torch.nn.Module):
 
     def forward(self, images, labels):
         """
-        Calculate loss
+        Calculates loss
         """
         if self.logits:
             CE_loss = F.binary_cross_entropy_with_logits(images, labels)
@@ -52,6 +55,9 @@ class dice_loss(torch.nn.Module):
     """
     def __init__(self, eps=1e-7):
         super(dice_loss, self).__init__()
+        """
+        Parameter initialization
+        """
         self.eps = eps
 
     def forward(self, logits, labels):

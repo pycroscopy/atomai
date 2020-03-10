@@ -36,7 +36,9 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
                             img_dims_out, lbl_dims_out):
 
     def gen_data(dims):
-        """dummy variables"""
+        """
+        Dummy variables
+        """
         if dims == 3:
             X = np.random.random(size=(25, 32, 32))
             X_ = np.random.random(size=(10, 32, 32))
@@ -46,7 +48,9 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
         return X, X_
 
     def gen_labels(dims, n_atoms):
-        """dummy variables"""
+        """
+        Dummy variables
+        """
         if dims == 3:
             y = np.random.randint(0, n_atoms+1, size=(25, 32, 32))
             y_ = np.random.randint(0, n_atoms+1, size=(10, 32, 32))

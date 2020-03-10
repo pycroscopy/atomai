@@ -146,12 +146,12 @@ def preprocess_training_data(images_all,
             type(images_test_all) == type(labels_test_all)):
         raise AssertionError(
             "Provide all training and test data in the same format")
-    if type(labels_all) == list:
+    if isinstance(labels_all, list):
         num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
-    elif type(labels_all) == dict:
+    elif isinstance(labels_all, dict):
         num_classes = max(
             set([len(np.unique(lab)) for lab in labels_all.values()]))
-    elif type(labels_all) == np.ndarray:
+    elif isinstance(labels_all, np.ndarray):
         n_train_batches, _ = np.divmod(labels_all.shape[0], batch_size)
         n_test_batches, _ = np.divmod(labels_test_all.shape[0], batch_size)
         images_all = np.split(
@@ -536,6 +536,9 @@ class MakeAtom:
             Parameter of 2D gaussian function
     """
     def __init__(self, sc, cfp=2, intensity=1, theta=0, offset=0):
+        """
+        Parameter initialization and grid construction
+        """
         if sc % 2 == 0:
             sc += 1
         self.xo, self.yo = sc/2, sc/2
@@ -629,7 +632,7 @@ def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches):
     atomic lattice and the corresponding mask
     (atomic contours with constant pixel values)
     """
-    if type(patch_size) == int:
+    if isinstance(patch_size, int):
         patch_size = (patch_size, patch_size)
     images = extract_patches_2d(
         lattice_im, patch_size, max_patches=num_patches, random_state=0)

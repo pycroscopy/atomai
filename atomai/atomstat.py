@@ -68,6 +68,10 @@ class imlocal:
                  coord_class_dict_all,
                  crop_size,
                  coord_class):
+        """
+        Initializes parameters and collects a stack of subimages
+        for the statistical analysis of local descriptors
+        """
         self.network_output = network_output
         self.nb_classes = network_output.shape[-1]
         self.coord_all = coord_class_dict_all
