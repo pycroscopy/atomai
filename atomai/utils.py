@@ -524,20 +524,14 @@ class MakeAtom:
     """
     Creates an image of atom modelled as
     2D Gaussian and a corresponding mask
-
-    Args:
-        sc (float):
-            Scale parameter, which determines Gaussian width
-        intensity (float):
-            Parameter of 2D gaussian function
-        theta (float):
-            Parameter of 2D gaussian function
-        offset (float):
-            Parameter of 2D gaussian function
     """
-    def __init__(self, sc, cfp=2, intensity=1, theta=0, offset=0):
+    def __init__(self, sc=5, r_mask=3, theta=0, offset=0):
         """
-        Parameter initialization and grid construction
+        Args:
+            sc (float): scale parameter, which determines Gaussian width
+            r_mask (float): radius of mask corresponding to atom
+            theta (float): parameter of 2D gaussian function
+            offset (float): parameter of 2D gaussian function
         """
         if sc % 2 == 0:
             sc += 1
@@ -548,23 +542,42 @@ class MakeAtom:
         self.sigma_x, self.sigma_y = sc/4, sc/4
         self.theta = theta
         self.offset = offset
-        self.intensity = intensity
-
+        self.r_mask = r_mask
+  
     def atom2dgaussian(self):
-        """
-        Models atom as 2d Gaussian
-        """
+        '''Models atom as 2d Gaussian'''
         a = (np.cos(self.theta)**2)/(2*self.sigma_x**2) +\
             (np.sin(self.theta)**2)/(2*self.sigma_y**2)
         b = -(np.sin(2*self.theta))/(4*self.sigma_x**2) +\
              (np.sin(2*self.theta))/(4*self.sigma_y**2)
         c = (np.sin(self.theta)**2)/(2*self.sigma_x**2) +\
             (np.cos(self.theta)**2)/(2*self.sigma_y**2)
-        g = self.offset + self.intensity*np.exp(
-            -(a*((self.x-self.xo)**2) + 2*b*(self.x-self.xo)*(self.y-self.yo) +\
-            c*((self.y-self.yo)**2)))
+        g = self.offset + np.exp(
+            -(a*((self.x-self.xo)**2) + 2*b*(self.x-self.xo)*(self.y-self.yo) +
+              c*((self.y-self.yo)**2)))
         return g
 
+    def circularmask(self, image, radius):
+        '''Returns a mask with specified radius'''
+        h, w = self.x.shape
+        X, Y = np.ogrid[:h, :w]
+        dist_from_center = np.sqrt((X-self.xo+0.5)**2 + (Y-self.yo+0.5)**2)
+        mask = dist_from_center <= radius
+        image[~mask] = 0
+        return image
+
+    def gen_atom_mask(self):
+        '''Creates a mask for specific type of atom'''
+        atom = self.atom2dgaussian()
+        mask = self.circularmask(atom.copy(), self.r_mask/2)
+        mask = mask[np.min(np.where(mask > 0)[0]):
+                    np.max(np.where(mask > 0)[0]+1),
+                    np.min(np.where(mask > 0)[1]):
+                    np.max(np.where(mask > 0)[1])+1]
+        mask[mask > 0] = 1
+
+        return atom, mask
+        
 
 def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     """
@@ -579,18 +592,21 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
             Position of atoms in the experimental data
         *arg (python function):
             Function that creates a 2D numpy array with atom and
-            corresponding mask for each atomic coordinate.
+            corresponding mask for each atomic coordinate. It must have
+            two parameters, 'scale' and 'rmask' that control sizes of simulated
+            atom and corresponding mask
 
             Example:
 
-            >>> def create_atomic_mask(r=7, thresh=.2):
+            >>> def create_atomic_mask(scale=7, rmask=5):
             >>>     atom = MakeAtom(r).atom2dgaussian()
             >>>     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
             >>>     return atom, mask
 
         **scale: int
+            Controls the atom size (width of 2D Gaussian)
+        **rmask: int
             Controls the atomic mask size
-
     Returns:
         2D numpy array with ground truth data
     """
@@ -599,12 +615,13 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     else:
         create_mask_func = create_atom_mask_pair
     scale = kwargs.get("scale", 7)
+    rmask = kwargs.get("rmask", 5)
     lattice_mask = np.zeros_like(lattice)
     for i in range(xy_atoms.shape[-1]):
         x, y = xy_atoms[:, i]
         x = int(np.around(x))
         y = int(np.around(y))
-        _, mask = create_mask_func(scale)
+        _, mask = create_mask_func(scale, rmask)
         r_m = mask.shape[0] / 2
         r_m1 = int(r_m + .5)
         r_m2 = int(r_m - .5)
@@ -612,17 +629,12 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     return lattice_mask
 
 
-def create_atom_mask_pair(r=7, thresh=.2):
+def create_atom_mask_pair(sc=5, r_mask=5):
     """
-    Helper function for creating atomic masks
-    from 2D gaussian via simple thresholding
+    Helper function for creating atom-label pair
     """
-    atom = MakeAtom(r).atom2dgaussian()
-    _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
-    mask = mask[np.min(np.where(mask == 1)[0]):
-                np.max(np.where(mask == 1)[0] + 1),
-                np.min(np.where(mask == 1)[1]):
-                np.max(np.where(mask == 1)[1]) + 1]
+    amaker = MakeAtom(sc, r_mask)
+    atom, mask = amaker.gen_atom_mask()
     return atom, mask
 
 
