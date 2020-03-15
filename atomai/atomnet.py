@@ -354,6 +354,7 @@ class predictor:
         image_data = img_pad(image_data, downsampling)
         self.image_data = torch_format(image_data)
         self.use_gpu = use_gpu
+        self.verbose = kwargs.get("verbose", True)
 
     def predict(self, images):
         """
@@ -388,11 +389,12 @@ class predictor:
             decoded_imgs = np.zeros((n, w, h, self.nb_classes))
             for i in range(n):
                 decoded_imgs[i, :, :, :] = self.predict(self.image_data[i:i+1])
-        n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
-        print(str(decoded_imgs.shape[0])
-                + n_images_str + "decoded in approximately "
-                + str(np.around(time.time() - start_time, decimals=4))
-                + ' seconds')
+        if self.verbose:
+            n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
+            print(str(decoded_imgs.shape[0])
+                  + n_images_str + "decoded in approximately "
+                  + str(np.around(time.time() - start_time, decimals=4))
+                  + ' seconds')
         images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
         return images_numpy, decoded_imgs
 
