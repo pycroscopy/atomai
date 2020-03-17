@@ -359,17 +359,17 @@ def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
 
 def peak_refinement(imgdata, coordinates, d=None):
     """
-    Performs a refinement of atomic postitions by fitting 
+    Performs a refinement of atomic postitions by fitting
     2d Gaussian where the neural network predictions serve
     as initial guess.
 
     Args:
-        imgdata (2D numpy array): 
+        imgdata (2D numpy array):
             Single experimental image/frame
         coordinates (N x 3 numpy array):
             Atomic coordinates where first two columns are *xy* coordinates
             and the third column is atom class
-        d (int): 
+        d (int):
             Half-side of a square around the identified atom for peak fitting
         
     Returns:
@@ -383,7 +383,7 @@ def peak_refinement(imgdata, coordinates, d=None):
         cx = int(np.around(c[0]))
         cy = int(np.around(c[1]))
         img = imgdata[cx-d:cx+d, cy-d:cy+d]
-        if img.shape == (2*d, 2*d):
+        if img.shape == (int(2*d), int(2*d)):
             e1, e2 = img.shape
             x, y = np.mgrid[:e1:1, :e2:1]
             initial_guess = (img[d, d], d, d, 1, 1, 0, 0)
