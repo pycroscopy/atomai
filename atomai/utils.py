@@ -371,7 +371,8 @@ def peak_refinement(imgdata, coordinates, d=None):
             and the third column is atom class
         d (int):
             Half-side of a square around the identified atom for peak fitting
-        
+            If d is not specified, it is set to 1/3 of average nearest neighbor
+            distance in the lattice.
     Returns:
         Refined array of coordinates
     """
@@ -387,9 +388,15 @@ def peak_refinement(imgdata, coordinates, d=None):
             e1, e2 = img.shape
             x, y = np.mgrid[:e1:1, :e2:1]
             initial_guess = (img[d, d], d, d, 1, 1, 0, 0)
-            popt, pcov = optimize.curve_fit(
-                    gaussian_2d, (x, y), img.flatten(), p0=initial_guess)
-            xyc = popt[1:3] + np.around(c) - d
+            try:
+                popt, pcov = optimize.curve_fit(
+                        gaussian_2d, (x, y), img.flatten(), p0=initial_guess)
+                if np.linalg.norm(popt[1:3] - d) < 3:
+                    xyc = popt[1:3] + np.around(c) - d
+                else:
+                    xyc = c
+            except RuntimeError:
+                xyc = c
         else:
             xyc = c
         xyc_all.append(xyc)

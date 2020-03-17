@@ -390,7 +390,6 @@ class predictor:
         """
         Make prediction
         """
-        start_time = time.time()
         if self.image_data.shape[0] < 20 and min(self.image_data.shape[2:4]) < 512:
             decoded_imgs = self.predict(self.image_data)
         else:
@@ -398,22 +397,25 @@ class predictor:
             decoded_imgs = np.zeros((n, w, h, self.nb_classes))
             for i in range(n):
                 decoded_imgs[i, :, :, :] = self.predict(self.image_data[i:i+1])
+        images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
+        return images_numpy, decoded_imgs
+
+    def run(self):
+        start_time = time.time()
+        images, decoded_imgs = self.decode()
+        coordinates = locator(decoded_imgs).run()
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
             print(str(decoded_imgs.shape[0])
                   + n_images_str + "decoded in approximately "
                   + str(np.around(time.time() - start_time, decimals=4))
                   + ' seconds')
-        images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
-        return images_numpy, decoded_imgs
-
-    def run(self):
-        images, decoded_imgs = self.decode()
-        coordinates = locator(decoded_imgs).run()
-        coordinates_r = {}
         if self.refine:
+            print('\rRefining atomic positions... ', end="")
+            coordinates_r = {}
             for i, (img, coord) in enumerate(zip(images, coordinates.values())):
                 coordinates_r[i] = peak_refinement(img[...,0], coord, self.d)
+            print("Done")
             return images, (decoded_imgs, coordinates_r)
         return images, (decoded_imgs, coordinates)
 
