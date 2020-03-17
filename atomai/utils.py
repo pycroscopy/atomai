@@ -376,7 +376,8 @@ def peak_refinement(imgdata, coordinates, d=None):
         Refined array of coordinates
     """
     if d is None:
-        d = int(get_distances(coordinates)[1]*.33)
+        d = get_distances(coordinates)[1]
+        d = int(d*0.33)
     xyc_all = []
     for i, c in enumerate(coordinates[:, :2]):
         cx = int(np.around(c[0]))
