@@ -43,8 +43,7 @@ class imlocal:
     Identification of distortion domains in a single atomic image:
 
         >>> # First obtain a "cleaned" image and atomic coordinates using a trained model
-        >>> nn_input, nn_output = atomnet.predictor(expdata, model, use_gpu=False).run()
-        >>> coordinates = atomnet.locator(nn_output).run()
+        >>> nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, model, use_gpu=False).run()
         >>> # Now get local image descriptors using atomstat.imlocal
         >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=16, coord_class=1)
         >>> # Compute PCA scree plot to estimate the number of components/sources

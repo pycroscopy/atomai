@@ -318,7 +318,7 @@ class predictor:
         >>> expdata = np.load('expdata-test.npy')
         >>> # Get prediction from a trained model
         >>> # (it also returns the input to NN in case the image was resized, etc.)
-        >>> nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
+        >>> nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, trained_model).run()
 
     """
     def __init__(self,
