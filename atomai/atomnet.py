@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
                           img_resize, mock_forward, plot_losses,
-                          preprocess_training_data, torch_format)
+                          preprocess_training_data, torch_format, peak_refinement)
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
@@ -294,12 +294,17 @@ class predictor:
             Image stack or a single image (all greyscale)
         trained_model (pytorch object):
             Trained pytorch model (skeleton+weights)
+        refine (bool):
+            Atomic positions refinement with 2d Gaussian peak fitting
         resize (tuple / 2-element list):
             Target dimensions for optional image(s) resizing
         use_gpu (bool):
             Use gpu device for inference
         seed (int):
             Sets seed for random number generators
+        **d (int):
+            half-side of square around each atomic position used
+            for refinement with 2d Gaussian peak fitting
         **nb_classes (int):
             Number of classes in the model
         **downsampled (int or float):
@@ -318,6 +323,7 @@ class predictor:
     def __init__(self,
                  image_data,
                  trained_model,
+                 refine=False,
                  resize=None,
                  use_gpu=False,
                  seed=1,
@@ -353,6 +359,8 @@ class predictor:
             image_data = img_resize(image_data, resize)
         image_data = img_pad(image_data, downsampling)
         self.image_data = torch_format(image_data)
+        self.refine = refine
+        self.d = kwargs.get("d", None)
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
@@ -377,7 +385,7 @@ class predictor:
         prob = prob.numpy()
         return prob
 
-    def run(self):
+    def decode(self):
         """
         Make prediction
         """
@@ -397,6 +405,16 @@ class predictor:
                   + ' seconds')
         images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
         return images_numpy, decoded_imgs
+
+        def run(self):
+            images, decoded_imgs = self.decode()
+            coordinates = locator(decoded_imgs).run()
+            coordinates_r = {}
+            if self.refine:
+                for i, (img, coord) in enumerate(zip(images, coordinates)):
+                    coordinates_r[i] = peak_refinement(img, coord, d)
+                return images, (decoded_imgs, coordinates_r)
+            return images, (decoded_imgs, coordinates)
 
 
 class locator:

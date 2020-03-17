@@ -121,6 +121,5 @@ def test_atomfind(weights_, nb_classes, coord_expected):
     test_img_ = np.load(test_img)
     coordinates_expected = np.load(coord_expected)
     model_ = load_weights(models.dilUnet(nb_classes), weights_)
-    _, nn_output = atomnet.predictor(test_img_, model_).run()
-    coordinates_ = atomnet.locator(nn_output).run()
+    _, _, coordinates_ = atomnet.predictor(test_img_, model_).run()
     assert_allclose(coordinates_[0], coordinates_expected)

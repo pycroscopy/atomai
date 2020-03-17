@@ -11,7 +11,7 @@ import subprocess
 import torch
 import numpy as np
 import cv2
-from scipy import ndimage, fftpack, spatial
+from scipy import ndimage, fftpack, spatial, optimize
 from sklearn.feature_extraction.image import extract_patches_2d
 from skimage import exposure
 from skimage.util import random_noise
@@ -310,6 +310,91 @@ def find_com(image_data):
             image_data, labels, np.arange(nlabels) + 1))
     coordinates = coordinates.reshape(coordinates.shape[0], 2)
     return coordinates
+
+
+def get_distances(coordinates):
+    """
+    Calculates pairwise nearest-neighbor distances
+    and their average
+
+    Args:
+        coordinates (N x 3 numpy array):
+            Atomic coordinates where first two columns are *xy* coordinates
+            and the third column is atom class
+    
+    Returns:
+        Tuple with all and averaged coordinates
+    """
+    distances_all = []
+    checked_coord = []
+    for i1, c in enumerate(coordinates[:,:2]):
+        d, i2 = spatial.cKDTree(coordinates[:,:2]).query(c, k=2)
+        if tuple((i2[-1], i1)) not in checked_coord:
+            checked_coord.append(tuple((i1, i2[-1])))
+            distances_all.append(d[-1])
+    return np.array(distances_all), np.mean(distances_all)
+
+
+def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
+    """
+    Models 2D Gaussian
+    
+    Args:
+        xy (tuple): two M x N arrays
+        amp (float): peak amplitude
+        xo (float): x-coordinate of peak center
+        yo (float): y-coordinate of peak center
+        sigma_x (float): peak width (x-projection)
+        sigma_y (float): peak height (y-projection)
+        theta (float): parameter of 2D Gaussian
+        offset (float): parameter of 2D Gaussian
+    """
+    x, y = xy
+    a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
+    b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
+    c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
+    g = offset + amp*np.exp(- (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
+    return g.flatten()
+
+
+def peak_refinement(imgdata, coordinates, d=None):
+    """
+    Performs a refinement of atomic postitions by fitting 
+    2d Gaussian where the neural network predictions serve
+    as initial guess.
+
+    Args:
+        imgdata (2D numpy array): 
+            Single experimental image/frame
+        coordinates (N x 3 numpy array):
+            Atomic coordinates where first two columns are *xy* coordinates
+            and the third column is atom class
+        d (int): 
+            Half-side of a square around the identified atom for peak fitting
+        
+    Returns:
+        Refined array of coordinates
+    """
+    if d is None:
+        d = int(get_distances(coordinates)[1]*.33)
+    xyc_all = []
+    for i, c in enumerate(coordinates[:, :2]):
+        cx = int(np.around(c[0]))
+        cy = int(np.around(c[1]))
+        img = imgdata[cx-d:cx+d, cy-d:cy+d]
+        if img.shape == (2*d, 2*d):
+            e1, e2 = img.shape
+            x, y = np.mgrid[:e1:1, :e2:1]
+            initial_guess = (img[d, d], d, d, 1, 1, 0, 0)
+            popt, pcov = optimize.curve_fit(
+                    gaussian_2d, (x, y), img.flatten(), p0=initial_guess)
+            xyc = popt[1:3] + np.around(c) - d
+        else:
+            xyc = c
+        xyc_all.append(xyc)
+    xyc_all = np.concatenate(
+        (np.array(xyc_all), coordinates[:, 2:3]), axis=-1)
+    return xyc_all
 
 
 def compare_coordinates(coordinates1,
