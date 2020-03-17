@@ -413,7 +413,7 @@ class predictor:
         coordinates_r = {}
         if self.refine:
             for i, (img, coord) in enumerate(zip(images, coordinates)):
-                coordinates_r[i] = peak_refinement(img, coord, d)
+                coordinates_r[i] = peak_refinement(img, coord, self.d)
             return images, (decoded_imgs, coordinates_r)
         return images, (decoded_imgs, coordinates)
 
