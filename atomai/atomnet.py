@@ -12,14 +12,15 @@ import os
 import time
 import warnings
 
-import atomai.losses_metrics as losses_metrics_
 import numpy as np
 import torch
 import torch.nn.functional as F
+
+import atomai.losses_metrics as losses_metrics_
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
-                          img_resize, mock_forward, plot_losses,
-                          preprocess_training_data, torch_format, peak_refinement)
+                          img_resize, mock_forward, peak_refinement,
+                          plot_losses, preprocess_training_data, torch_format)
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
