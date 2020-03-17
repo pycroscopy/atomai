@@ -12,7 +12,7 @@ AtomAI is a simple Python package for machine learning-based analysis of experim
 
 ## How to use it?
 
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which takes two lines of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which also takes  a single line of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
 
 Here is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
 
@@ -38,11 +38,8 @@ Trained models can be used to find atoms/defects in the previously unseen (by a 
 # Here you load new experimental data (as 2D or 3D numpy array)
 expdata = np.load('expdata-test.npy')
 
-# Get raw NN output
-nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
-    
-# Transform to atomic classes and coordinates
-coordinates = atomnet.locator(nn_output).run()
+# Get "cleaned" data output with atomic classes and coordinates
+nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, trained_model).run()
 ```
 
 One can then perform statistical analysis using the information extracted by *atomnet*. For example, for a single image, one can identify domains with different ferroic distortions:
