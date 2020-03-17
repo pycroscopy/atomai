@@ -545,7 +545,9 @@ class MakeAtom:
         self.r_mask = r_mask
   
     def atom2dgaussian(self):
-        '''Models atom as 2d Gaussian'''
+        """
+        Models atom as 2d Gaussian
+        """
         a = (np.cos(self.theta)**2)/(2*self.sigma_x**2) +\
             (np.sin(self.theta)**2)/(2*self.sigma_y**2)
         b = -(np.sin(2*self.theta))/(4*self.sigma_x**2) +\
@@ -558,7 +560,9 @@ class MakeAtom:
         return g
 
     def circularmask(self, image, radius):
-        '''Returns a mask with specified radius'''
+        """
+        Returns a mask with specified radius
+        """
         h, w = self.x.shape
         X, Y = np.ogrid[:h, :w]
         dist_from_center = np.sqrt((X-self.xo+0.5)**2 + (Y-self.yo+0.5)**2)
@@ -567,7 +571,9 @@ class MakeAtom:
         return image
 
     def gen_atom_mask(self):
-        '''Creates a mask for specific type of atom'''
+        """
+        Creates a mask for specific type of atom
+        """
         atom = self.atom2dgaussian()
         mask = self.circularmask(atom.copy(), self.r_mask/2)
         mask = mask[np.min(np.where(mask > 0)[0]):
