@@ -406,15 +406,15 @@ class predictor:
         images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
         return images_numpy, decoded_imgs
 
-        def run(self):
-            images, decoded_imgs = self.decode()
-            coordinates = locator(decoded_imgs).run()
-            coordinates_r = {}
-            if self.refine:
-                for i, (img, coord) in enumerate(zip(images, coordinates)):
-                    coordinates_r[i] = peak_refinement(img, coord, d)
-                return images, (decoded_imgs, coordinates_r)
-            return images, (decoded_imgs, coordinates)
+    def run(self):
+        images, decoded_imgs = self.decode()
+        coordinates = locator(decoded_imgs).run()
+        coordinates_r = {}
+        if self.refine:
+            for i, (img, coord) in enumerate(zip(images, coordinates)):
+                coordinates_r[i] = peak_refinement(img, coord, d)
+            return images, (decoded_imgs, coordinates_r)
+        return images, (decoded_imgs, coordinates)
 
 
 class locator:
