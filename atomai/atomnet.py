@@ -301,6 +301,10 @@ class predictor:
             Target dimensions for optional image(s) resizing
         use_gpu (bool):
             Use gpu device for inference
+        logits (bool):
+            Indicates that the image data is passed through
+            a softmax/sigmoid layer when set to False
+            (logits=True for AtomAI models)
         seed (int):
             Sets seed for random number generators
         **d (int):
@@ -327,6 +331,7 @@ class predictor:
                  refine=False,
                  resize=None,
                  use_gpu=False,
+                 logits=True,
                  seed=1,
                  **kwargs):
         if seed:
@@ -360,6 +365,7 @@ class predictor:
             image_data = img_resize(image_data, resize)
         image_data = img_pad(image_data, downsampling)
         self.image_data = torch_format(image_data)
+        self.logits = logits
         self.refine = refine
         self.d = kwargs.get("d", None)
         self.use_gpu = use_gpu
@@ -375,10 +381,16 @@ class predictor:
         self.model.eval()
         with torch.no_grad():
             prob = self.model.forward(images)
+        if self.logits:
             if self.nb_classes > 1:
                 prob = F.softmax(prob, dim=1)
             else:
                 prob = torch.sigmoid(prob)
+        else:
+            if self.nb_classes > 1:
+                prob = torch.exp(prob)
+            else:
+                pass
         if self.use_gpu:
             images = images.cpu()
             prob = prob.cpu()
