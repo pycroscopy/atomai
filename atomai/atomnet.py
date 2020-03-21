@@ -307,6 +307,8 @@ class predictor:
             (logits=True for AtomAI models)
         seed (int):
             Sets seed for random number generators
+        **thresh (float):
+            value between 0 and 1 for thresholding the NN output
         **d (int):
             half-side of square around each atomic position used
             for refinement with 2d Gaussian peak fitting
@@ -368,6 +370,7 @@ class predictor:
         self.logits = logits
         self.refine = refine
         self.d = kwargs.get("d", None)
+        self.thresh = kwargs.get("thresh", .5)
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
@@ -415,7 +418,7 @@ class predictor:
     def run(self):
         start_time = time.time()
         images, decoded_imgs = self.decode()
-        coordinates = locator(decoded_imgs).run()
+        coordinates = locator(decoded_imgs, self.thresh).run()
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
             print(str(decoded_imgs.shape[0])
@@ -448,7 +451,7 @@ class locator:
 
     Example:
 
-        >>> # Transform utput of atomnet.predictor to atomic classes and coordinates
+        >>> # Transform output of atomnet.predictor to atomic classes and coordinates
         >>> coordinates = atomnet.locator(nn_output).run()
     """
     def __init__(self,
