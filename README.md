@@ -38,8 +38,8 @@ Trained models can be used to find atoms/defects in the previously unseen (by a 
 # Here you load new experimental data (as 2D or 3D numpy array)
 expdata = np.load('expdata-test.npy')
 
-# Get "cleaned" data output with atomic classes and coordinates
-nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, trained_model).run()
+# Get model's "raw" prediction, atomic coordinates and classes
+nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, trained_model, refine=False).run()
 ```
 
 One can then perform statistical analysis using the information extracted by *atomnet*. For example, for a single image, one can identify domains with different ferroic distortions:
