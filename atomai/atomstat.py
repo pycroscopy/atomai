@@ -738,7 +738,7 @@ def plot_lattice_bonds(distances,
     """
     Plots a map of lattice bonds
 
-    Args: 
+    Args:
         distances (numpy array):
             :math:'n_atoms \\times nn' array,
             where *nn* is a number of nearest neighbors

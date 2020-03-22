@@ -408,7 +408,7 @@ def peak_refinement(imgdata, coordinates, d=None):
             and the third column is atom class
         d (int):
             Half-side of a square around the identified atom for peak fitting
-            If d is not specified, it is set to 1/3 of average nearest neighbor
+            If d is not specified, it is set to 1/4 of average nearest neighbor
             distance in the lattice.
     Returns:
         Refined array of coordinates
