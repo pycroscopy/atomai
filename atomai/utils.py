@@ -314,33 +314,36 @@ def find_com(image_data):
     return coordinates
 
 
-def get_distances(coordinates):
+def get_distances(coordinates, upper_bound=None):
     """
     Calculates pairwise nearest-neighbor distances
-    and their average
 
     Args:
         coordinates (N x 3 numpy array):
             Atomic coordinates where first two columns are *xy* coordinates
             and the third column is atom class
-    
+        upper_bound (float ot int, non-negative):
+            Only distances below this value are counted
+
     Returns:
-        Tuple with all and averaged coordinates
+        Array with all extracted nearest-neighbor distances
     """
     distances_all = []
     checked_coord = []
-    for i1, c in enumerate(coordinates[:,:2]):
-        d, i2 = spatial.cKDTree(coordinates[:,:2]).query(c, k=2)
-        if tuple((i2[-1], i1)) not in checked_coord:
+    upper_bound = np.inf if upper_bound is None else upper_bound
+    for i1, c in enumerate(coordinates[:, :2]):
+        d, i2 = spatial.cKDTree(coordinates[:, :2]).query(
+            c, k=2, distance_upper_bound=upper_bound)
+        if tuple((i2[-1], i1)) not in checked_coord and d[-1] != np.inf:
             checked_coord.append(tuple((i1, i2[-1])))
             distances_all.append(d[-1])
-    return np.array(distances_all), np.mean(distances_all)
+    return np.array(distances_all)
 
 
 def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
     """
     Models 2D Gaussian
-    
+
     Args:
         xy (tuple): two M x N arrays
         amp (float): peak amplitude
@@ -379,8 +382,8 @@ def peak_refinement(imgdata, coordinates, d=None):
         Refined array of coordinates
     """
     if d is None:
-        d = get_distances(coordinates)[1]
-        d = int(d*0.33)
+        d = get_distances(coordinates)
+        d = int(np.mean(d)*0.33)
     xyc_all = []
     for i, c in enumerate(coordinates[:, :2]):
         cx = int(np.around(c[0]))
@@ -638,7 +641,7 @@ class MakeAtom:
         self.theta = theta
         self.offset = offset
         self.r_mask = r_mask
-  
+
     def atom2dgaussian(self):
         """
         Models atom as 2d Gaussian
@@ -678,7 +681,7 @@ class MakeAtom:
         mask[mask > 0] = 1
 
         return atom, mask
-        
+
 
 def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     """
