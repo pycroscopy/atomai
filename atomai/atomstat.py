@@ -7,11 +7,15 @@ Module for statistical analysis of local image descriptors
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+import os
 import numpy as np
 from sklearn import mixture, decomposition, cluster
 from scipy import spatial
+from atomai.utils import get_nn_distances
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib import cm
+import warnings
 
 
 class imlocal:
@@ -724,3 +728,106 @@ class transitions:
         ax.set_ylabel('Starting class', fontsize=18)
         plt.show()
 
+
+def plot_lattice_bonds(distances,
+                       atom_pairs,
+                       distance_ideal=None,
+                       frame=0,
+                       display_results=True,
+                       **kwargs):
+    """
+    Plots a map of lattice bonds
+
+    Args: 
+        distances (numpy array):
+            :math:'n_atoms \\times nn' array,
+            where *nn* is a number of nearest neighbors
+        atom_pairs (numpy array):
+            :math:'n_atoms \\times (nn+1) \\times 3',
+            where *nn* is a number of nearest neighbors
+        distance_ideal (float):
+            Bond distance in ideal lattice.
+            Defaults to average distance in the frame
+        frame (int):
+            frame number (used in filename when saving plot)
+        display_results (bool):
+            Plot bond maps
+        **savedir (str):
+            directory to save plots
+        **h (int):
+            image height
+        **w (int):
+            image width
+    """
+    savedir = kwargs.get("savedir", './')
+    h, w = kwargs.get("h"), kwargs.get("w")
+    if h is None or w is None:
+        w = int(np.amax(atom_pairs[..., 0]) - np.amin(atom_pairs[..., 0])) + 10
+        h = int(np.amax(atom_pairs[..., 1]) - np.amin(atom_pairs[..., 1])) + 10
+    if w != h:
+        warnings.warn("Currently supports only square images", UserWarning)
+    if distance_ideal is None:
+        distance_ideal = np.mean(distances)
+    distances = (distances - distance_ideal) / distance_ideal
+    d_uniq = np.sort(np.unique(distances))
+    colormap = cm.RdYlGn_r
+    colorst = [colormap(i) for i in np.linspace(0, 1, d_uniq.shape[0])]
+    fig, ax1 = plt.subplots(1, 1, figsize=(8, 8))
+    ax1.imshow(np.zeros((h, w)), cmap='gray')
+    for a, d in zip(atom_pairs, distances):
+        for i in range(a.shape[-1]):
+            x = [a[0][0], a[i+1][0]]
+            y = [a[0][1], a[i+1][1]]
+            color = colorst[np.where(d[i] == d_uniq)[0][0]]
+            ax1.plot(x, y, c=color)
+    ax1.axis(False)
+    ax1.set_aspect('auto')
+    clrbar = np.linspace(np.amin(d_uniq), np.amax(d_uniq), d_uniq.shape[0]-1).reshape(-1, 1)
+    ax2 = fig.add_axes([0.11, 0.08, .8, .2])
+    img = ax2.imshow(clrbar, colormap)
+    plt.gca().set_visible(False)
+    clrbar_ = plt.colorbar(img, ax=ax2, orientation='horizontal')
+    clrbar_.set_label('Variation in bond length (%)', fontsize=14, labelpad=10)
+    if display_results:
+        plt.show()
+    fig.savefig(os.path.join(savedir, 'frame_{}'.format(frame)))
+
+
+def map_bonds(coordinates,
+              nn=2,
+              upper_bound=None,
+              distance_ideal=None,
+              plot_results=True,
+              **kwargs):
+    """
+    Generates plots with lattice bonds
+    (color-coded according to the variation in their length)
+
+    Args:
+        coordinates (dict):
+            Dictionary where keys are frame numbers and values are
+            :math:'N \\times 3' numpy arrays with atomic coordinates.
+            In each array the first two columns are *xy* coordinates and
+            the third column is atom class.
+        nn (int): Number of nearest neighbors to search for.
+        upper_bound (float or int, non-negative):
+            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Only distances below this value will be counted.
+        distance_ideal (float):
+            Bond distance in ideal lattice.
+            Defaults to average distance in the frame
+        plot_results (bool):
+            Plot bond maps
+        **savedir (str):
+            directory to save plots
+        **h (int):
+            image height
+        **w (int):
+            image width
+    """
+    distances_all, atom_pairs_all = get_nn_distances(coordinates, nn, upper_bound)
+    if distance_ideal is None:
+        distance_ideal = np.mean(np.concatenate((distances_all)))
+    for i, (dist, at) in enumerate(zip(distances_all, atom_pairs_all)):
+        plot_lattice_bonds(dist, at, distance_ideal, i, plot_results, **kwargs)
+    return np.concatenate((distances_all))

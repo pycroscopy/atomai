@@ -314,30 +314,62 @@ def find_com(image_data):
     return coordinates
 
 
-def get_distances(coordinates, upper_bound=None):
+def get_nn_distances_(coordinates, nn=2, upper_bound=None):
     """
-    Calculates pairwise nearest-neighbor distances
+    Calculates nearest-neighbor distances for a single image
 
     Args:
-        coordinates (N x 3 numpy array):
-            Atomic coordinates where first two columns are *xy* coordinates
-            and the third column is atom class
-        upper_bound (float ot int, non-negative):
-            Only distances below this value are counted
-
+        coordinates (numpy array):
+            :math:'N \\times 3' array with atomic coordinates where first two
+            columns are *xy* coordinates and the third column is atom class
+        nn (int): Number of nearest neighbors to search for.
+        upper_bound (float or int, non-negative):
+            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Only di
     Returns:
-        Array with all extracted nearest-neighbor distances
+        Tuple with :math:'n_atoms \\times nn' array of distances to nearest
+        neighbors and :math:'n_atoms \\times (nn+1) \\times 3' array of coordinates
+        (including coordinates of the "center" atom), where n_atoms is less or
+        equal to the total number of atoms in the 'coordinates'
+        (due to 'upper_bound' criterion)
     """
-    distances_all = []
-    checked_coord = []
     upper_bound = np.inf if upper_bound is None else upper_bound
-    for i1, c in enumerate(coordinates[:, :2]):
-        d, i2 = spatial.cKDTree(coordinates[:, :2]).query(
-            c, k=2, distance_upper_bound=upper_bound)
-        if tuple((i2[-1], i1)) not in checked_coord and d[-1] != np.inf:
-            checked_coord.append(tuple((i1, i2[-1])))
-            distances_all.append(d[-1])
-    return np.array(distances_all)
+    tree = spatial.cKDTree(coordinates[:, :2])
+    d, nn = tree.query(
+        coordinates[:, :2], k=nn+1, distance_upper_bound=upper_bound)
+    idx_to_del = np.where(d == np.inf)[0]
+    nn = np.delete(nn, idx_to_del, axis=0)
+    d = np.delete(d, idx_to_del, axis=0)
+    return d[:, 1:], coordinates[nn]
+
+
+def get_nn_distances(coordinates, nn=2, upper_bound=None):
+    """
+    Calculates nearest-neighbor distances for a stack of images
+
+    Args:
+        coordinates (dict):
+            Dictionary where keys are frame numbers and values are
+            :math:'N \\times 3' numpy arrays with atomic coordinates.
+            In each array the first two columns are *xy* coordinates and
+            the third column is atom class.
+        nn (int): Number of nearest neighbors to search for.
+        upper_bound (float or int, non-negative):
+            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Only distances below this value will be counted.
+    Returns:
+        Tuple with list of :math:'n_atoms \\times nn' arrays of distances
+        to nearest neighbors and list of :math:'n_atoms \\times (nn+1) \\times 3'
+        array of coordinates (including coordinates of the "center" atom),
+        where n_atoms is less or equal to the total number of atoms in the
+        'coordinates' (due to 'upper_bound' criterion)
+    """
+    distances_all, atom_pairs_all = [], []
+    for coord in coordinates.values():
+        distances, atom_pairs = get_nn_distances_(coord, nn, upper_bound)
+        distances_all.append(distances)
+        atom_pairs_all.append(atom_pairs)
+    return distances_all, atom_pairs_all
 
 
 def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
@@ -382,8 +414,9 @@ def peak_refinement(imgdata, coordinates, d=None):
         Refined array of coordinates
     """
     if d is None:
-        d = get_distances(coordinates)
-        d = int(np.mean(d)*0.33)
+        d = get_nn_distances_(coordinates)[0]
+        d = np.concatenate((d))
+        d = int(np.mean(d)*0.25)
     xyc_all = []
     for i, c in enumerate(coordinates[:, :2]):
         cx = int(np.around(c[0]))
