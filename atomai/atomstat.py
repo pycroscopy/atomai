@@ -175,9 +175,11 @@ class imlocal:
                 Plotting gmm components
 
         Returns:
-            3D numpy array containing averaged images for each gmm class
-            (the 1st dimension correspond to individual mixture components)
-            and 1D numpy array with labels for every subimage
+            4D numpy array containing averaged images for each gmm class
+            (the 1st dimension correspond to individual mixture components),
+            List where each element contains images from the self.imgstack
+            (as 4D numpy array) belonging to each GMM class,
+            1D numpy array with labels for every subimage
             in the input image stack.
         """
         clf = mixture.GaussianMixture(
