@@ -78,7 +78,7 @@ class imlocal:
         self.network_output = network_output
         self.nb_classes = network_output.shape[-1]
         self.coord_all = coord_class_dict_all
-        self.coord_class = coord_class
+        self.coord_class = np.float(coord_class)
         self.r = crop_size
         (self.imgstack,
          self.imgstack_com,
@@ -201,7 +201,8 @@ class imlocal:
                 if self.nb_classes == 3:
                     ax.imshow(cla[i], Interpolation='Gaussian')
                 elif self.nb_classes == 1:
-                    ax.imshow(cla[i, :, :, 0], Interpolation='Gaussian')
+                    ax.imshow(cla[i, :, :, 0], cmap='seismic',
+                    Interpolation='Gaussian')
                 else:
                     raise NotImplementedError(
                         "Can plot only images with 3 and 1 channles")
@@ -380,11 +381,11 @@ class imlocal:
                 (self.imgstack_com[np.where(self.imgstack_frames == i)[0]],
                     classes[np.where(self.imgstack_frames == i)[0]][..., None]),
                     axis=-1)
-            for i in range(int(np.ptp(self.imgstack_frames)+1))
+            for i in self.imgstack_frames
         }
         all_trajectories = []
         all_frames = []
-        for ck in coord_class_dict[0][:, :2]:
+        for ck in coord_class_dict[list(coord_class_dict.keys())[0]][:, :2]:
             flow, frames = self.get_trajectory(coord_class_dict, ck, rmax)
             if len(flow) > min_length:
                 all_trajectories.append(flow)
