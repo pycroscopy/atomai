@@ -847,7 +847,7 @@ def update_classes(coordinates,
         thresh = kwargs.get('thresh')
         if thresh is None:
             raise AttributeError(
-                "Specify intensity threshold value ('thresh'), e.g. thresh=3")
+                "Specify intensity threshold value ('thresh'), e.g. thresh=.5")
         for i, iarray in enumerate(intensities):
             iarray[iarray < thresh] = 0
             iarray[iarray >= thresh] = 1
