@@ -217,6 +217,94 @@ class imlocal:
             plt.show()
         return cla, cl_all, classes
 
+    def pca_gmm(self,
+                n_components_gmm,
+                n_components_pca,
+                plot_results=False,
+                covariance_type='diag',
+                random_state=1):
+        """
+        Performs PCA decomposition on GMM-unmixed classes. Can be used when
+        GMM allows separating different symmetries
+        (e.g. different sublattices in graphene)
+
+        Args:
+            n_components_gmm (int):
+                Number of components for GMM
+            n_components_pca (int or list of int):
+                Number of PCA components. Pass a list of integers in order
+                to have different number PCA of components for each GMM class
+            covariance (str):
+                Type of covariance ('full', 'diag', 'tied', 'spherical')
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plotting gmm components
+        
+        Returns:
+            4D numpy array containing averaged images for each gmm class
+            (the 1st dimension correspond to individual mixture components),
+            List of 4D numpy arrays with PCA components.   
+        """
+        gmm_components, gmm_imgs, _ = self.gmm(
+            n_components_gmm, covariance_type, random_state, plot_results)
+        if type(n_components_pca) == np.int:
+            n_components_pca = [n_components_pca for _ in range(n_components_gmm)]
+        pca_components_all = []
+        for j, (imgs, ncomp) in enumerate(zip(gmm_imgs, n_components_pca)):
+            pca = decomposition.PCA(
+                n_components=ncomp, random_state=random_state)
+            pca.fit_transform(
+                imgs.reshape(imgs.shape[0], self.d1*self.d2*self.d3))
+            pca_components = pca.components_
+            pca_components = pca_components.reshape(
+                ncomp, self.d1, self.d2, self.d3)
+            pca_components_all.append(pca_components)
+            if plot_results:
+                nc = pca_components.shape[0]
+                rows = int(np.ceil(float(nc)/5))
+                cols = int(np.ceil(float(nc)/rows))
+                print('PCA components for GMM component {}'.format(j+1))
+                gs = gridspec.GridSpec(rows, cols)
+                fig = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
+                for i in range(nc):
+                    ax = fig.add_subplot(gs[i])
+                    ax.imshow(
+                        np.sum(pca_components[i], axis=-1),
+                        cmap='seismic', Interpolation='Gaussian')
+                    ax.set_aspect('equal')
+                    ax.axis('off')
+                    ax.set_title('Component '+str(i + 1))
+                plt.show()
+        return gmm_imgs, pca_components_all
+
+    def pca_gmm_scree_plot(self,
+                           n_components_gmm,
+                           covariance_type='diag',
+                           random_state=1,
+                           plot_results=True):
+        """
+        Computes PCA scree plot for each GMM class
+        """
+        _, gmm_imgs, _ = self.gmm(
+            n_components_gmm, covariance_type, random_state, plot_results)
+        explained_var_all = []
+        for j, imgs in enumerate(gmm_imgs):
+            pca = decomposition.PCA()
+            pca.fit(imgs.reshape(imgs.shape[0], self.d1*self.d2*self.d3))
+            explained_var = pca.explained_variance_ratio_
+            if plot_results:
+                print('\nPCA scree plot for GMM component {}'.format(j+1))
+                _, ax = plt.subplots(1, 1, figsize=(6, 6))
+                ax.plot(explained_var, '-o')
+                xlim_ = imgs.shape[0] if imgs.shape[0] < 50 else 50
+                ax.set_xlim(-0.5, xlim_)
+                ax.set_xlabel('Number of components')
+                ax.set_ylabel('Explained variance')
+                plt.show()
+            explained_var_all.append(explained_var)
+        return explained_var_all
+
     @classmethod
     def get_trajectory(cls, coord_class_dict, start_coord, rmax):
         """
