@@ -859,7 +859,7 @@ def update_classes(coordinates,
         plt.legend()
         plt.title('Intensities (arb. units)')
         plt.show()
-    if method == 'kmeans':
+    elif method == 'kmeans':
         n_components = kwargs.get('n_components')
         if thresh is None:
             raise AttributeError(
