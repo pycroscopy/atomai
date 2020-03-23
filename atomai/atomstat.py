@@ -261,6 +261,7 @@ class imlocal:
             pca_components = pca_components.reshape(
                 ncomp, self.d1, self.d2, self.d3)
             pca_components_all.append(pca_components)
+            X_vec_t_all.append(X_vec_t)
             if plot_results:
                 nc = pca_components.shape[0]
                 rows = int(np.ceil(float(nc)/5))
@@ -277,7 +278,7 @@ class imlocal:
                     ax.axis('off')
                     ax.set_title('Component '+str(i + 1))
                 plt.show()
-        return gmm_imgs, pca_components_all, X_vec_t_all
+        return gmm_components, pca_components_all, X_vec_t_all
 
     def pca_gmm_scree_plot(self,
                            n_components_gmm,
