@@ -32,6 +32,9 @@ Atomic Coordinates
 -------------------
 
 .. autofunction:: atomai.utils.find_com
+.. autofunction:: atomai.utils.get_nn_distances
+.. autofunction:: atomai.utils.get_nn_distances_
+.. autofunction:: atomai.utils.peak_refinement
 .. autofunction:: atomai.utils.compare_coordinates
 .. autofunction:: atomai.utils.filter_cells
 .. autofunction:: atomai.utils.filter_cells_

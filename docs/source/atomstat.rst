@@ -14,3 +14,8 @@ Transitions
     :members:
     :undoc-members:
     :member-order: bysource
+
+Distances and intensities
+-------------------------
+.. autofunction:: atomai.atomstat.map_bonds
+.. autofunction:: atomai.atomstat.update_classes
