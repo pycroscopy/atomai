@@ -110,6 +110,8 @@ class imlocal:
                 zip(self.network_output, self.coord_all.values())):
             c = coord[np.where(coord[:,2]==self.coord_class)][:,0:2]
             img_cr_all, com = self._extract_subimages(img, c, self.r)
+            if img_cr_all is None:
+                continue
             imgstack.append(img_cr_all)
             imgstack_com.append(com)
             imgstack_frames.append(np.ones(len(com), int) * i)
@@ -148,7 +150,8 @@ class imlocal:
                 img_cr_all.append(img_cr[None, ...])
                 #com.append(np.array([cx, cy])[None, ...])
                 com.append(c[None, ...])
-
+        if len(img_cr_all) == 0:
+            return None, None
         img_cr_all = np.concatenate(img_cr_all, axis=0)
         com = np.concatenate(com, axis=0)
         return img_cr_all, com
