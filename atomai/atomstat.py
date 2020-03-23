@@ -11,7 +11,7 @@ import os
 import numpy as np
 from sklearn import mixture, decomposition, cluster
 from scipy import spatial
-from atomai.utils import get_nn_distances
+from atomai.utils import get_nn_distances, get_intensities
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
@@ -831,3 +831,43 @@ def map_bonds(coordinates,
     for i, (dist, at) in enumerate(zip(distances_all, atom_pairs_all)):
         plot_lattice_bonds(dist, at, distance_ideal, i, plot_results, **kwargs)
     return np.concatenate((distances_all))
+
+
+def update_classes(coordinates,
+                   nn_input,
+                   method='threshold',
+                   **kwargs):
+    """
+    Updates atomic/defect classes based on the calculated intensities
+    at each predicted position
+    """
+    intensities = get_intensities(coordinates, nn_input)
+    intensities_ = np.concatenate(intensities)
+    if method == 'threshold':
+        thresh = kwargs.get('thresh')
+        if thresh is None:
+            raise AttributeError(
+                "Specify intensity threshold value ('thresh'), e.g. thresh=3")
+        for i, iarray in enumerate(intensities):
+            iarray[iarray < thresh] = 0
+            iarray[iarray >= thresh] = 1
+            coordinates[i][:, -1] = iarray
+        plt.figure(figsize=(5, 5))
+        counts = plt.hist(intensities_, bins=20)[0]
+        plt.vlines(thresh, np.min(counts), np.max(counts),
+                   linestyle='dashed', color='red')
+        plt.show()
+    if method == 'kmeans':
+        n_components = kwargs.get('n_components')
+        if thresh is None:
+            raise AttributeError(
+                "Specify number of components ('n_components')")
+        kmeans = cluster.KMeans(
+            n_clusters=n_components, random_state=42).fit(intensities_[:, None])
+        for i, iarray in enumerate(intensities):
+            iarray = 0
+            coordinates[i][:, -1] = kmeans.predict(iarray[:, None])
+    else:
+        raise NotImplementedError(
+            "Choose between 'threshold' and 'kmeans' methods")
+    return coordinates

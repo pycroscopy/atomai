@@ -443,6 +443,32 @@ def peak_refinement(imgdata, coordinates, d=None):
     return xyc_all
 
 
+def get_intensities_(coordinates, img):
+    """
+    Calculates intensities in a 3x3 square around each predicted position
+    for a single image
+    """
+    intensities_all = []
+    for c in coordinates:
+        cx = int(np.around(c[0]))
+        cy = int(np.around(c[1]))
+        intensity = np.sum(img[cx-1:cx+2, cy-1:cy+2])
+        intensities_all.append(intensity)
+    intensities_all = np.array(intensities_all)
+    return intensities_all
+
+
+def get_intensities(coordinates_all, nn_input):
+    """
+    Calculates intensities in a 3x3 square around each predicted position
+    for a stack of images
+    """
+    intensities_all = []
+    for k, coord in coordinates_all.items():
+        intensities_all.append(get_intensities_(coord, nn_input[k]))
+    return intensities_all
+
+
 def compare_coordinates(coordinates1,
                         coordinates2,
                         d_max,
