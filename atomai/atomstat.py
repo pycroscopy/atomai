@@ -239,7 +239,7 @@ class imlocal:
             random_state (int):
                 Random state instance
             plot_results (bool):
-                Plotting gmm components
+                Plotting GMM components
 
         Returns:
             4D numpy array containing averaged images for each gmm class
@@ -287,6 +287,19 @@ class imlocal:
                            plot_results=True):
         """
         Computes PCA scree plot for each GMM class
+
+        Args:
+            n_components_gmm (int):
+                Number of components for GMM
+            covariance (str):
+                Type of covariance ('full', 'diag', 'tied', 'spherical')
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plotting GMM components and PCA scree plot
+
+        Returns:
+            List of PCA explained variance
         """
         _, gmm_imgs, _ = self.gmm(
             n_components_gmm, covariance_type, random_state, plot_results)
@@ -541,7 +554,7 @@ class imlocal:
 
     def pca_scree_plot(self, plot_results=True):
         """
-        Calculates and plots PCA 'scree plot'
+        Computes and plots PCA 'scree plot'
         (explained variance ratio vs number of components)
         """
         # PCA decomposition
@@ -923,6 +936,9 @@ def map_bonds(coordinates,
             image height
         **w (int):
             image width
+
+    Returns:
+        Array of distances to nearest neighbors for each atom
     """
     distances_all, atom_pairs_all = get_nn_distances(coordinates, nn, upper_bound)
     if distance_ideal is None:
@@ -939,6 +955,22 @@ def update_classes(coordinates,
     """
     Updates atomic/defect classes based on the calculated intensities
     at each predicted position
+
+    Args:
+        coordinates (dict):
+            Output of atomnet.predictor
+        nn_input (numpy array):
+            Image(s) served as an input to neural network
+        method (str):
+            Method for intensity-based update of atomic classes
+            ('threshold' or 'kmeans')
+        **thresh (float or int):
+            Intensity threshold value. Values above/below are set to 1/0
+        **n_components (int):
+            Number of components for k-means clustering
+
+        Returns:
+            Updated coordinates
     """
     intensities = get_intensities(coordinates, nn_input)
     intensities_ = np.concatenate(intensities)
