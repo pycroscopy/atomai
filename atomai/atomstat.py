@@ -855,7 +855,9 @@ def update_classes(coordinates,
         plt.figure(figsize=(5, 5))
         counts = plt.hist(intensities_, bins=20)[0]
         plt.vlines(thresh, np.min(counts), np.max(counts),
-                   linestyle='dashed', color='red')
+                   linestyle='dashed', color='red', label='threshold')
+        plt.legend()
+        plt.title('Intensities (arb. units)')
         plt.show()
     if method == 'kmeans':
         n_components = kwargs.get('n_components')
