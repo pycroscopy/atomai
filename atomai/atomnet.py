@@ -416,8 +416,12 @@ class predictor:
         return images_numpy, decoded_imgs
 
     def run(self):
+        warn_msg = (f"The output of predictor.run() has changed from "
+        f"'nn_input, nn_output' to 'nn_input, (nn_output, coordinates)'. "
+        f"Example: 'nn_input, (nn_output, coordinates) = predictor(args).run()'")
         start_time = time.time()
         images, decoded_imgs = self.decode()
+        warnings.warn(warn_msg, UserWarning)
         coordinates = locator(decoded_imgs, self.thresh).run()
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
