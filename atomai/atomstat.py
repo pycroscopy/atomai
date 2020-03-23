@@ -240,21 +240,22 @@ class imlocal:
                 Random state instance
             plot_results (bool):
                 Plotting gmm components
-        
+
         Returns:
             4D numpy array containing averaged images for each gmm class
             (the 1st dimension correspond to individual mixture components),
-            List of 4D numpy arrays with PCA components.   
+            List of 4D numpy arrays with PCA components,
+            List of PCA-transformed data.
         """
         gmm_components, gmm_imgs, _ = self.gmm(
             n_components_gmm, covariance_type, random_state, plot_results)
         if type(n_components_pca) == np.int:
             n_components_pca = [n_components_pca for _ in range(n_components_gmm)]
-        pca_components_all = []
+        pca_components_all, X_vec_t_all = [], []
         for j, (imgs, ncomp) in enumerate(zip(gmm_imgs, n_components_pca)):
             pca = decomposition.PCA(
                 n_components=ncomp, random_state=random_state)
-            pca.fit_transform(
+            X_vec_t = pca.fit_transform(
                 imgs.reshape(imgs.shape[0], self.d1*self.d2*self.d3))
             pca_components = pca.components_
             pca_components = pca_components.reshape(
@@ -276,7 +277,7 @@ class imlocal:
                     ax.axis('off')
                     ax.set_title('Component '+str(i + 1))
                 plt.show()
-        return gmm_imgs, pca_components_all
+        return gmm_imgs, pca_components_all, X_vec_t_all
 
     def pca_gmm_scree_plot(self,
                            n_components_gmm,
@@ -555,7 +556,7 @@ class imlocal:
             ax.set_ylabel('Explained variance')
             plt.show()
         return explained_var
-        
+
 
     @classmethod
     def plot_decomposition_results(cls,
