@@ -452,7 +452,7 @@ def get_intensities_(coordinates, img):
     for c in coordinates:
         cx = int(np.around(c[0]))
         cy = int(np.around(c[1]))
-        intensity = np.sum(img[cx-1:cx+2, cy-1:cy+2])
+        intensity = np.mean(img[cx-1:cx+2, cy-1:cy+2])
         intensities_all.append(intensity)
     intensities_all = np.array(intensities_all)
     return intensities_all
