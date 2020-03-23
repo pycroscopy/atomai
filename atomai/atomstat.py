@@ -193,8 +193,10 @@ class imlocal:
             fig = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
             gs = gridspec.GridSpec(rows, cols)
             print('\nGMM components')
+        cl_all = []
         for i in range(np.amax(classes)):
             cl = self.imgstack[classes == i + 1]
+            cl_all.append(cl)
             cla[i] = np.mean(cl, axis=0)
             if plot_results:
                 ax = fig.add_subplot(gs[i])
@@ -211,7 +213,7 @@ class imlocal:
         if plot_results:
             plt.subplots_adjust(hspace=0.6, wspace=0.4)
             plt.show()
-        return cla, classes
+        return cla, cl_all, classes
 
     @classmethod
     def get_trajectory(cls, coord_class_dict, start_coord, rmax):
@@ -373,7 +375,7 @@ class imlocal:
             covariance = kwargs.get("covariance", "diag")
             random_state = kwargs.get("random_state", 1)
             classes = self.gmm(
-                n_components, covariance, random_state)[1]
+                n_components, covariance, random_state)[2]
         else:
             classes = np.zeros(len(self.imgstack_frames))
         coord_class_dict = {
@@ -463,6 +465,7 @@ class imlocal:
             ax.set_ylabel('Explained variance')
             plt.show()
         return explained_var
+        
 
     @classmethod
     def plot_decomposition_results(cls,
