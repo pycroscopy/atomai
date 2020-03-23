@@ -192,7 +192,7 @@ class imlocal:
             cols = int(np.ceil(float(np.amax(classes))/rows))
             fig = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
             gs = gridspec.GridSpec(rows, cols)
-            print('GMM components')
+            print('\nGMM components')
         for i in range(np.amax(classes)):
             cl = self.imgstack[classes == i + 1]
             cla[i] = np.mean(cl, axis=0)
