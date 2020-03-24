@@ -148,7 +148,6 @@ class imlocal:
                 imgdata[cx-r:cx+r, cy-r:cy+r, :])
             if img_cr.shape[0:2] == (int(r*2), int(r*2)):
                 img_cr_all.append(img_cr[None, ...])
-                #com.append(np.array([cx, cy])[None, ...])
                 com.append(c[None, ...])
         if len(img_cr_all) == 0:
             return None, None
@@ -710,8 +709,9 @@ class imlocal:
             n_components = kwargs.get("n_components", 5)
             covariance = kwargs.get("covariance", "diag")
             random_state = kwargs.get("random_state", 1)
-            classes = self.gmm(
-                n_components, covariance, random_state)[-2]
+            _, _, classes = self.gmm(
+                n_components, covariance, random_state)
+            classes = classes[:, -2]
         else:
             classes = np.zeros(len(self.imgstack_frames))
         coord_class_dict = {
