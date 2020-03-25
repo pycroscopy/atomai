@@ -118,26 +118,39 @@ def preprocess_training_data(images_all,
     Preprocess training and test data
 
     Args:
-        images_all (list / dict / 4D numpy array):
-            List or dictionary of 4D numpy arrays or 4D numpy array
-            (3D image tensors stacked along the first dim)
-            representing training images
-        labels_all (list / dict / 4D numpy array):
-            List or dictionary of 3D numpy arrays or
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D image are tensors stacked along the first dim
-            which represent training labels (aka masks aka ground truth)
-        images_test_all (list / dict / 4D numpy array):
-            List or dictionary of 4D numpy arrays or 4D numpy array
-            (3D image tensors stacked along the first dim)
-            representing test images
-        labels_test_all (list / dict / 4D numpy array):
-            List or dictionary of 3D numpy arrays or
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D image are tensors stacked along the first dim
-            which represent test labels (aka masks aka ground truth)
-        batch_size (int):
-            Size of training and test batches
+         images_all (list or dict or 4D numpy array):
+            Training images in the form of list/dictionary of
+            small 4D numpy arrays (batches) or larger 4D numpy array
+            representing all the training images. For dictionary with N batches,
+            the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
+            represent 3D images :math:`(height \\times width \\times 1)` stacked
+            along the zeroth ("batch") dimension.    
+        labels_all (list or dict or 4D numpy array):
+            Training labels (aka ground truth aka masks) in the form of
+            list/dictionary of small 3D (binary classification) or 4D (multiclass)
+            numpy arrays or larger 4D (binary) / 3D (multiclass) numpy array
+            containing all the training labels.
+            For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
+            Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
+            stacked along the zeroth ("batch") dimenstion. The reason why in the 
+            multiclass case the images have 4 dimensions while the labels have only 3 dimensions
+            is because of how the cross-entropy loss is calculated in PyTorch
+            (see https://pytorch.org/docs/stable/nn.html#nllloss).
+        images_test_all (list or dict or 4D numpy array):
+            Test images in the form of list/dictionary of
+            small 4D numpy arrays (batches) or larger 4D numpy array
+            representing all the test images. For dictionary with N batches,
+            the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
+            represent 3D images :math:`(height \\times width \\times 1)` stacked
+            along the zeroth ("batch") dimension. 
+        labels_test_all (list or dict or 4D numpy array):
+            Test labels (aka ground truth aka masks) in the form of
+            list/dictionary of small 3D (binary classification) or 4D (multiclass)
+            numpy arrays or larger 4D (binary) / 3D (multiclass) numpy array
+            containing all the test labels.
+            For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
+            Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
+            stacked along the zeroth ("batch") dimenstion.
 
     Returns:
         4 lists processed with preprocessed training and test data,
@@ -270,14 +283,14 @@ def img_resize(image_data, rs):
 def img_pad(image_data, pooling):
     """
     Pads the image if its size (w, h)
-    is not divisible by 2**n, where n is a number
+    is not divisible by :math:`2^n`, where n is a number
     of pooling layers in a network
 
     Args:
         image_data (3D numpy array):
             Image stack with dimensions (n_batches x height x width)
         pooling (int):
-            Downsampling factor (equal to 2**n, where n is a number
+            Downsampling factor (equal to :math:`2^n`, where *n* is a number
             of pooling operations)
     """
     # Pad image rows (height)
@@ -327,8 +340,8 @@ def get_nn_distances_(coordinates, nn=2, upper_bound=None):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only di
     Returns:
-        Tuple with :math:`n atoms \\times nn` array of distances to nearest
-        neighbors and :math:`n atoms \\times (nn+1) \\times 3` array of coordinates
+        Tuple with :math:`n-atoms \\times nn` array of distances to nearest
+        neighbors and :math:`n-atoms \\times (nn+1) \\times 3` array of coordinates
         (including coordinates of the "center" atom), where n_atoms is less or
         equal to the total number of atoms in the 'coordinates'
         (due to 'upper_bound' criterion)
@@ -358,8 +371,8 @@ def get_nn_distances(coordinates, nn=2, upper_bound=None):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only distances below this value will be counted.
     Returns:
-        Tuple with list of :math:`n_atoms \\times nn` arrays of distances
-        to nearest neighbors and list of :math:`n_atoms \\times (nn+1) \\times 3`
+        Tuple with list of :math:`n-atoms \\times nn` arrays of distances
+        to nearest neighbors and list of :math:`n-atoms \\times (nn+1) \\times 3`
         array of coordinates (including coordinates of the "center" atom),
         where n_atoms is less or equal to the total number of atoms in the
         'coordinates' (due to 'upper_bound' criterion)
@@ -859,7 +872,7 @@ class augmentor:
         Suppose we have a stack of images
         and a stack of masks (aka labels aka ground truth)
         with dimensions :math:`n images \\times height \\times width`
-        and :math:`n images \\times height \\times width \\times n channels`.
+        and :math:`n-images \\times height \\times width \\times n-channels`.
         We can use the augmentor as follows.
 
         >>> # Specify size, dimensions
