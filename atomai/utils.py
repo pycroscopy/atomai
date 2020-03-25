@@ -327,8 +327,8 @@ def get_nn_distances_(coordinates, nn=2, upper_bound=None):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only di
     Returns:
-        Tuple with :math:`n_atoms \\times nn` array of distances to nearest
-        neighbors and :math:`n_atoms \\times (nn+1) \\times 3` array of coordinates
+        Tuple with :math:`n atoms \\times nn` array of distances to nearest
+        neighbors and :math:`n atoms \\times (nn+1) \\times 3` array of coordinates
         (including coordinates of the "center" atom), where n_atoms is less or
         equal to the total number of atoms in the 'coordinates'
         (due to 'upper_bound' criterion)
