@@ -12,14 +12,15 @@ import os
 import time
 import warnings
 
-import atomai.losses_metrics as losses_metrics_
 import numpy as np
 import torch
 import torch.nn.functional as F
+
+import atomai.losses_metrics as losses_metrics_
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
-                          img_resize, mock_forward, plot_losses,
-                          preprocess_training_data, torch_format)
+                          img_resize, mock_forward, peak_refinement,
+                          plot_losses, preprocess_training_data, torch_format)
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
@@ -294,12 +295,23 @@ class predictor:
             Image stack or a single image (all greyscale)
         trained_model (pytorch object):
             Trained pytorch model (skeleton+weights)
+        refine (bool):
+            Atomic positions refinement with 2d Gaussian peak fitting
         resize (tuple / 2-element list):
             Target dimensions for optional image(s) resizing
         use_gpu (bool):
             Use gpu device for inference
+        logits (bool):
+            Indicates that the image data is passed through
+            a softmax/sigmoid layer when set to False
+            (logits=True for AtomAI models)
         seed (int):
             Sets seed for random number generators
+        **thresh (float):
+            value between 0 and 1 for thresholding the NN output
+        **d (int):
+            half-side of square around each atomic position used
+            for refinement with 2d Gaussian peak fitting
         **nb_classes (int):
             Number of classes in the model
         **downsampled (int or float):
@@ -312,14 +324,16 @@ class predictor:
         >>> expdata = np.load('expdata-test.npy')
         >>> # Get prediction from a trained model
         >>> # (it also returns the input to NN in case the image was resized, etc.)
-        >>> nn_input, nn_output = atomnet.predictor(expdata, trained_model).run()
+        >>> nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, trained_model).run()
 
     """
     def __init__(self,
                  image_data,
                  trained_model,
+                 refine=False,
                  resize=None,
                  use_gpu=False,
+                 logits=True,
                  seed=1,
                  **kwargs):
         if seed:
@@ -353,6 +367,10 @@ class predictor:
             image_data = img_resize(image_data, resize)
         image_data = img_pad(image_data, downsampling)
         self.image_data = torch_format(image_data)
+        self.logits = logits
+        self.refine = refine
+        self.d = kwargs.get("d", None)
+        self.thresh = kwargs.get("thresh", .5)
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
@@ -366,10 +384,16 @@ class predictor:
         self.model.eval()
         with torch.no_grad():
             prob = self.model.forward(images)
+        if self.logits:
             if self.nb_classes > 1:
                 prob = F.softmax(prob, dim=1)
             else:
                 prob = torch.sigmoid(prob)
+        else:
+            if self.nb_classes > 1:
+                prob = torch.exp(prob)
+            else:
+                pass
         if self.use_gpu:
             images = images.cpu()
             prob = prob.cpu()
@@ -377,11 +401,10 @@ class predictor:
         prob = prob.numpy()
         return prob
 
-    def run(self):
+    def decode(self):
         """
         Make prediction
         """
-        start_time = time.time()
         if self.image_data.shape[0] < 20 and min(self.image_data.shape[2:4]) < 512:
             decoded_imgs = self.predict(self.image_data)
         else:
@@ -389,14 +412,31 @@ class predictor:
             decoded_imgs = np.zeros((n, w, h, self.nb_classes))
             for i in range(n):
                 decoded_imgs[i, :, :, :] = self.predict(self.image_data[i:i+1])
+        images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
+        return images_numpy, decoded_imgs
+
+    def run(self):
+        warn_msg = (f"The output of predictor.run() has changed from "
+        f"'nn_input, nn_output' to 'nn_input, (nn_output, coordinates)'. "
+        f"Example: 'nn_input, (nn_output, coordinates) = predictor(args).run()'")
+        start_time = time.time()
+        images, decoded_imgs = self.decode()
+        warnings.warn(warn_msg, UserWarning)
+        coordinates = locator(decoded_imgs, self.thresh).run()
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
             print(str(decoded_imgs.shape[0])
                   + n_images_str + "decoded in approximately "
                   + str(np.around(time.time() - start_time, decimals=4))
                   + ' seconds')
-        images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
-        return images_numpy, decoded_imgs
+        if self.refine:
+            print('\rRefining atomic positions... ', end="")
+            coordinates_r = {}
+            for i, (img, coord) in enumerate(zip(images, coordinates.values())):
+                coordinates_r[i] = peak_refinement(img[...,0], coord, self.d)
+            print("Done")
+            return images, (decoded_imgs, coordinates_r)
+        return images, (decoded_imgs, coordinates)
 
 
 class locator:
@@ -415,7 +455,7 @@ class locator:
 
     Example:
 
-        >>> # Transform utput of atomnet.predictor to atomic classes and coordinates
+        >>> # Transform output of atomnet.predictor to atomic classes and coordinates
         >>> coordinates = atomnet.locator(nn_output).run()
     """
     def __init__(self,

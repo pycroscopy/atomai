@@ -5,6 +5,8 @@ from atomai import atomnet, models
 from atomai.utils import load_weights
 import pytest
 from numpy.testing import assert_allclose, assert_equal
+import matplotlib
+matplotlib.use('Agg')
 
 test_img = os.path.join(
     os.path.dirname(__file__), 'test_data/test_img.npy')
@@ -95,16 +97,16 @@ def test_trainer_dataloader(n_atoms, tensor_type):
     assert_equal(len(X_train), len(y_train))
     assert_equal(X_train_.is_cuda, torch.cuda.is_available())
 
-
-def test_trainer_determinism():
+@pytest.mark.parametrize("model_type", ['dilUnet', 'dilnet'])
+def test_trainer_determinism(model_type):
     X_train, y_train, X_test, y_test = gen_dummy_data(1)
     m1 = atomnet.trainer(
-        X_train, y_train, X_test, y_test,
+        X_train, y_train, X_test, y_test, model_type=model_type,
         training_cycles=5, batch_size=4, upsampling="nearest")
     m1.run()
     loss1 = m1.train_loss[-1]
     m2 = atomnet.trainer(
-        X_train, y_train, X_test, y_test,
+        X_train, y_train, X_test, y_test, model_type=model_type,
         training_cycles=5, batch_size=4, upsampling="nearest")
     m2.run()
     loss2 = m2.train_loss[-1]
@@ -121,6 +123,5 @@ def test_atomfind(weights_, nb_classes, coord_expected):
     test_img_ = np.load(test_img)
     coordinates_expected = np.load(coord_expected)
     model_ = load_weights(models.dilUnet(nb_classes), weights_)
-    _, nn_output = atomnet.predictor(test_img_, model_).run()
-    coordinates_ = atomnet.locator(nn_output).run()
+    _, (nn_output, coordinates_) = atomnet.predictor(test_img_, model_).run()
     assert_allclose(coordinates_[0], coordinates_expected)

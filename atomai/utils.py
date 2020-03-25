@@ -11,13 +11,15 @@ import subprocess
 import torch
 import numpy as np
 import cv2
-from scipy import ndimage, fftpack, spatial
+from scipy import ndimage, fftpack, spatial, optimize
 from sklearn.feature_extraction.image import extract_patches_2d
 from skimage import exposure
 from skimage.util import random_noise
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import warnings
+
+warnings.filterwarnings("ignore", module="scipy.optimize")
 
 
 #####################
@@ -312,6 +314,161 @@ def find_com(image_data):
     return coordinates
 
 
+def get_nn_distances_(coordinates, nn=2, upper_bound=None):
+    """
+    Calculates nearest-neighbor distances for a single image
+
+    Args:
+        coordinates (numpy array):
+            :math:'N \\times 3' array with atomic coordinates where first two
+            columns are *xy* coordinates and the third column is atom class
+        nn (int): Number of nearest neighbors to search for.
+        upper_bound (float or int, non-negative):
+            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Only di
+    Returns:
+        Tuple with :math:'n_atoms \\times nn' array of distances to nearest
+        neighbors and :math:'n_atoms \\times (nn+1) \\times 3' array of coordinates
+        (including coordinates of the "center" atom), where n_atoms is less or
+        equal to the total number of atoms in the 'coordinates'
+        (due to 'upper_bound' criterion)
+    """
+    upper_bound = np.inf if upper_bound is None else upper_bound
+    tree = spatial.cKDTree(coordinates[:, :2])
+    d, nn = tree.query(
+        coordinates[:, :2], k=nn+1, distance_upper_bound=upper_bound)
+    idx_to_del = np.where(d == np.inf)[0]
+    nn = np.delete(nn, idx_to_del, axis=0)
+    d = np.delete(d, idx_to_del, axis=0)
+    return d[:, 1:], coordinates[nn]
+
+
+def get_nn_distances(coordinates, nn=2, upper_bound=None):
+    """
+    Calculates nearest-neighbor distances for a stack of images
+
+    Args:
+        coordinates (dict):
+            Dictionary where keys are frame numbers and values are
+            :math:'N \\times 3' numpy arrays with atomic coordinates.
+            In each array the first two columns are *xy* coordinates and
+            the third column is atom class.
+        nn (int): Number of nearest neighbors to search for.
+        upper_bound (float or int, non-negative):
+            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Only distances below this value will be counted.
+    Returns:
+        Tuple with list of :math:'n_atoms \\times nn' arrays of distances
+        to nearest neighbors and list of :math:'n_atoms \\times (nn+1) \\times 3'
+        array of coordinates (including coordinates of the "center" atom),
+        where n_atoms is less or equal to the total number of atoms in the
+        'coordinates' (due to 'upper_bound' criterion)
+    """
+    distances_all, atom_pairs_all = [], []
+    for coord in coordinates.values():
+        distances, atom_pairs = get_nn_distances_(coord, nn, upper_bound)
+        distances_all.append(distances)
+        atom_pairs_all.append(atom_pairs)
+    return distances_all, atom_pairs_all
+
+
+def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
+    """
+    Models 2D Gaussian
+
+    Args:
+        xy (tuple): two M x N arrays
+        amp (float): peak amplitude
+        xo (float): x-coordinate of peak center
+        yo (float): y-coordinate of peak center
+        sigma_x (float): peak width (x-projection)
+        sigma_y (float): peak height (y-projection)
+        theta (float): parameter of 2D Gaussian
+        offset (float): parameter of 2D Gaussian
+    """
+    x, y = xy
+    a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
+    b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
+    c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
+    g = offset + amp*np.exp(- (a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
+    return g.flatten()
+
+
+def peak_refinement(imgdata, coordinates, d=None):
+    """
+    Performs a refinement of atomic postitions by fitting
+    2d Gaussian where the neural network predictions serve
+    as initial guess.
+
+    Args:
+        imgdata (2D numpy array):
+            Single experimental image/frame
+        coordinates (N x 3 numpy array):
+            Atomic coordinates where first two columns are *xy* coordinates
+            and the third column is atom class
+        d (int):
+            Half-side of a square around the identified atom for peak fitting
+            If d is not specified, it is set to 1/4 of average nearest neighbor
+            distance in the lattice.
+    Returns:
+        Refined array of coordinates
+    """
+    if d is None:
+        d = get_nn_distances_(coordinates)[0]
+        d = np.concatenate((d))
+        d = int(np.mean(d)*0.25)
+    xyc_all = []
+    for i, c in enumerate(coordinates[:, :2]):
+        cx = int(np.around(c[0]))
+        cy = int(np.around(c[1]))
+        img = imgdata[cx-d:cx+d, cy-d:cy+d]
+        if img.shape == (int(2*d), int(2*d)):
+            e1, e2 = img.shape
+            x, y = np.mgrid[:e1:1, :e2:1]
+            initial_guess = (img[d, d], d, d, 1, 1, 0, 0)
+            try:
+                popt, pcov = optimize.curve_fit(
+                        gaussian_2d, (x, y), img.flatten(), p0=initial_guess)
+                if np.linalg.norm(popt[1:3] - d) < 3:
+                    xyc = popt[1:3] + np.around(c) - d
+                else:
+                    xyc = c
+            except RuntimeError:
+                xyc = c
+        else:
+            xyc = c
+        xyc_all.append(xyc)
+    xyc_all = np.concatenate(
+        (np.array(xyc_all), coordinates[:, 2:3]), axis=-1)
+    return xyc_all
+
+
+def get_intensities_(coordinates, img):
+    """
+    Calculates intensities in a 3x3 square around each predicted position
+    for a single image
+    """
+    intensities_all = []
+    for c in coordinates:
+        cx = int(np.around(c[0]))
+        cy = int(np.around(c[1]))
+        intensity = np.mean(img[cx-1:cx+2, cy-1:cy+2])
+        intensities_all.append(intensity)
+    intensities_all = np.array(intensities_all)
+    return intensities_all
+
+
+def get_intensities(coordinates_all, nn_input):
+    """
+    Calculates intensities in a 3x3 square around each predicted position
+    for a stack of images
+    """
+    intensities_all = []
+    for k, coord in coordinates_all.items():
+        intensities_all.append(get_intensities_(coord, nn_input[k]))
+    return intensities_all
+
+
 def compare_coordinates(coordinates1,
                         coordinates2,
                         d_max,
@@ -543,7 +700,7 @@ class MakeAtom:
         self.theta = theta
         self.offset = offset
         self.r_mask = r_mask
-  
+
     def atom2dgaussian(self):
         """
         Models atom as 2d Gaussian
@@ -583,7 +740,7 @@ class MakeAtom:
         mask[mask > 0] = 1
 
         return atom, mask
-        
+
 
 def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     """

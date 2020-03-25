@@ -1,20 +1,21 @@
 __author__ = "Maxim Ziatdinov"
 __copyright__ = "Copyright Maxim Ziatdinov (2019)"
-__version__ = "0.1.0"
 __maintainer__ = "Maxim Ziatdinov"
 __email__ = "maxim.ziatdinov@ai4microcopy.com"
-__date__ = "02/20/2019"
 
 from setuptools import setup
 import os
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
+with open(os.path.join(module_dir, 'atomai/__version__.py')) as f:
+    __version__ = f.read().split("'")[1]
+
 if __name__ == "__main__":
     setup(
         name='atomai',
         python_requires='>=3.6',
-        version='0.1.0',
+        version=__version__,
         description='Deep and machine learning for atom-resolved data',
         long_description=open(os.path.join(module_dir, 'README.md')).read(),
         long_description_content_type='text/markdown',

@@ -7,11 +7,15 @@ Module for statistical analysis of local image descriptors
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+import os
 import numpy as np
 from sklearn import mixture, decomposition, cluster
 from scipy import spatial
+from atomai.utils import get_nn_distances, get_intensities
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib import cm
+import warnings
 
 
 class imlocal:
@@ -43,8 +47,7 @@ class imlocal:
     Identification of distortion domains in a single atomic image:
 
         >>> # First obtain a "cleaned" image and atomic coordinates using a trained model
-        >>> nn_input, nn_output = atomnet.predictor(expdata, model, use_gpu=False).run()
-        >>> coordinates = atomnet.locator(nn_output).run()
+        >>> nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, model, use_gpu=False).run()
         >>> # Now get local image descriptors using atomstat.imlocal
         >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=16, coord_class=1)
         >>> # Compute PCA scree plot to estimate the number of components/sources
@@ -75,7 +78,7 @@ class imlocal:
         self.network_output = network_output
         self.nb_classes = network_output.shape[-1]
         self.coord_all = coord_class_dict_all
-        self.coord_class = coord_class
+        self.coord_class = np.float(coord_class)
         self.r = crop_size
         (self.imgstack,
          self.imgstack_com,
@@ -107,6 +110,8 @@ class imlocal:
                 zip(self.network_output, self.coord_all.values())):
             c = coord[np.where(coord[:,2]==self.coord_class)][:,0:2]
             img_cr_all, com = self._extract_subimages(img, c, self.r)
+            if img_cr_all is None:
+                continue
             imgstack.append(img_cr_all)
             imgstack_com.append(com)
             imgstack_frames.append(np.ones(len(com), int) * i)
@@ -143,9 +148,9 @@ class imlocal:
                 imgdata[cx-r:cx+r, cy-r:cy+r, :])
             if img_cr.shape[0:2] == (int(r*2), int(r*2)):
                 img_cr_all.append(img_cr[None, ...])
-                #com.append(np.array([cx, cy])[None, ...])
                 com.append(c[None, ...])
-
+        if len(img_cr_all) == 0:
+            return None, None
         img_cr_all = np.concatenate(img_cr_all, axis=0)
         com = np.concatenate(com, axis=0)
         return img_cr_all, com
@@ -169,10 +174,13 @@ class imlocal:
                 Plotting gmm components
 
         Returns:
-            3D numpy array containing averaged images for each gmm class
-            (the 1st dimension correspond to individual mixture components)
-            and 1D numpy array with labels for every subimage
-            in the input image stack.
+            4D numpy array containing averaged images for each gmm class
+            (the 1st dimension correspond to individual mixture components),
+            List where each element contains images from the self.imgstack
+            (as 4D numpy array) belonging to each GMM class,
+            4D numpy array with xy coordinates of the center of mass
+            for each subimage from the stack, labels for every subimage
+            and a frame number for each label
         """
         clf = mixture.GaussianMixture(
             n_components=n_components,
@@ -186,16 +194,19 @@ class imlocal:
             cols = int(np.ceil(float(np.amax(classes))/rows))
             fig = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
             gs = gridspec.GridSpec(rows, cols)
-            print('GMM components')
+            print('\nGMM components')
+        cl_all = []
         for i in range(np.amax(classes)):
             cl = self.imgstack[classes == i + 1]
+            cl_all.append(cl)
             cla[i] = np.mean(cl, axis=0)
             if plot_results:
                 ax = fig.add_subplot(gs[i])
                 if self.nb_classes == 3:
                     ax.imshow(cla[i], Interpolation='Gaussian')
                 elif self.nb_classes == 1:
-                    ax.imshow(cla[i, :, :, 0], Interpolation='Gaussian')
+                    ax.imshow(cla[i, :, :, 0], cmap='seismic',
+                    Interpolation='Gaussian')
                 else:
                     raise NotImplementedError(
                         "Can plot only images with 3 and 1 channles")
@@ -204,7 +215,431 @@ class imlocal:
         if plot_results:
             plt.subplots_adjust(hspace=0.6, wspace=0.4)
             plt.show()
-        return cla, classes
+        com_frames = np.concatenate(
+            (self.imgstack_com, classes[:, None],
+             self.imgstack_frames[:, None]), axis=-1)
+        return cla, cl_all, com_frames
+
+    def pca(self,
+            n_components,
+            random_state=1,
+            plot_results=False):
+        """
+        Computes PCA eigenvectors and their loading maps
+        for a stack of subimages.
+
+        Args:
+            n_components (int):
+                Number of PCA components
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plots computed eigenvectors
+
+        Returns:
+            4D numpy array with computed (and reshaped) principal axes
+            for stack of subimages,
+            2D numpy array with projection of X_vec
+            on the first principal components,
+            3D numpy array with center-of-mass coordinates
+            and the corresponding label number for each subimage
+        """
+        pca = decomposition.PCA(
+            n_components=n_components,
+            random_state=random_state)
+        X_vec_t = pca.fit_transform(self.X_vec)
+        components = pca.components_
+        components = components.reshape(
+            n_components, self.d1, self.d2, self.d3)
+        com_frames = np.concatenate(
+            (self.imgstack_com, self.imgstack_frames[:, None]), axis=-1)
+        if plot_results:
+            self.plot_decomposition_results(
+                components, X_vec_t, plot_loading_maps=False)
+        return components, X_vec_t, com_frames
+
+    def ica(self,
+            n_components,
+            random_state=1,
+            plot_results=False):
+        """
+        Computes ICA independent souces and their loading maps
+        for a stack of subimages.
+
+        Args:
+            n_components (int):
+                Number of ICA components
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plots computed sources
+
+        Returns:
+            4D numpy array with computed (and reshaped) independent sources
+            for stack of subimages,
+            2D numpy array with recovered sources
+            from X_vec,
+            3D numpy array with center-of-mass coordinates
+            and the corresponding label number for each subimage
+        """
+        ica = decomposition.FastICA(
+            n_components=n_components,
+            random_state=random_state)
+        X_vec_t = ica.fit_transform(self.X_vec)
+        components = ica.components_
+        components = components.reshape(
+            n_components, self.d1, self.d2, self.d3)
+        com_frames = np.concatenate(
+            (self.imgstack_com, self.imgstack_frames[:, None]), axis=-1)
+        if plot_results:
+            self.plot_decomposition_results(
+                components, X_vec_t, plot_loading_maps=False)
+        return components, X_vec_t, com_frames
+
+    def nmf(self,
+            n_components,
+            random_state=1,
+            plot_results=False,
+            **kwargs):
+        """
+        Applies NMF to source separation.
+        Computes sources and their loading maps
+        for a stack of subimages. Intended to be used for
+        finding domains ("blocks") (e.g. ferroic domains)
+        in a single image.
+
+        Args:
+            n_components (int):
+                Number of NMF components
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plots computed sources
+            **max_iterations (int):
+                Maximum number of iterations before timing out
+
+        Returns:
+            4D numpy array with computed (and reshaped) sources
+            for stack of subimages,
+            2D numpy array with transformed data X_vec according
+            to the trained NMF model,
+            3D numpy array with center-of-mass coordinates
+            and the corresponding label number for each subimage
+        """
+
+        max_iter = kwargs.get('max_iterations', 1000)
+        nmf = decomposition.NMF(
+            n_components=n_components,
+            random_state=random_state,
+            max_iter=max_iter)
+        X_vec_t = nmf.fit_transform(self.X_vec)
+        components = nmf.components_
+        components = components.reshape(
+            n_components, self.d1, self.d2, self.d3)
+        com_frames = np.concatenate(
+            (self.imgstack_com, self.imgstack_frames[:, None]), axis=-1)
+        if plot_results:
+            self.plot_decomposition_results(
+                components, X_vec_t, plot_loading_maps=False)
+        return components, X_vec_t, com_frames
+
+    def pca_gmm(self,
+                n_components_gmm,
+                n_components_pca,
+                plot_results=False,
+                covariance_type='diag',
+                random_state=1):
+        """
+        Performs PCA decomposition on GMM-unmixed classes. Can be used when
+        GMM allows separating different symmetries
+        (e.g. different sublattices in graphene)
+
+        Args:
+            n_components_gmm (int):
+                Number of components for GMM
+            n_components_pca (int or list of int):
+                Number of PCA components. Pass a list of integers in order
+                to have different number PCA of components for each GMM class
+            covariance (str):
+                Type of covariance ('full', 'diag', 'tied', 'spherical')
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plotting GMM components
+
+        Returns:
+            4D numpy array containing averaged images for each gmm class
+            (the 1st dimension correspond to individual mixture components),
+            List of 4D numpy arrays with PCA components,
+            List of PCA-transformed data,
+            4D numpy array with xy coordinates of the center of mass
+            for each subimage from the stack used for GMM, GMM-assigned label
+            for every subimage and a frame number for each label
+        """
+        gmm_components, gmm_imgs, com_class_frames = self.gmm(
+            n_components_gmm, covariance_type, random_state, plot_results)
+        if type(n_components_pca) == np.int:
+            n_components_pca = [n_components_pca for _ in range(n_components_gmm)]
+        pca_components_all, X_vec_t_all = [], []
+        for j, (imgs, ncomp) in enumerate(zip(gmm_imgs, n_components_pca)):
+            pca = decomposition.PCA(
+                n_components=ncomp, random_state=random_state)
+            X_vec_t = pca.fit_transform(
+                imgs.reshape(imgs.shape[0], self.d1*self.d2*self.d3))
+            pca_components = pca.components_
+            pca_components = pca_components.reshape(
+                ncomp, self.d1, self.d2, self.d3)
+            pca_components_all.append(pca_components)
+            X_vec_t_all.append(X_vec_t)
+            if plot_results:
+                print("\nPCA components for GMM class {}".format(j+1))
+                self.plot_decomposition_results(
+                    pca_components, X_vec_t, plot_loading_maps=False)
+        return gmm_components, pca_components_all, X_vec_t_all, com_class_frames
+
+    def pca_scree_plot(self, plot_results=True):
+        """
+        Computes and plots PCA 'scree plot'
+        (explained variance ratio vs number of components)
+        """
+        # PCA decomposition
+        pca = decomposition.PCA()
+        pca.fit(self.X_vec)
+        explained_var = pca.explained_variance_ratio_
+        if plot_results:
+            # Plotting
+            _, ax = plt.subplots(1, 1, figsize=(6,6))
+            ax.plot(explained_var, '-o')
+            ax.set_xlim(-0.5, 50)
+            ax.set_xlabel('Number of components')
+            ax.set_ylabel('Explained variance')
+            plt.show()
+        return explained_var
+
+    def pca_gmm_scree_plot(self,
+                           n_components_gmm,
+                           covariance_type='diag',
+                           random_state=1,
+                           plot_results=True):
+        """
+        Computes PCA scree plot for each GMM class
+
+        Args:
+            n_components_gmm (int):
+                Number of components for GMM
+            covariance (str):
+                Type of covariance ('full', 'diag', 'tied', 'spherical')
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plotting GMM components and PCA scree plot
+
+        Returns:
+            List of PCA explained variance
+        """
+        _, gmm_imgs, _ = self.gmm(
+            n_components_gmm, covariance_type, random_state, plot_results)
+        explained_var_all = []
+        for j, imgs in enumerate(gmm_imgs):
+            pca = decomposition.PCA()
+            pca.fit(imgs.reshape(imgs.shape[0], self.d1*self.d2*self.d3))
+            explained_var = pca.explained_variance_ratio_
+            if plot_results:
+                print('\nPCA scree plot for GMM component {}'.format(j+1))
+                _, ax = plt.subplots(1, 1, figsize=(6, 6))
+                ax.plot(explained_var, '-o')
+                xlim_ = imgs.shape[0] if imgs.shape[0] < 50 else 50
+                ax.set_xlim(-0.5, xlim_)
+                ax.set_xlabel('Number of components')
+                ax.set_ylabel('Explained variance')
+                plt.show()
+            explained_var_all.append(explained_var)
+        return explained_var_all
+
+    def imblock_pca(self,
+                    n_components,
+                    random_state=1,
+                    plot_results=False,
+                    **kwargs):
+        """
+        Computes PCA eigenvectors and their loading maps
+        for a stack of subimages. Intended to be used for
+        finding domains ("blocks") (e.g. ferroic domains)
+        in a single image.
+
+        Args:
+            n_components (int):
+                Number of PCA components
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plots computed eigenvectors and loading maps
+            **marker_size (int):
+                Controls marker size for loading maps plot
+
+        Returns:
+            4D numpy array with computed (and reshaped) principal axes
+            for stack of subimages and 2D numpy array with projection of X_vec
+            on the first principal components
+        """
+
+        m_s = kwargs.get('marker_size')
+        components, X_vec_t, com_frames = self.pca(n_components, random_state)
+        if plot_results:
+            if self.network_output.shape[0] != 1:
+                raise AssertionError(
+                    "The 'mother image' dimensions must be (1 x h x w x c)")
+            self.plot_decomposition_results(
+                components, X_vec_t,
+                self.network_output.shape[1:3],
+                com_frames[:, :2], marker_size=m_s)
+        return components, X_vec_t, com_frames[:, :2]
+
+    def imblock_ica(self,
+                    n_components,
+                    random_state=1,
+                    plot_results=False,
+                    **kwargs):
+        """
+        Computes ICA independent souces and their loading maps
+        for a stack of subimages. Intended to be used for
+        finding domains ("blocks") (e.g. ferroic domains)
+        in a single image.
+
+        Args:
+            n_components (int):
+                Number of ICA components
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plots computed eigenvectors and loading maps
+            **marker_size (int):
+                controls marker size for loading maps plot
+
+        Returns:
+            4D numpy array with computed (and reshaped) independent sources
+            for stack of subimages and 2D numpy array with recovered sources
+            from X_vec
+        """
+
+        m_s = kwargs.get('marker_size')
+        components, X_vec_t, com_frames = self.ica(n_components, random_state)
+        if plot_results:
+            if self.network_output.shape[0] != 1:
+                raise AssertionError(
+                    "The 'mother image' dimensions must be (1 x h x w x c)")
+            self.plot_decomposition_results(
+                components, X_vec_t,
+                self.network_output.shape[1:3],
+                com_frames[:, :2], marker_size=m_s)
+        return components, X_vec_t, com_frames[:, :2]
+
+    def imblock_nmf(self,
+                    n_components,
+                    random_state=1,
+                    plot_results=False,
+                    **kwargs):
+        """
+        Applies NMF to source separation.
+        Computes sources and their loading maps
+        for a stack of subimages. Intended to be used for
+        finding domains ("blocks") (e.g. ferroic domains)
+        in a single image.
+
+        Args:
+            n_components (int):
+                Number of NMF components
+            random_state (int):
+                Random state instance
+            plot_results (bool):
+                Plots computed eigenvectors and loading maps
+            **max_iterations (int):
+                Maximum number of iterations before timing out
+            **marker_size (int):
+                Controls marker size for loading maps plot
+
+        Returns:
+            4D numpy array with computed (and reshaped) sources
+            for stack of subimages and 2D numpy array with
+            transformed data X_vec according to the trained NMF model
+        """
+
+        m_s = kwargs.get('marker_size')
+        components, X_vec_t, com_frames = self.nmf(n_components, random_state)
+        if plot_results:
+            if self.network_output.shape[0] != 1:
+                raise AssertionError(
+                    "The 'mother image' dimensions must be (1 x h x w x c)")
+            self.plot_decomposition_results(
+                components, X_vec_t,
+                self.network_output.shape[1:3],
+                com_frames[:, :2], marker_size=m_s)
+        return components, X_vec_t, com_frames[:, :2]
+
+    @classmethod
+    def plot_decomposition_results(cls,
+                                   components,
+                                   X_vec_t,
+                                   image_hw=None,
+                                   xy_centers=None,
+                                   plot_loading_maps=True,
+                                   **kwargs):
+        """
+        Plots decomposition "eigenvectors". Plots loading maps
+
+        Args:
+            components (4D numpy array):
+                Computed (and reshaped)
+                principal axes / independent sources / factorization matrix
+                for stack of subimages
+            X_vec_t (2D numpy array):
+                Projection of X_vec on the first principal components /
+                Recovered sources from X_vec /
+                transformed X_vec according to the learned NMF model
+                (is used to create "loading maps")
+            img_hw (tuple):
+                Height and width of the "mother image"
+            xy_centers (n x 2 numpy array):
+                (x, y) coordinates of the extracted subimages
+            plot_loading_maps (bool):
+                Plots loading maps for each "eigenvector"
+            **marker_size (int):
+                Controls marker size for loading maps plot
+        """
+        nc = components.shape[0]
+        rows = int(np.ceil(float(nc)/5))
+        cols = int(np.ceil(float(nc)/rows))
+        # plot eigenvectors
+        gs1 = gridspec.GridSpec(rows, cols)
+        fig1 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
+        comp_ = components[..., :-1] if components.shape[-1] > 1 else components
+        for i in range(nc):
+            ax1 = fig1.add_subplot(gs1[i])
+            ax1.imshow(
+                np.sum(comp_[i], axis=-1),
+                cmap='seismic', Interpolation='Gaussian')
+            ax1.set_aspect('equal')
+            ax1.axis('off')
+            ax1.set_title('Component '+str(i + 1)+'\nComponent')
+        plt.show()
+        if plot_loading_maps:
+            # plot loading maps
+            m_s = kwargs.get("marker_size", 32)
+            y, x = xy_centers.T
+            img_h, img_w = image_hw
+            gs2 = gridspec.GridSpec(rows, cols)
+            fig2 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
+            for i in range(nc):
+                ax2 = fig2.add_subplot(gs2[i])
+                ax2.scatter(
+                    x, y, c=X_vec_t[:, i],
+                    cmap='seismic', marker='s', s=m_s)
+                ax2.set_xlim(0, img_w)
+                ax2.set_ylim(img_h, 0)
+                ax2.set_aspect('equal')
+                ax2.axis('off')
+                ax2.set_title('Component '+str(i+1)+'\nLoading map')
+            plt.show()
 
     @classmethod
     def get_trajectory(cls, coord_class_dict, start_coord, rmax):
@@ -238,97 +673,6 @@ class imlocal:
                 frames.append(k)
                 c0 = c[index][:2]
         return flow, np.array(frames)
-
-    @classmethod
-    def cluster_coord(cls, coord_class_dict, eps, min_samples=10):
-        """
-        Collapses coordinates from an image stack onto xy plane and
-        performs clustering in the xy space. Works for non-overlapping
-        trajectories.
-
-        Args:
-            coord_class_dict (dict):
-                Dictionary of atomic coordinates (N x 3 numpy arrays])
-                (same format as produced by atomnet.locator)
-                Can also be a list of N x 3 numpy arrays
-                Typically, these are coordinates from a 3D image stack
-                where each element in dict/list corresponds
-                to an individual movie frame
-            eps (float):
-                Max distance between two points for one to be considered
-                as in the neighborhood of the other
-                (see sklearn.cluster.DBSCAN).
-            min_samples (int):
-                Minmum number of points for a "cluster"
-
-        Returns:
-            Coordinates of points in each identified cluster,
-            center of the mass for each cluster,
-            standard deviation of points in each cluster
-        """
-        coordinates_all = np.empty((0, 3))
-        for k in range(len(coord_class_dict)):
-            coordinates_all = np.append(
-                coordinates_all, coord_class_dict[k], axis=0)
-        clustering = cluster.DBSCAN(
-            eps=eps, min_samples=min_samples).fit(coordinates_all[:, :2])
-        labels = clustering.labels_
-        clusters, clusters_std, clusters_mean = [], [], []
-        for l in np.unique(labels)[1:]:
-            coord = coordinates_all[np.where(labels == l)]
-            clusters.append(coord)
-            clusters_mean.append(np.mean(coord[:, :2], axis=0))
-            clusters_std.append(np.std(coord[:, :2], axis=0))
-        return (np.array(clusters), np.array(clusters_mean),
-                np.array(clusters_std))
-
-    @classmethod
-    def find_coord_clusters(cls, coord_class_dict_1, coord_class_dict_2, rmax):
-        """
-        Takes a single array of xy coordinates (usually associated
-        with a single image) and for each coordinate finds
-        its nearest neighbors (within specified radius) from a separate list of
-        arrays with xy coordinates (where each element in the list usually
-        corresponds to a single image from an image stack). Works for
-        non-overlapping trajectories in atomic movies.
-
-        Args:
-            coord_class_dict_1 (dict ot list):
-                One-element dictionary or list with atomic coordinates
-                as N x 3 numpy array.
-                (usually an output from atomnet.locator for a single image;
-                can be from other source but should be in the same format)
-            coord_class_dict_2 (dict or list):
-                Dictionary or list of atomic coordinates (N x 3 numpy arrays)
-                These can be coordinates from a 3D image stack
-                where each element in dict/list corresponds
-                to an individual frame in the stack.
-                (usually an output from atomnet.locator for an image stack;
-                can be from other source but should be in the same format)
-            rmax (int):
-                Maximum search radius in pixels
-
-        Returns:
-            Coordinates of points in each identified cluster,
-            center of the mass for each cluster,
-            standard deviation of points in each cluster
-        """
-        coordinates_all = np.empty((0, 3))
-        for k in range(len(coord_class_dict_2)):
-            coordinates_all = np.append(
-                coordinates_all, coord_class_dict_2[k], axis=0)
-
-        clusters, clusters_mean, clusters_std = [], [], []
-        tree = spatial.cKDTree(coordinates_all[:, :2])
-        for c0 in coord_class_dict_1[0][:, :2]:
-            _, idx = tree.query(
-                c0, k=len(coordinates_all), distance_upper_bound=rmax)
-            idx = np.delete(idx, np.where(idx == len(coordinates_all))[0])
-            cluster_coord = coordinates_all[idx]
-            clusters_mean.append(np.mean(cluster_coord[:, :2], axis=0))
-            clusters_std.append(np.std(cluster_coord[:, :2], axis=0))
-            clusters.append(cluster_coord)
-        return (np.array(clusters_mean), np.array(clusters_std), clusters)
 
     def get_all_trajectories(self,
                              min_length=0,
@@ -365,8 +709,9 @@ class imlocal:
             n_components = kwargs.get("n_components", 5)
             covariance = kwargs.get("covariance", "diag")
             random_state = kwargs.get("random_state", 1)
-            classes = self.gmm(
-                n_components, covariance, random_state)[1]
+            _, _, classes = self.gmm(
+                n_components, covariance, random_state)
+            classes = classes[:, -2]
         else:
             classes = np.zeros(len(self.imgstack_frames))
         coord_class_dict = {
@@ -374,11 +719,11 @@ class imlocal:
                 (self.imgstack_com[np.where(self.imgstack_frames == i)[0]],
                     classes[np.where(self.imgstack_frames == i)[0]][..., None]),
                     axis=-1)
-            for i in range(int(np.ptp(self.imgstack_frames)+1))
+            for i in self.imgstack_frames
         }
         all_trajectories = []
         all_frames = []
-        for ck in coord_class_dict[0][:, :2]:
+        for ck in coord_class_dict[list(coord_class_dict.keys())[0]][:, :2]:
             flow, frames = self.get_trajectory(coord_class_dict, ck, rmax)
             if len(flow) > min_length:
                 all_trajectories.append(flow)
@@ -437,226 +782,6 @@ class imlocal:
             m = transitions(classes).calculate_transition_matrix()
             transitions_all.append(m)
         return trajectories_all, transitions_all, frames_all
-
-    def pca_scree_plot(self, plot_results=True):
-        """
-        Calculates and plots PCA 'scree plot'
-        (explained variance ratio vs number of components)
-        """
-        # PCA decomposition
-        pca = decomposition.PCA()
-        pca.fit(self.X_vec)
-        explained_var = pca.explained_variance_ratio_
-        if plot_results:
-            # Plotting
-            _, ax = plt.subplots(1, 1, figsize=(6,6))
-            ax.plot(explained_var, '-o')
-            ax.set_xlim(-0.5, 50)
-            ax.set_xlabel('Number of components')
-            ax.set_ylabel('Explained variance')
-            plt.show()
-        return explained_var
-
-    @classmethod
-    def plot_decomposition_results(cls,
-                                   components,
-                                   X_vec_t,
-                                   image_hw,
-                                   xy_centers,
-                                   **kwargs):
-        """
-        Plots decomposition "eigenvectors" and their loading maps
-
-        Args:
-            components (4D numpy array):
-                Computed (and reshaped)
-                principal axes / independent sources / factorization matrix
-                for stack of subimages
-            X_vec_t (2D numpy array):
-                Projection of X_vec on the first principal components /
-                Recovered sources from X_vec /
-                transformed X_vec according to the learned NMF model
-                (is used to create "loading maps")
-            img_hw (tuple):
-                Height and width of the "mother image"
-            com_ (n x 2 numpy array):
-                (x, y) coordinates of the extracted subimages
-            **marker_size (int):
-                Controls marker size for loading maps plot
-        """
-        m_s = kwargs.get("marker_size", 32)
-        com_ = xy_centers
-        nc = components.shape[0]
-        y, x = com_.T
-        img_h, img_w = image_hw
-        rows = int(np.ceil(float(nc)/5))
-        cols = int(np.ceil(float(nc)/rows))
-        y, x = com_.T
-        print('NUMBER OF COMPONENTS: ' + str(nc))
-        # plot eigenvectors
-        gs1 = gridspec.GridSpec(rows, cols)
-        fig1 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
-        for i in range(nc):
-            ax1 = fig1.add_subplot(gs1[i])
-            ax1.imshow(
-                np.sum(components[i, :, :, :-1], axis=-1),
-                cmap='seismic', Interpolation='Gaussian')
-            ax1.set_aspect('equal')
-            ax1.axis('off')
-            ax1.set_title('Component '+str(i + 1)+'\nComponent')
-        plt.show()
-        # plot loading maps
-        gs2 = gridspec.GridSpec(rows, cols)
-        fig2 = plt.figure(figsize=(4*cols, 4*(1+rows//2)))
-        for i in range(nc):
-            ax2 = fig2.add_subplot(gs2[i])
-            ax2.scatter(
-                x, y, c=X_vec_t[:, i],
-                cmap='seismic', marker='s', s=m_s)
-            ax2.set_xlim(0, img_w)
-            ax2.set_ylim(img_h, 0)
-            ax2.set_aspect('equal')
-            ax2.axis('off')
-            ax2.set_title('Component '+str(i+1)+'\nLoading map')
-        plt.show()
-
-    def imblock_pca(self,
-                    n_components,
-                    random_state=1,
-                    plot_results=True,
-                    **kwargs):
-        """
-        Computes PCA eigenvectors and their loading maps
-        for a stack of subimages. Intended to be used for
-        finding domains ("blocks") (e.g. ferroic domains)
-        in a single image.
-
-        Args:
-            n_components (int):
-                Number of PCA components
-            random_state (int):
-                Random state instance
-            plot_results (bool):
-                Plots computed eigenvectors and loading maps
-            **marker_size (int):
-                Controls marker size for loading maps plot
-
-        Returns:
-            4D numpy array with computed (and reshaped) principal axes
-            for stack of subimages and 2D numpy array with projection of X_vec
-            on the first principal components
-        """
-
-        m_s = kwargs.get('marker_size')
-        pca = decomposition.PCA(
-            n_components=n_components,
-            random_state=random_state)
-        X_vec_t = pca.fit_transform(self.X_vec)
-        components = pca.components_
-        components = components.reshape(
-            n_components, self.d1, self.d2, self.d3)
-        if plot_results:
-            assert self.network_output.shape[0] == 1,\
-            "The 'mother image' dimensions must be (1 x h x w x c)"
-            self.plot_decomposition_results(
-                components, X_vec_t,
-                self.network_output.shape[1:3],
-                self.imgstack_com, marker_size=m_s)
-        return components, X_vec_t
-
-    def imblock_ica(self,
-                    n_components,
-                    random_state=1,
-                    plot_results=True,
-                    **kwargs):
-        """
-        Computes ICA independent souces and their loading maps
-        for a stack of subimages. Intended to be used for
-        finding domains ("blocks") (e.g. ferroic domains)
-        in a single image.
-
-        Args:
-            n_components (int):
-                Number of ICA components
-            random_state (int):
-                Random state instance
-            plot_results (bool):
-                Plots computed eigenvectors and loading maps
-            **marker_size (int):
-                controls marker size for loading maps plot
-
-        Returns:
-            4D numpy array with computed (and reshaped) independent sources
-            for stack of subimages and 2D numpy array with recovered sources
-            from X_vec
-        """
-
-        m_s = kwargs.get('marker_size')
-        ica = decomposition.FastICA(
-            n_components=n_components,
-            random_state=random_state)
-        X_vec_t = ica.fit_transform(self.X_vec)
-        components = ica.components_
-        components = components.reshape(
-            n_components, self.d1, self.d2, self.d3)
-        if plot_results:
-            assert self.network_output.shape[0] == 1,\
-            "The 'mother image' dimensions must be (1 x h x w x c)"
-            self.plot_decomposition_results(
-                components, X_vec_t,
-                self.network_output.shape[1:3],
-                self.imgstack_com, marker_size=m_s)
-        return components, X_vec_t
-
-    def imblock_nmf(self,
-                    n_components,
-                    random_state=1,
-                    plot_results=True,
-                    **kwargs):
-        """
-        Applies NMF to source separation.
-        Computes sources and their loading maps
-        for a stack of subimages. Intended to be used for
-        finding domains ("blocks") (e.g. ferroic domains)
-        in a single image.
-
-        Args:
-            n_components (int):
-                Number of NMF components
-            random_state (int):
-                Random state instance
-            plot_results (bool):
-                Plots computed eigenvectors and loading maps
-            **max_iterations (int):
-                Maximum number of iterations before timing out
-            **marker_size (int):
-                Controls marker size for loading maps plot
-
-        Returns:
-            4D numpy array with computed (and reshaped) sources
-            for stack of subimages and 2D numpy array with
-            transformed data X_vec according to the trained NMF model
-        """
-
-        m_s = kwargs.get('marker_size')
-        max_iter = kwargs.get('max_iterations', 1000)
-        nmf = decomposition.NMF(
-            n_components=n_components,
-            random_state=random_state,
-            max_iter=max_iter)
-        X_vec_t = nmf.fit_transform(self.X_vec)
-        components = nmf.components_
-        components = components.reshape(
-            n_components, self.d1, self.d2, self.d3)
-        if plot_results:
-            if self.network_output.shape[0] != 1:
-                raise AssertionError(
-                    "The 'mother image' dimensions must be (1 x h x w x c)")
-            self.plot_decomposition_results(
-                components, X_vec_t,
-                self.network_output.shape[1:3],
-                self.imgstack_com, marker_size=m_s)
-        return components, X_vec_t
 
 
 class transitions:
@@ -725,3 +850,258 @@ class transitions:
         ax.set_ylabel('Starting class', fontsize=18)
         plt.show()
 
+
+def plot_lattice_bonds(distances,
+                       atom_pairs,
+                       distance_ideal=None,
+                       frame=0,
+                       display_results=True,
+                       **kwargs):
+    """
+    Plots a map of lattice bonds
+
+    Args:
+        distances (numpy array):
+            :math:'n_atoms \\times nn' array,
+            where *nn* is a number of nearest neighbors
+        atom_pairs (numpy array):
+            :math:'n_atoms \\times (nn+1) \\times 3',
+            where *nn* is a number of nearest neighbors
+        distance_ideal (float):
+            Bond distance in ideal lattice.
+            Defaults to average distance in the frame
+        frame (int):
+            frame number (used in filename when saving plot)
+        display_results (bool):
+            Plot bond maps
+        **savedir (str):
+            directory to save plots
+        **h (int):
+            image height
+        **w (int):
+            image width
+    """
+    savedir = kwargs.get("savedir", './')
+    h, w = kwargs.get("h"), kwargs.get("w")
+    if h is None or w is None:
+        w = int(np.amax(atom_pairs[..., 0]) - np.amin(atom_pairs[..., 0])) + 10
+        h = int(np.amax(atom_pairs[..., 1]) - np.amin(atom_pairs[..., 1])) + 10
+    if w != h:
+        warnings.warn("Currently supports only square images", UserWarning)
+    if distance_ideal is None:
+        distance_ideal = np.mean(distances)
+    distances = (distances - distance_ideal) / distance_ideal
+    d_uniq = np.sort(np.unique(distances))
+    colormap = cm.RdYlGn_r
+    colorst = [colormap(i) for i in np.linspace(0, 1, d_uniq.shape[0])]
+    fig, ax1 = plt.subplots(1, 1, figsize=(8, 8))
+    ax1.imshow(np.zeros((h, w)), cmap='gray')
+    for a, d in zip(atom_pairs, distances):
+        for i in range(a.shape[-1]):
+            x = [a[0][0], a[i+1][0]]
+            y = [a[0][1], a[i+1][1]]
+            color = colorst[np.where(d[i] == d_uniq)[0][0]]
+            ax1.plot(x, y, c=color)
+    ax1.axis(False)
+    ax1.set_aspect('auto')
+    clrbar = np.linspace(np.amin(d_uniq), np.amax(d_uniq), d_uniq.shape[0]-1).reshape(-1, 1)
+    ax2 = fig.add_axes([0.11, 0.08, .8, .2])
+    img = ax2.imshow(clrbar, colormap)
+    plt.gca().set_visible(False)
+    clrbar_ = plt.colorbar(img, ax=ax2, orientation='horizontal')
+    clrbar_.set_label('Variation in bond length (%)', fontsize=14, labelpad=10)
+    if display_results:
+        plt.show()
+    fig.savefig(os.path.join(savedir, 'frame_{}'.format(frame)))
+
+
+def map_bonds(coordinates,
+              nn=2,
+              upper_bound=None,
+              distance_ideal=None,
+              plot_results=True,
+              **kwargs):
+    """
+    Generates plots with lattice bonds
+    (color-coded according to the variation in their length)
+
+    Args:
+        coordinates (dict):
+            Dictionary where keys are frame numbers and values are
+            :math:'N \\times 3' numpy arrays with atomic coordinates.
+            In each array the first two columns are *xy* coordinates and
+            the third column is atom class.
+        nn (int): Number of nearest neighbors to search for.
+        upper_bound (float or int, non-negative):
+            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Only distances below this value will be counted.
+        distance_ideal (float):
+            Bond distance in ideal lattice.
+            Defaults to average distance in the frame
+        plot_results (bool):
+            Plot bond maps
+        **savedir (str):
+            directory to save plots
+        **h (int):
+            image height
+        **w (int):
+            image width
+
+    Returns:
+        Array of distances to nearest neighbors for each atom
+    """
+    distances_all, atom_pairs_all = get_nn_distances(coordinates, nn, upper_bound)
+    if distance_ideal is None:
+        distance_ideal = np.mean(np.concatenate((distances_all)))
+    for i, (dist, at) in enumerate(zip(distances_all, atom_pairs_all)):
+        plot_lattice_bonds(dist, at, distance_ideal, i, plot_results, **kwargs)
+    return np.concatenate((distances_all))
+
+
+def cluster_coord(coord_class_dict, eps, min_samples=10):
+    """
+    Collapses coordinates from an image stack onto xy plane and
+    performs clustering in the xy space. Works for non-overlapping
+    trajectories.
+
+    Args:
+        coord_class_dict (dict):
+            Dictionary of atomic coordinates (N x 3 numpy arrays])
+            (same format as produced by atomnet.locator)
+            Can also be a list of N x 3 numpy arrays
+            Typically, these are coordinates from a 3D image stack
+            where each element in dict/list corresponds
+            to an individual movie frame
+        eps (float):
+            Max distance between two points for one to be considered
+            as in the neighborhood of the other
+            (see sklearn.cluster.DBSCAN).
+        min_samples (int):
+            Minmum number of points for a "cluster"
+
+    Returns:
+        Coordinates of points in each identified cluster,
+        center of the mass for each cluster,
+        standard deviation of points in each cluster
+    """
+    coordinates_all = np.empty((0, 3))
+    for k in range(len(coord_class_dict)):
+        coordinates_all = np.append(
+            coordinates_all, coord_class_dict[k], axis=0)
+    clustering = cluster.DBSCAN(
+        eps=eps, min_samples=min_samples).fit(coordinates_all[:, :2])
+    labels = clustering.labels_
+    clusters, clusters_std, clusters_mean = [], [], []
+    for l in np.unique(labels)[1:]:
+        coord = coordinates_all[np.where(labels == l)]
+        clusters.append(coord)
+        clusters_mean.append(np.mean(coord[:, :2], axis=0))
+        clusters_std.append(np.std(coord[:, :2], axis=0))
+    return (np.array(clusters), np.array(clusters_mean),
+            np.array(clusters_std))
+
+
+def find_coord_clusters(coord_class_dict_1, coord_class_dict_2, rmax):
+    """
+    Takes a single array of xy coordinates (usually associated
+    with a single image) and for each coordinate finds
+    its nearest neighbors (within specified radius) from a separate list of
+    arrays with xy coordinates (where each element in the list usually
+    corresponds to a single image from an image stack). Works for
+    non-overlapping trajectories in atomic movies.
+
+    Args:
+        coord_class_dict_1 (dict ot list):
+            One-element dictionary or list with atomic coordinates
+            as N x 3 numpy array.
+            (usually from an output of atomnet.predictor for a single image;
+            can be from other source but should be in the same format)
+        coord_class_dict_2 (dict or list):
+            Dictionary or list of atomic coordinates (N x 3 numpy arrays)
+            These can be coordinates from a 3D image stack
+            where each element in dict/list corresponds
+            to an individual frame in the stack.
+            (usually from an output from atomnet.locator for an image stack;
+            can be from other source but should be in the same format)
+        rmax (int):
+            Maximum search radius in pixels
+
+    Returns:
+        Coordinates of points in each identified cluster,
+        center of the mass for each cluster,
+        standard deviation of points in each cluster
+    """
+    coordinates_all = np.empty((0, 3))
+    for k in range(len(coord_class_dict_2)):
+        coordinates_all = np.append(
+            coordinates_all, coord_class_dict_2[k], axis=0)
+
+    clusters, clusters_mean, clusters_std = [], [], []
+    tree = spatial.cKDTree(coordinates_all[:, :2])
+    for c0 in coord_class_dict_1[0][:, :2]:
+        _, idx = tree.query(
+            c0, k=len(coordinates_all), distance_upper_bound=rmax)
+        idx = np.delete(idx, np.where(idx == len(coordinates_all))[0])
+        cluster_coord = coordinates_all[idx]
+        clusters_mean.append(np.mean(cluster_coord[:, :2], axis=0))
+        clusters_std.append(np.std(cluster_coord[:, :2], axis=0))
+        clusters.append(cluster_coord)
+    return (np.array(clusters_mean), np.array(clusters_std), clusters)
+
+
+def update_classes(coordinates,
+                   nn_input,
+                   method='threshold',
+                   **kwargs):
+    """
+    Updates atomic/defect classes based on the calculated intensities
+    at each predicted position
+
+    Args:
+        coordinates (dict):
+            Output of atomnet.predictor
+        nn_input (numpy array):
+            Image(s) served as an input to neural network
+        method (str):
+            Method for intensity-based update of atomic classes
+            ('threshold' or 'kmeans')
+        **thresh (float or int):
+            Intensity threshold value. Values above/below are set to 1/0
+        **n_components (int):
+            Number of components for k-means clustering
+
+        Returns:
+            Updated coordinates
+    """
+    intensities = get_intensities(coordinates, nn_input)
+    intensities_ = np.concatenate(intensities)
+    if method == 'threshold':
+        thresh = kwargs.get('thresh')
+        if thresh is None:
+            raise AttributeError(
+                "Specify intensity threshold value ('thresh'), e.g. thresh=.5")
+        for i, iarray in enumerate(intensities):
+            iarray[iarray < thresh] = 0
+            iarray[iarray >= thresh] = 1
+            coordinates[i][:, -1] = iarray
+        plt.figure(figsize=(5, 5))
+        counts = plt.hist(intensities_, bins=20)[0]
+        plt.vlines(thresh, np.min(counts), np.max(counts),
+                   linestyle='dashed', color='red', label='threshold')
+        plt.legend()
+        plt.title('Intensities (arb. units)')
+        plt.show()
+    elif method == 'kmeans':
+        n_components = kwargs.get('n_components')
+        if thresh is None:
+            raise AttributeError(
+                "Specify number of components ('n_components')")
+        kmeans = cluster.KMeans(
+            n_clusters=n_components, random_state=42).fit(intensities_[:, None])
+        for i, iarray in enumerate(intensities):
+            iarray = 0
+            coordinates[i][:, -1] = kmeans.predict(iarray[:, None])
+    else:
+        raise NotImplementedError(
+            "Choose between 'threshold' and 'kmeans' methods")
+    return coordinates
