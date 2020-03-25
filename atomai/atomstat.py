@@ -171,13 +171,12 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) 4D numpy array containing averagedimages for each gmm class
+            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
+            containing averaged images for each GMM class
             (the 1st dimension correspond to individual mixture components),
-            ii) List where each element contains images from the self.imgstack
-            (as 4D numpy array) belonging to each GMM class,
-            iii) 4D numpy array with xy coordinates of the center of mass
-            for each subimage from the stack, labels for every subimage
-            and a frame number for each label
+            ii) List where each element contains 4D images belonging to each GMM class,
+            iii) 2D numpy array (*N* x 4) with *xy* coordinates of the center of mass,
+            labels and a frame number for each subimage
         """
         clf = mixture.GaussianMixture(
             n_components=n_components,
@@ -234,12 +233,12 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) 4D numpy array with computed (and reshaped) principal axes
-            for stack of subimages,
-            ii) 2D numpy array with projection of X_vec
+            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
+            with computed (and reshaped) principal axes for stack of subimages,
+            ii) 2D numpy array (*N* x *n_components*) with projection of X_vec
             on the first principal components,
-            iii) 3D numpy array with center-of-mass coordinates
-            and the corresponding label number for each subimage
+            iii) 2D numpy array (*N* x 3) with center-of-mass coordinates
+            and the corresponding frame number for each subimage
         """
         pca = decomposition.PCA(
             n_components=n_components,
@@ -272,12 +271,13 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) 4D numpy array with computed (and reshaped) independent sources
+            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
+            with computed (and reshaped) independent sources
             for stack of subimages,
-            ii) 2D numpy array with recovered sources
-            from X_vec,
-            iii) 3D numpy array with center-of-mass coordinates
-            and the corresponding label number for each subimage
+            ii) 2D numpy array (*N* x *n_components*) numpy array with
+            recovered sources from X_vec,
+            iii) 2D numpy aray (*N* x 3) with center-of-mass coordinates
+            and the corresponding frame number for each subimage
         """
         ica = decomposition.FastICA(
             n_components=n_components,
@@ -313,12 +313,12 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) 4D numpy array with computed (and reshaped) sources
-            for stack of subimages,
-            ii) 2D numpy array with transformed data X_vec according
-            to the trained NMF model,
-            iii) 3D numpy array with center-of-mass coordinates
-            and the corresponding label number for each subimage
+            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
+            with computed (and reshaped) sources for stack of subimages,
+            ii) 2D numpy array (*N* x *n_components*)  with
+            transformed data X_vec according to the trained NMF model,
+            iii) 2D numpy array(*N* x 3) with center-of-mass coordinates
+            and the corresponding frame number for each subimage
         """
 
         max_iter = kwargs.get('max_iterations', 1000)
@@ -363,11 +363,12 @@ class imlocal:
 
         Returns:
             4-element tuple containing
-            i) 4D numpy array containing averaged images for each gmm class
-            (the 1st dimension correspond to individual mixture components),
-            ii) List of 4D numpy arrays with PCA components,
+            i) 4D numpy array (*n_components_gmm* x *height* x *width* x *channels*)
+            containing averaged images for each gmm class,
+            ii) List of 4D numpy arrays with PCA components
+            (*n_components_pca* x *height* x *width* x *channels*),
             iii) List of PCA-transformed data,
-            iv) 4D numpy array with xy coordinates of the center of mass
+            iv) 2D numpy array (*N* x 4) with *xy* coordinates of the center of mass
             for each subimage from the stack used for GMM, GMM-assigned label
             for every subimage and a frame number for each label
         """
@@ -474,9 +475,10 @@ class imlocal:
 
         Returns:
             2-element tuple containing
-            i) 4D numpy array with computed (and reshaped) principal axes
-            for stack of subimages and ii) 2D numpy array with projection
-            of X_vec on the first principal components
+            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
+            with computed (and reshaped) principal axes
+            for stack of subimages and ii) 2D numpy array (*N* x *n_components*)
+            with projection of X_vec on the first principal components
         """
 
         m_s = kwargs.get('marker_size')
@@ -514,9 +516,10 @@ class imlocal:
 
         Returns:
             2-element tuple containing
-            i) 4D numpy array with computed (and reshaped) independent sources
-            for stack of subimages and ii) 2D numpy array with recovered sources
-            from X_vec
+            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
+            with computed (and reshaped) independent sources
+            for stack of subimages and ii) 2D numpy array (*N* x *n_components*)
+            with recovered sources from X_vec
         """
 
         m_s = kwargs.get('marker_size')
@@ -557,9 +560,10 @@ class imlocal:
 
         Returns:
             2-element tuple containing
-            i) 4D numpy array with computed (and reshaped) sources
-            for stack of subimages and ii) 2D numpy array with
-            transformed data X_vec according to the trained NMF model
+            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
+            with computed (and reshaped) sources
+            for stack of subimages and ii) 2D numpy array (*N* x *n_components*)
+            with transformed data X_vec according to the trained NMF model
         """
 
         m_s = kwargs.get('marker_size')
@@ -658,7 +662,7 @@ class imlocal:
 
         Returns:
             2-element tuple containing
-            i) Numpy array of defect/atom coordinaes form a single trajectory
+            i) Numpy array of defect/atom coordinates form a single trajectory
             and ii) frames corresponding to this trajectory
         """
         flow = np.empty((0, 3))
@@ -702,7 +706,7 @@ class imlocal:
 
         Returns:
             2-element tuple containing
-            i) list defects/atoms trajectories (each trajectory is numpy array),
+            i) list of numpy arrays with defects/atoms trajectories,
             ii) list of frames corresponding to the extracted trajectories
         """
         if run_gmm:
@@ -770,7 +774,7 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) list defects/atoms trajectories,
+            i) list of defects/atoms trajectories,
             ii) list of transition matrices for each trajectory,
             iii) list of frames corresponding to the extracted trajectories
         """
