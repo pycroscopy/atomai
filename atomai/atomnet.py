@@ -36,7 +36,7 @@ class trainer:
             small 4D numpy arrays (batches) or larger 4D numpy array
             representing all the training images. For dictionary with N batches,
             the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
-            represent 3D images :math:`(height \\times \\times width \\times 1)` stacked
+            represent 3D images :math:`(height \\times width \\times 1)` stacked
             along the zeroth ("batch") dimension.    
         labels_all (list or dict or 4D numpy array):
             Training labels (aka ground truth aka masks) in the form of
@@ -54,7 +54,7 @@ class trainer:
             small 4D numpy arrays (batches) or larger 4D numpy array
             representing all the test images. For dictionary with N batches,
             the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
-            represent 3D images :math:`(height \\times \\times width \\times 1)` stacked
+            represent 3D images :math:`(height \\times width \\times 1)` stacked
             along the zeroth ("batch") dimension. 
         labels_test_all (list or dict or 4D numpy array):
             Test labels (aka ground truth aka masks) in the form of

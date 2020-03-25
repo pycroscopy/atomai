@@ -30,7 +30,7 @@ class imlocal:
             Output of a fully convolutional neural network where
             a class is assigned to every pixel in the input image(s).
             The dimensions are
-            :math:`n images \\times height \\times width \\times n channels`
+            :math:`n-images \\times height \\times width \\times n-channels`
         coord_class_dict_all (dict):
             Prediction from atomnet.locator
             (can be from other source but must be in the same format)
@@ -958,9 +958,9 @@ def cluster_coord(coord_class_dict, eps, min_samples=10):
 
     Args:
         coord_class_dict (dict):
-            Dictionary of atomic coordinates (N x 3 numpy arrays])
+            Dictionary of atomic coordinates (:math:`N x 3` numpy arrays])
             (same format as produced by atomnet.locator)
-            Can also be a list of N x 3 numpy arrays
+            Can also be a list of :math:`N x 3` numpy arrays
             Typically, these are coordinates from a 3D image stack
             where each element in dict/list corresponds
             to an individual movie frame
@@ -1009,7 +1009,7 @@ def find_coord_clusters(coord_class_dict_1, coord_class_dict_2, rmax):
             (usually from an output of atomnet.predictor for a single image;
             can be from other source but should be in the same format)
         coord_class_dict_2 (dict or list):
-            Dictionary or list of atomic coordinates (N x 3 numpy arrays)
+            Dictionary or list of atomic coordinates (:math:`N x 3` numpy arrays)
             These can be coordinates from a 3D image stack
             where each element in dict/list corresponds
             to an individual frame in the stack.
