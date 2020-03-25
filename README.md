@@ -84,5 +84,5 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, install AtomAI via
 
 ```bash
-pip install git+https://github.com/ziatdinovmax/atomai.git
+pip install atomai
 ```
