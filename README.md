@@ -61,7 +61,7 @@ For movies, one can extract trajectories of individual defects and calculate the
 imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
 
 # Calculate Gaussian mixture model (GMM) components
-components_img, classes_list = imstack.gmm(n_components=10, plot_results=True)
+components, imgs, coords = imstack.gmm(n_components=10, plot_results=True)
 
 # Calculate GMM components and transition probabilities for different trajectories
 traj_all, trans_all, fram_all = imstack.transition_matrix(n_components=10, rmax=10)
