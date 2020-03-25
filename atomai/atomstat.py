@@ -29,11 +29,12 @@ class imlocal:
         network_output (4D numpy array):
             Output of a fully convolutional neural network where
             a class is assigned to every pixel in the input image(s).
-            The dimensions are :math:`n images x height x width x n channels`
+            The dimensions are
+            :math:`n images \\times height \\times width \\times n channels`
         coord_class_dict_all (dict):
             Prediction from atomnet.locator
             (can be from other source but must be in the same format)
-            Each element is a :math:`N x 3` numpy array,
+            Each element is a :math:`N \\times 3` numpy array,
             where *N* is a number of detected atoms/defects,
             the first 2 columns are *xy* coordinates
             and the third columns is class (starts with 0)
@@ -122,7 +123,7 @@ class imlocal:
         Args:
             imgdata (3D numpy array):
                 Prediction of a neural network with dimensions
-                :math:`height x width x n channels`
+                :math:`height \\times width \\times n channels`
             coord (N x 2 numpy array):
                 (x, y) coordinates
             r (int):
