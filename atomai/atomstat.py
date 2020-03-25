@@ -11,7 +11,7 @@ import os
 import numpy as np
 from sklearn import mixture, decomposition, cluster
 from scipy import spatial
-from atomai.utils import get_nn_distances, get_intensities
+from atomai.utils import get_nn_distances, get_intensities, peak_refinement
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
@@ -1113,3 +1113,28 @@ def update_classes(coordinates,
         raise NotImplementedError(
             "Choose between 'threshold' and 'kmeans' methods")
     return coordinates
+
+
+def update_positions(coordinates, nn_input, d=None):
+    """
+    Updates atomic/defect coordinates based on
+    peak refinement procedure at each predicted position
+
+    Args:
+        coordinates (dict):
+            Output of atomnet.predictor
+        nn_input (numpy array):
+            Image(s) served as an input to neural network
+        d (int):
+        Half of the side of the square box where the fitting is performed;
+        defaults to 1/4 of mean nearest neighbor distance in the system
+    
+    Returns:
+        Updated coordinates
+    """
+    print('\rRefining atomic positions... ', end="")
+    coordinates_r = {}
+    for i, (img, coord) in enumerate(zip(nn_input, coordinates.values())):
+        coordinates_r[i] = peak_refinement(img[..., 0], coord, d)
+    print("Done")
+    return coordinates_r
