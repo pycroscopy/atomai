@@ -744,7 +744,7 @@ class MakeAtom:
 
 def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     """
-    Given experimental image and xy atomic coordinates
+    Given experimental image and *xy* atomic coordinates
     creates ground truth image. Currently works only for the case
     where all atoms are one class. Notice that it will round fractional pixels.
 
@@ -858,8 +858,8 @@ class augmentor:
     Examples:
         Suppose we have a stack of images
         and a stack of masks (aka labels aka ground truth)
-        with dimensions (n_images, height, width)
-        and (n_images, height, width, channels).
+        with dimensions :math:`n images \\times height \\times width`
+        and :math:`n images \\times height \\times width \\times n channels`.
         We can use the augmentor as follows.
 
         >>> # Specify size, dimensions
