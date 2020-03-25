@@ -118,7 +118,7 @@ def preprocess_training_data(images_all,
     Preprocess training and test data
 
     Args:
-         images_all (list or dict or 4D numpy array):
+        images_all (list or dict or 4D numpy array):
             Training images in the form of list/dictionary of
             small 4D numpy arrays (batches) or larger 4D numpy array
             representing all the training images. For dictionary with N batches,
@@ -340,8 +340,8 @@ def get_nn_distances_(coordinates, nn=2, upper_bound=None):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only di
     Returns:
-        Tuple with :math:`n-atoms \\times nn` array of distances to nearest
-        neighbors and :math:`n-atoms \\times (nn+1) \\times 3` array of coordinates
+        Tuple with :math:`atoms \\times nn` array of distances to nearest
+        neighbors and :math:`atoms \\times (nn+1) \\times 3` array of coordinates
         (including coordinates of the "center" atom), where n_atoms is less or
         equal to the total number of atoms in the 'coordinates'
         (due to 'upper_bound' criterion)
@@ -371,8 +371,8 @@ def get_nn_distances(coordinates, nn=2, upper_bound=None):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only distances below this value will be counted.
     Returns:
-        Tuple with list of :math:`n-atoms \\times nn` arrays of distances
-        to nearest neighbors and list of :math:`n-atoms \\times (nn+1) \\times 3`
+        Tuple with list of :math:`atoms \\times nn` arrays of distances
+        to nearest neighbors and list of :math:`atoms \\times (nn+1) \\times 3`
         array of coordinates (including coordinates of the "center" atom),
         where n_atoms is less or equal to the total number of atoms in the
         'coordinates' (due to 'upper_bound' criterion)
@@ -872,7 +872,7 @@ class augmentor:
         Suppose we have a stack of images
         and a stack of masks (aka labels aka ground truth)
         with dimensions :math:`n images \\times height \\times width`
-        and :math:`n-images \\times height \\times width \\times n-channels`.
+        and :math:`images \\times height \\times width \\times channels`.
         We can use the augmentor as follows.
 
         >>> # Specify size, dimensions

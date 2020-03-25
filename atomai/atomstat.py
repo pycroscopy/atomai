@@ -30,7 +30,7 @@ class imlocal:
             Output of a fully convolutional neural network where
             a class is assigned to every pixel in the input image(s).
             The dimensions are
-            :math:`n-images \\times height \\times width \\times n-channels`
+            :math:`images \\times height \\times width \\times channels`
         coord_class_dict_all (dict):
             Prediction from atomnet.locator
             (can be from other source but must be in the same format)
