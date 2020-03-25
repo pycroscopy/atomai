@@ -320,15 +320,15 @@ def get_nn_distances_(coordinates, nn=2, upper_bound=None):
 
     Args:
         coordinates (numpy array):
-            :math:'N \\times 3' array with atomic coordinates where first two
+            :math:`N \\times 3` array with atomic coordinates where first two
             columns are *xy* coordinates and the third column is atom class
         nn (int): Number of nearest neighbors to search for.
         upper_bound (float or int, non-negative):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only di
     Returns:
-        Tuple with :math:'n_atoms \\times nn' array of distances to nearest
-        neighbors and :math:'n_atoms \\times (nn+1) \\times 3' array of coordinates
+        Tuple with :math:`n_atoms \\times nn` array of distances to nearest
+        neighbors and :math:`n_atoms \\times (nn+1) \\times 3` array of coordinates
         (including coordinates of the "center" atom), where n_atoms is less or
         equal to the total number of atoms in the 'coordinates'
         (due to 'upper_bound' criterion)
@@ -350,7 +350,7 @@ def get_nn_distances(coordinates, nn=2, upper_bound=None):
     Args:
         coordinates (dict):
             Dictionary where keys are frame numbers and values are
-            :math:'N \\times 3' numpy arrays with atomic coordinates.
+            :math:`N \\times 3` numpy arrays with atomic coordinates.
             In each array the first two columns are *xy* coordinates and
             the third column is atom class.
         nn (int): Number of nearest neighbors to search for.
@@ -358,8 +358,8 @@ def get_nn_distances(coordinates, nn=2, upper_bound=None):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only distances below this value will be counted.
     Returns:
-        Tuple with list of :math:'n_atoms \\times nn' arrays of distances
-        to nearest neighbors and list of :math:'n_atoms \\times (nn+1) \\times 3'
+        Tuple with list of :math:`n_atoms \\times nn` arrays of distances
+        to nearest neighbors and list of :math:`n_atoms \\times (nn+1) \\times 3`
         array of coordinates (including coordinates of the "center" atom),
         where n_atoms is less or equal to the total number of atoms in the
         'coordinates' (due to 'upper_bound' criterion)

@@ -862,10 +862,10 @@ def plot_lattice_bonds(distances,
 
     Args:
         distances (numpy array):
-            :math:'n_atoms \\times nn' array,
+            :math:`n_atoms \\times nn` array,
             where *nn* is a number of nearest neighbors
         atom_pairs (numpy array):
-            :math:'n_atoms \\times (nn+1) \\times 3',
+            :math:`n_atoms \\times (nn+1) \\times 3`,
             where *nn* is a number of nearest neighbors
         distance_ideal (float):
             Bond distance in ideal lattice.
@@ -928,7 +928,7 @@ def map_bonds(coordinates,
     Args:
         coordinates (dict):
             Dictionary where keys are frame numbers and values are
-            :math:'N \\times 3' numpy arrays with atomic coordinates.
+            :math:`N \\times 3` numpy arrays with atomic coordinates.
             In each array the first two columns are *xy* coordinates and
             the third column is atom class.
         nn (int): Number of nearest neighbors to search for.
