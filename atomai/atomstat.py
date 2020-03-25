@@ -219,8 +219,7 @@ class imlocal:
             random_state=1,
             plot_results=False):
         """
-        Computes PCA eigenvectors and their loading maps
-        for a stack of subimages.
+        Computes PCA eigenvectors for a stack of subimages.
 
         Args:
             n_components (int):
@@ -257,8 +256,7 @@ class imlocal:
             random_state=1,
             plot_results=False):
         """
-        Computes ICA independent souces and their loading maps
-        for a stack of subimages.
+        Computes ICA independent souces for a stack of subimages.
 
         Args:
             n_components (int):
@@ -296,9 +294,7 @@ class imlocal:
             plot_results=False,
             **kwargs):
         """
-        Applies NMF to source separation.
-        Computes sources and their loading maps
-        for a stack of subimages.
+        Applies NMF to source separation from a stack of subimages
 
         Args:
             n_components (int):
@@ -311,11 +307,11 @@ class imlocal:
                 Maximum number of iterations before timing out
 
         Returns:
-            4D numpy array with computed (and reshaped) sources
+            - 4D numpy array with computed (and reshaped) sources
             for stack of subimages,
-            2D numpy array with transformed data X_vec according
+            - 2D numpy array with transformed data X_vec according
             to the trained NMF model,
-            3D numpy array with center-of-mass coordinates
+            - 3D numpy array with center-of-mass coordinates
             and the corresponding label number for each subimage
         """
 
@@ -958,9 +954,9 @@ def cluster_coord(coord_class_dict, eps, min_samples=10):
 
     Args:
         coord_class_dict (dict):
-            Dictionary of atomic coordinates (:math:`N x 3` numpy arrays])
+            Dictionary of atomic coordinates (:math:`N \\times 3` numpy arrays])
             (same format as produced by atomnet.locator)
-            Can also be a list of :math:`N x 3` numpy arrays
+            Can also be a list of :math:`N \\times 3` numpy arrays
             Typically, these are coordinates from a 3D image stack
             where each element in dict/list corresponds
             to an individual movie frame
@@ -1009,7 +1005,8 @@ def find_coord_clusters(coord_class_dict_1, coord_class_dict_2, rmax):
             (usually from an output of atomnet.predictor for a single image;
             can be from other source but should be in the same format)
         coord_class_dict_2 (dict or list):
-            Dictionary or list of atomic coordinates (:math:`N x 3` numpy arrays)
+            Dictionary or list of atomic coordinates
+            (:math:`N \\times 3` numpy arrays)
             These can be coordinates from a 3D image stack
             where each element in dict/list corresponds
             to an individual frame in the stack.
