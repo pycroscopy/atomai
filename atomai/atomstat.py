@@ -128,7 +128,7 @@ class imlocal:
                 (x, y) coordinates
             r (int):
                 Half side of subimage square
-                
+
         Returns:
             stack of subimages and
             (x, y) coordinates of their centers

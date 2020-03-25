@@ -124,7 +124,7 @@ def preprocess_training_data(images_all,
             representing all the training images. For dictionary with N batches,
             the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
             represent 3D images :math:`(height \\times width \\times 1)` stacked
-            along the zeroth ("batch") dimension.    
+            along the zeroth ("batch") dimension.
         labels_all (list or dict or 4D numpy array):
             Training labels (aka ground truth aka masks) in the form of
             list/dictionary of small 3D (binary classification) or 4D (multiclass)
@@ -132,7 +132,7 @@ def preprocess_training_data(images_all,
             containing all the training labels.
             For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
             Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
-            stacked along the zeroth ("batch") dimenstion. The reason why in the 
+            stacked along the zeroth ("batch") dimenstion. The reason why in the
             multiclass case the images have 4 dimensions while the labels have only 3 dimensions
             is because of how the cross-entropy loss is calculated in PyTorch
             (see https://pytorch.org/docs/stable/nn.html#nllloss).
@@ -142,7 +142,7 @@ def preprocess_training_data(images_all,
             representing all the test images. For dictionary with N batches,
             the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
             represent 3D images :math:`(height \\times width \\times 1)` stacked
-            along the zeroth ("batch") dimension. 
+            along the zeroth ("batch") dimension.
         labels_test_all (list or dict or 4D numpy array):
             Test labels (aka ground truth aka masks) in the form of
             list/dictionary of small 3D (binary classification) or 4D (multiclass)
