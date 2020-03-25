@@ -168,11 +168,11 @@ class imlocal:
                 Plotting gmm components
 
         Returns:
-            4D numpy array containing averaged images for each gmm class
+            i) 4D numpy array containing averaged images for each gmm class
             (the 1st dimension correspond to individual mixture components),
-            List where each element contains images from the self.imgstack
+            ii) List where each element contains images from the self.imgstack
             (as 4D numpy array) belonging to each GMM class,
-            4D numpy array with xy coordinates of the center of mass
+            iii) 4D numpy array with xy coordinates of the center of mass
             for each subimage from the stack, labels for every subimage
             and a frame number for each label
         """
@@ -230,11 +230,11 @@ class imlocal:
                 Plots computed eigenvectors
 
         Returns:
-            4D numpy array with computed (and reshaped) principal axes
+            i) 4D numpy array with computed (and reshaped) principal axes
             for stack of subimages,
-            2D numpy array with projection of X_vec
+            ii) 2D numpy array with projection of X_vec
             on the first principal components,
-            3D numpy array with center-of-mass coordinates
+            iii) 3D numpy array with center-of-mass coordinates
             and the corresponding label number for each subimage
         """
         pca = decomposition.PCA(
@@ -267,11 +267,11 @@ class imlocal:
                 Plots computed sources
 
         Returns:
-            4D numpy array with computed (and reshaped) independent sources
+            i) 4D numpy array with computed (and reshaped) independent sources
             for stack of subimages,
-            2D numpy array with recovered sources
+            ii) 2D numpy array with recovered sources
             from X_vec,
-            3D numpy array with center-of-mass coordinates
+            iii) 3D numpy array with center-of-mass coordinates
             and the corresponding label number for each subimage
         """
         ica = decomposition.FastICA(
@@ -307,11 +307,11 @@ class imlocal:
                 Maximum number of iterations before timing out
 
         Returns:
-            - 4D numpy array with computed (and reshaped) sources
+            i) 4D numpy array with computed (and reshaped) sources
             for stack of subimages,
-            - 2D numpy array with transformed data X_vec according
+            ii) 2D numpy array with transformed data X_vec according
             to the trained NMF model,
-            - 3D numpy array with center-of-mass coordinates
+            iii) 3D numpy array with center-of-mass coordinates
             and the corresponding label number for each subimage
         """
 
