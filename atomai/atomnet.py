@@ -31,28 +31,44 @@ class trainer:
     for semantic segmentation of noisy experimental data
 
     Args:
-        images_all (list / dict / 4D numpy array):
-            List or dictionary of 4D numpy arrays or 4D numpy array
-            (3D image tensors stacked along the first dim)
-            representing training images
-        labels_all (list / dict / 4D numpy array):
-            List or dictionary of 3D numpy arrays or
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D image are tensors stacked along the first dim
-            which represent training labels (aka masks aka ground truth)
+        images_all (list or dict or 4D numpy array):
+            Training images in the form of list/dictionary of
+            small 4D numpy arrays (batches) or larger 4D numpy array
+            representing all the training images. For dictionary with N batches,
+            the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
+            represent 3D images (height x width x 1) stacked
+            along the zeroth ("batch") dimension.    
+        labels_all (list or dict or 4D numpy array):
+            Training labels (aka ground truth aka masks) in the form of
+            list/dictionary of small 3D (binary classification) or 4D (multiclass)
+            numpy arrays or larger 4D (binary) / 3D (multiclass) numpy array
+            containing all the training labels.
+            For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
+            Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
+            stacked along the zeroth ("batch") dimenstion. The reason why in the 
+            multiclass case the images have 4 dimensions while the labels have only 3 dimensions
+            is because of how the cross-entropy loss is calculated in PyTorch
+            (see [here](https://pytorch.org/docs/stable/nn.html#nllloss).
         images_test_all (list / dict / 4D numpy array):
-            List or dictionary of 4D numpy arrays or 4D numpy array
-            (3D image tensors stacked along the first dim)
-            representing test images
+            Test images in the form of list/dictionary of
+            small 4D numpy arrays (batches) or larger 4D numpy array
+            representing all the test images. For dictionary with N batches,
+            the keys must be 0, 1, 2, ... N. Both small and large 4D numpy arrays
+            represent 3D images (height x width x 1) stacked
+            along the zeroth ("batch") dimension. 
         labels_test_all (list / dict / 4D numpy array):
-            List or dictionary of 3D numpy arrays or
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D image are tensors stacked along the first dim
-            which represent test labels (aka masks aka ground truth)
+            Test labels (aka ground truth aka masks) in the form of
+            list/dictionary of small 3D (binary classification) or 4D (multiclass)
+            numpy arrays or larger 4D (binary) / 3D (multiclass) numpy array
+            containing all the test labels.
+            For dictionary with N batches, the keys must be 0, 1, 2, ... N.
+            Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
+            stacked along the zeroth ("batch") dimenstion.
         training_cycles (int):
             Number of training 'epochs' (1 epoch == 1 batch)
         model_type (str):
-            Type of mode to choose from the package ('dilUnet' or 'dilnet')
+            Type of model to train ('dilUnet' or 'dilnet'). See atomai.models
+            for more details.
         seed (int):
             Deterministic mode for model training
         batch_seed (int):
@@ -73,9 +89,9 @@ class trainer:
             (this number doubles in the consequtive block(s),
             see definition of dilUnet and dilnet models for details)
         **with_dilation (bool):
-            Use / not use dilated convolutions in the bottleneck of dilUnet
+            Use dilated convolutions in the bottleneck of dilUnet
         **print_loss (int):
-            Prints loss every n-th epoch
+            Prints loss every *n*-th epoch
         **savedir (str):
             Directory to automatically save intermediate and final weights
         **savename (str):
@@ -227,7 +243,7 @@ class trainer:
 
     def test_step(self, img, lbl):
         """
-        Forward path for test data
+        Forward path for test data with deactivated autograd engine
         """
         self.net.eval()
         with torch.no_grad():
@@ -237,7 +253,9 @@ class trainer:
 
     def run(self):
         """
-        Trains a neural network. Saves the best (on test data)
+        Trains a neural network for *N* epochs by passing a single pair of
+        training images and labels and a single pair of test images
+        and labels at each epoch. Saves the best (on test data)
         and final model weights.
         """
         for e in range(self.training_cycles):
@@ -297,7 +315,7 @@ class predictor:
             Trained pytorch model (skeleton+weights)
         refine (bool):
             Atomic positions refinement with 2d Gaussian peak fitting
-        resize (tuple / 2-element list):
+        resize (tuple or 2-element list):
             Target dimensions for optional image(s) resizing
         use_gpu (bool):
             Use gpu device for inference
@@ -306,12 +324,13 @@ class predictor:
             a softmax/sigmoid layer when set to False
             (logits=True for AtomAI models)
         seed (int):
-            Sets seed for random number generators
+            Sets seed for random number generators (for reproducibility)
         **thresh (float):
             value between 0 and 1 for thresholding the NN output
         **d (int):
-            half-side of square around each atomic position used
-            for refinement with 2d Gaussian peak fitting
+            half-side of a square around each atomic position used
+            for refinement with 2d Gaussian peak fitting. Defaults to 1/4
+            of average nearest neighbor atomic distance
         **nb_classes (int):
             Number of classes in the model
         **downsampled (int or float):
@@ -445,7 +464,7 @@ class locator:
 
     Args:
         decoded_imgs (4D numpy array):
-            Output of a neural network (softmax/sigmoid layer)
+            Output of a neural network
         threshold (float):
             Value at which the neural network output is thresholded
         dist_edge (int):
@@ -505,7 +524,7 @@ class locator:
 
     def rem_edge_coord(self, coordinates):
         """
-        Remove coordinates at the image edges
+        Removes coordinates at the image edges
         """
 
         def coord_edges(coordinates, w, h):
