@@ -4,7 +4,6 @@
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/8fa8829627f040dda46e2dc30e48aca1)](https://app.codacy.com/manual/ziatdinovmax/atomai?utm_source=github.com&utm_medium=referral&utm_content=ziatdinovmax/atomai&utm_campaign=Badge_Grade_Dashboard)
 
 # AtomAI
-**Under active development (expect breaking changes)**
 
 ## What is AtomAI?
 
