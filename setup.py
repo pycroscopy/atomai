@@ -34,7 +34,7 @@ if __name__ == "__main__":
             'opencv-python>=4.1.0',
         ],
         classifiers=['Programming Language :: Python',
-                     'Development Status :: 2 - Pre-Alpha',
+                     'Development Status :: 3 - Alpha',
                      'Intended Audience :: Science/Research',
                      'Operating System :: OS Independent',
                      'Topic :: Scientific/Engineering']
