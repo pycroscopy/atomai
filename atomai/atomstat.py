@@ -27,20 +27,22 @@ class imlocal:
 
     Args:
         network_output (4D numpy array):
-            Batch_size x height x width x channels
+            Output of a fully convolutional neural network where
+            a class is assigned to every pixel in the input image(s).
+            The dimensions are :math:`n images x height x width x n channels`
         coord_class_dict_all (dict):
             Prediction from atomnet.locator
-            (can be from other but must be the same format)
-            Each element is a N x 3 numpy array,
-            where N is a number of detected atoms/defects,
-            the first 2 columns are xy coordinates
+            (can be from other source but must be in the same format)
+            Each element is a :math:`N x 3` numpy array,
+            where *N* is a number of detected atoms/defects,
+            the first 2 columns are *xy* coordinates
             and the third columns is class (starts with 0)
         crop_size (int):
             Half of the side of the square for subimage cropping
         coord_class (int):
             Class of atoms/defects around around which
             the subimages will be cropped; in the atomnet.locator output
-            the class is the 3rd column (the first two are xy positions)
+            the class is the 3rd column (the first two are *xy* positions)
 
     Examples:
 
@@ -91,15 +93,6 @@ class imlocal:
         Extracts subimages centered at certain atom class/type
         in the neural network output
 
-        Args:
-            imgdata (4D numpy array):
-                Prediction of a neural network with dimensions
-                (batch_size x height x width x channels)
-            coord (N x 3 numpy array):
-                (x, y, class) coordinates data
-            d (int):
-                Defines size of a square subimage
-
         Returns:
             stack of subimages,
             (x, y) coordinates of their centers,
@@ -129,12 +122,12 @@ class imlocal:
         Args:
             imgdata (3D numpy array):
                 Prediction of a neural network with dimensions
-                (height x width x channels)
+                :math:`height x width x n channels`
             coord (N x 2 numpy array):
                 (x, y) coordinates
             r (int):
-                Square subimage side is 2*r
-
+                Half side of subimage square
+                
         Returns:
             stack of subimages and
             (x, y) coordinates of their centers
@@ -304,9 +297,7 @@ class imlocal:
         """
         Applies NMF to source separation.
         Computes sources and their loading maps
-        for a stack of subimages. Intended to be used for
-        finding domains ("blocks") (e.g. ferroic domains)
-        in a single image.
+        for a stack of subimages.
 
         Args:
             n_components (int):
