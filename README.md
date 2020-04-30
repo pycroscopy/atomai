@@ -82,8 +82,7 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 
 4) [Prepare training data from experimental image with atomic coordinates (beta)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
-5) [Atom finding using deep ensembles for uncertainty quantification (advanced)]
-(https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_deep_ensembles.ipynb)
+5) [Atom finding using deep ensembles for uncertainty quantification (advanced)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_deep_ensembles.ipynb)
 
 ## Installation
 First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, install AtomAI via
