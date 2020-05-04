@@ -8,14 +8,17 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import os
-import numpy as np
-from sklearn import mixture, decomposition, cluster
-from scipy import spatial
-from atomai.utils import get_nn_distances, get_intensities, peak_refinement
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib import cm
 import warnings
+
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import cm
+from scipy import spatial
+from sklearn import cluster, decomposition, mixture
+
+from atomai.utils import (get_intensities, get_nn_distances, peak_refinement,
+                          plot_transitions)
 
 
 class imlocal:
@@ -755,7 +758,8 @@ class imlocal:
                           covariance='diag',
                           random_state=1,
                           rmax=10,
-                          min_length=0):
+                          min_length=0,
+                          sum_all_transitions=False):
         """
         Applies Gaussian mixture model to a stack of
         local descriptors (subimages). Extracts trajectories for
@@ -790,110 +794,63 @@ class imlocal:
         transitions_all = []
         for traj in dict_to_return["trajectories"]:
             classes = self.renumerate_classes(traj[:, -1])
-            m = transitions(classes).calculate_transition_matrix()
+            m = calculate_transition_matrix(classes)
             transitions_all.append(m)
         dict_to_return["transitions"] = transitions_all
+        if sum_all_transitions:
+            dict_to_return["all_transitions"] = sum_transitions(
+                dict_to_return, n_components)
         return dict_to_return
 
 
-class transitions:
+def calculate_transition_matrix(trace):
     """
-    Calculates and displays (optionally) Markov transition matrix
+    Calculates Markov transition matrix
 
     Args:
         trace (1D numpy array or python list):
             sequence of states/classes
     """
-    def __init__(self, trace):
-        self.trace = trace
+    n = 1 + max(trace)  # number of states
+    M = np.zeros(shape=(n, n))
+    for (i, j) in zip(trace, trace[1:]):
+        M[i][j] += 1
+    # convert to probabilities:
+    for row in M:
+        s = sum(row)
+        if s > 0:
+            row[:] = [f/s for f in row]
+    return M
 
-    def calculate_transition_matrix(self,
-                                    plot_results=False,
-                                    plot_values=False):
-        """
-        Calculates Markov transition matrix
 
-        Args:
-            plot_results (bool):
-                Plot calculated transition matrix
-            plot_values (bool):
-                Show calculated transition rates
+def sum_transitions(trans_dict, msize, plot_results=False):
+    """
+    Sums and normalizes transitions associated with individual trajectories
 
-        Returns:
-            Calculated transition matrix as 2D numpy array
-        """
-        n = 1 + max(self.trace) # number of states
-        M = np.zeros(shape=(n, n))
-        for (i, j) in zip(self.trace, self.trace[1:]):
-            M[i][j] += 1
-        # now convert to probabilities:
-        for row in M:
-            s = sum(row)
-            if s > 0:
-                row[:] = [f/s for f in row]
-        if plot_results:
-            self.plot_transition_matrix(M, plot_values)
-        return M
-
-    @classmethod
-    def plot_transition_matrix(cls,
-                               matrix,
-                               gmm_components=None,
-                               plot_values=False,
-                               **kwargs):
-        """
-        Plots transition matrix
-
-        Args:
-            m (2D numpy array):
-                Transition matrix
-            gmm_components (4D numpy array):
-                GMM components (optional)
-            plot_values (bool):
-                Show calculated transtion rates
-            **fsize (int): figure size
-            **cmap (str): color map
-        """
-        fsize = kwargs.get("fsize", 6)
-        cmap = kwargs.get("cmap", "Reds")
-        m = matrix
-        print('Transition matrix')
-        _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
-        ax.matshow(m, cmap=cmap)
-        xt = np.arange(len(m))
-        yt = np.arange(len(m))
-        ax.set_xticks(xt)
-        ax.set_yticks(yt)
-        ax.set_xticklabels((xt+1).tolist(), rotation='horizontal', fontsize=14)
-        ax.set_yticklabels((yt+1).tolist(), rotation='horizontal', fontsize=14)
-        ax.set_title('Transition matrix', y=1.1, fontsize=20)
-        if plot_values:
-            for (j, i), v in np.ndenumerate(m):
-                ax.text(i, j, np.around(v, 2), ha='center', va='center', c='b')
-        ax.set_xlabel('Transition class', fontsize=18)
-        ax.set_ylabel('Starting class', fontsize=18)
-        plt.show()
-        if gmm_components is not None:
-            idx_ = np.unravel_index(np.argsort(m.ravel()), m.shape)
-            idx_ = np.dstack(idx_)[0][::-1]
-            print()
-            for i_, i in enumerate(idx_):
-                _, (ax1, ax2) = plt.subplots(1, 2, figsize=(fsize, fsize//2))
-                if gmm_components.shape[-1] == 3:
-                    start_comp = gmm_components[i[0]]
-                    trans_comp = gmm_components[i[1]]
-                else:
-                    start_comp = np.sum(gmm_components[i[0]], axis=-1)
-                    trans_comp = np.sum(gmm_components[i[1]], axis=-1)
-                print("Starting class  --->  Transition class (Prob: {})".
-                      format(m[tuple(i)]))
-                ax1.imshow(start_comp, cmap=cmap)
-                ax1.set_title("GMM component {}".format(i[0]+1))
-                ax2.imshow(trans_comp, cmap=cmap)
-                ax2.set_title("GMM_component {}".format(i[1]+1))
-                plt.show()
-                if i_ == 5:
-                    break
+    Args:
+        trans_dict (dict):
+            Python dictionary containing trajectories, frame numbers,
+            transitions and the averaged GMM components. Usually this is
+            an output of atomstat.transition_matrix
+        msize (int):
+            (m, m) size of full transition matrix
+        plot_results:
+            plot transition matrix and GMM components
+            associated with highest transition frequencies
+    
+    Returns:
+        Full transition matrix as 2D numpy array
+    """
+    transmat_all = np.zeros((msize, msize))
+    for traj, trans in zip(trans_dict["trajectories"], trans_dict["transitions"]):
+        states = np.unique(traj[:, -1]).astype(np.int64)
+        for (i, j), v in np.ndenumerate(trans):
+            transmat_all[states[i]-1, states[j]-1] += v
+    transmat_all = transmat_all/transmat_all.sum(axis=1, keepdims=1)
+    if plot:
+        plot_transitions(
+            transmat_all, gmm_components=trans_dict["gmm_components"])
+    return transmat_all
 
 
 def plot_lattice_bonds(distances,
@@ -1168,7 +1125,7 @@ def update_positions(coordinates, nn_input, d=None):
         d (int):
         Half of the side of the square box where the fitting is performed;
         defaults to 1/4 of mean nearest neighbor distance in the system
-    
+
     Returns:
         Updated coordinates
     """

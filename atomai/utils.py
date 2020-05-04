@@ -698,13 +698,16 @@ def plot_trajectories(traj, frames, **kwargs):
             numpy array with frame numbers
         **fov (int or list):
             field of view or scan size
+        **fsize (int):
+            figure size
         **cmap (str):
             colormap (default: jet)
     """
     fov = kwargs.get("fov")
     cmap = kwargs.get("cmap", "jet")
+    fsize = kwargs.get("fsize", 6)
     r_coord = np.linalg.norm(traj[:, :2], axis=1)
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(fsize*2, fsize))
     plt.scatter(frames, r_coord, c=traj[:, -1], cmap=cmap)
     if fov:
         if isinstance(fov, list) and len(fov) == 2:
@@ -714,12 +717,17 @@ def plot_trajectories(traj, frames, **kwargs):
         else:
             raise ValueError("Pass 'fov' argument as integer or 2-element list")
         plt.ylim(0, fov)
-    plt.colorbar()
-    plt.title("Trajectory (position vectors)")
+    plt.xlabel("Time step (a.u.)", fontsize=18)
+    plt.ylabel("Position vector", fontsize=18)
+    cbar = plt.colorbar()
+    cbar.set_label("States", fontsize=16)
+    plt.clabel
+    plt.title("Trajectory", fontsize=20)
     plt.show()
 
 
 def plot_transitions(matrix,
+                     states=None,
                      gmm_components=None,
                      plot_values=False,
                      **kwargs):
@@ -741,16 +749,17 @@ def plot_transitions(matrix,
     m = matrix
     _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
     ax.matshow(m, cmap=cmap)
-    xt = np.arange(len(m))
-    yt = np.arange(len(m))
-    ax.set_xticks(xt)
-    ax.set_yticks(yt)
-    ax.set_xticklabels((xt+1).tolist(), rotation='horizontal', fontsize=14)
-    ax.set_yticklabels((yt+1).tolist(), rotation='horizontal', fontsize=14)
+    if states is None:
+        states = np.arange(len(m)) + 1
+    xt = states
+    ax.set_xticks(np.arange(len(xt)))
+    ax.set_yticks(np.arange(len(xt)))
+    ax.set_xticklabels((xt).tolist(), rotation='horizontal', fontsize=14)
+    ax.set_yticklabels((xt).tolist(), rotation='horizontal', fontsize=14)
     ax.set_title('Transition matrix', y=1.1, fontsize=20)
     if plot_values:
-        for (j, i), v in np.ndenumerate(m):
-            ax.text(i, j, np.around(v, 2), ha='center', va='center', c='b')
+        for (i, j), v in np.ndenumerate(m):
+            ax.text(j, i, np.around(v, 2), ha='center', va='center', c='b')
     ax.set_xlabel('Transition class', fontsize=18)
     ax.set_ylabel('Starting class', fontsize=18)
     plt.show()
@@ -761,17 +770,17 @@ def plot_transitions(matrix,
         for i_, i in enumerate(idx_):
             _, (ax1, ax2) = plt.subplots(1, 2, figsize=(fsize, fsize//2))
             if gmm_components.shape[-1] == 3:
-                start_comp = gmm_components[i[0]]
-                trans_comp = gmm_components[i[1]]
+                start_comp = gmm_components[states[i[0]]-1]
+                trans_comp = gmm_components[states[i[1]]-1]
             else:
-                start_comp = np.sum(gmm_components[i[0]], axis=-1)
-                trans_comp = np.sum(gmm_components[i[1]], axis=-1)
+                start_comp = np.sum(gmm_components[states[i[0]]-1], axis=-1)
+                trans_comp = np.sum(gmm_components[states[i[1]]-1], axis=-1)
             print("Starting class  --->  Transition class (Prob: {})".
                   format(m[tuple(i)]))
             ax1.imshow(start_comp, cmap=cmap)
-            ax1.set_title("GMM component {}".format(i[0]+1))
+            ax1.set_title("GMM component {}".format(states[i[0]]))
             ax2.imshow(trans_comp, cmap=cmap)
-            ax2.set_title("GMM_component {}".format(i[1]+1))
+            ax2.set_title("GMM_component {}".format(states[i[1]]))
             plt.show()
             if i_ == 5:
                 break
@@ -798,7 +807,10 @@ def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
     trans = trans_dict["transitions"][k]
     plot_trajectories(traj, frames, **kwargs)
     print()
-    plot_transitions(trans, trans_dict["gmm_components"], plot_values, **kwargs)
+    s_true = np.unique(traj[:, -1]).astype(np.int64)
+    plot_transitions(
+        trans, s_true, trans_dict["gmm_components"],
+        plot_values, **kwargs)
     return
 
 
