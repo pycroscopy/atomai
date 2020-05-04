@@ -686,6 +686,122 @@ def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
     plt.show()
 
 
+def plot_trajectories(traj, frames, **kwargs):
+    """
+    Plots individual trajectory (as position (radius) vector)
+
+    Args:
+        traj (n x 3 ndarray):
+            numpy array where first two columns are coordinates
+            and the 3rd columd are classes
+        frames ((n,) ndarray):
+            numpy array with frame numbers
+        **fov (int or list):
+            field of view or scan size
+        **cmap (str):
+            colormap (default: jet)
+    """
+    fov = kwargs.get("fov")
+    cmap = kwargs.get("cmap", "jet")
+    r_coord = np.linalg.norm(traj[:, :2], axis=1)
+    plt.figure(figsize=(12, 6))
+    plt.scatter(frames, r_coord, c=traj[:, -1], cmap=cmap)
+    if fov:
+        if isinstance(fov, list) and len(fov) == 2:
+            fov = np.sqrt(fov[0]**2 + fov[1]**2)
+        elif isinstance(fov, int):
+            fov = np.sqrt(2*fov**2)
+        else:
+            raise ValueError("Pass 'fov' argument as integer or 2-element list")
+        plt.ylim(0, fov)
+    plt.colorbar()
+    plt.title("Trajectory (position vectors)")
+    plt.show()
+
+
+def plot_transitions(matrix,
+                     gmm_components=None,
+                     plot_values=False,
+                     **kwargs):
+    """
+    Plots transition matrix and (optionally) most frequent/probable transitions
+
+    Args:
+        m (2D numpy array):
+            Transition matrix
+        gmm_components (4D numpy array):
+            GMM components (optional)
+        plot_values (bool):
+            Show calculated transtion rates
+        **fsize (int): figure size
+        **cmap (str): color map
+    """
+    fsize = kwargs.get("fsize", 6)
+    cmap = kwargs.get("cmap", "Reds")
+    m = matrix
+    _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
+    ax.matshow(m, cmap=cmap)
+    xt = np.arange(len(m))
+    yt = np.arange(len(m))
+    ax.set_xticks(xt)
+    ax.set_yticks(yt)
+    ax.set_xticklabels((xt+1).tolist(), rotation='horizontal', fontsize=14)
+    ax.set_yticklabels((yt+1).tolist(), rotation='horizontal', fontsize=14)
+    ax.set_title('Transition matrix', y=1.1, fontsize=20)
+    if plot_values:
+        for (j, i), v in np.ndenumerate(m):
+            ax.text(i, j, np.around(v, 2), ha='center', va='center', c='b')
+    ax.set_xlabel('Transition class', fontsize=18)
+    ax.set_ylabel('Starting class', fontsize=18)
+    plt.show()
+    if gmm_components is not None:
+        idx_ = np.unravel_index(np.argsort(m.ravel()), m.shape)
+        idx_ = np.dstack(idx_)[0][::-1]
+        print()
+        for i_, i in enumerate(idx_):
+            _, (ax1, ax2) = plt.subplots(1, 2, figsize=(fsize, fsize//2))
+            if gmm_components.shape[-1] == 3:
+                start_comp = gmm_components[i[0]]
+                trans_comp = gmm_components[i[1]]
+            else:
+                start_comp = np.sum(gmm_components[i[0]], axis=-1)
+                trans_comp = np.sum(gmm_components[i[1]], axis=-1)
+            print("Starting class  --->  Transition class (Prob: {})".
+                  format(m[tuple(i)]))
+            ax1.imshow(start_comp, cmap=cmap)
+            ax1.set_title("GMM component {}".format(i[0]+1))
+            ax2.imshow(trans_comp, cmap=cmap)
+            ax2.set_title("GMM_component {}".format(i[1]+1))
+            plt.show()
+            if i_ == 5:
+                break
+    return
+
+
+def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
+    """
+    Plots trajectory witht he associated transitions.
+
+    Args:
+        trans_dict (dict):
+            Python dictionary containing trajectories, frame numbers,
+            transitions and the averaged GMM components. Usually this is
+            an output of atomstat.transition_matrix
+        k (int): Number of trajectory to vizualize
+        plot_values (bool): Show calculated transtion rates
+        **fsize (int): figure size
+        **cmap (str): color map
+        **fov (int or list): field of view (scan size)
+    """
+    traj = trans_dict["trajectories"][k]
+    frames = trans_dict["frames"][k]
+    trans = trans_dict["transitions"][k]
+    plot_trajectories(traj, frames, **kwargs)
+    print()
+    plot_transitions(trans, trans_dict["gmm_components"], plot_values, **kwargs)
+    return
+
+
 #############################
 # Training data preparation #
 #############################
