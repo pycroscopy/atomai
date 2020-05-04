@@ -705,15 +705,16 @@ class imlocal:
                 Random state instance for Gaussian mixture model
 
         Returns:
-            2-element tuple containing
-            i) list of numpy arrays with defects/atoms trajectories,
-            ii) list of frames corresponding to the extracted trajectories
+            Python dictionary containing
+            i) list of numpy arrays with defects/atoms trajectories ("trajectories"),
+            ii) list of frames corresponding to the extracted trajectories ("frames"),
+            iii) gmm components when run_gmm=True ("gmm_components")
         """
         if run_gmm:
             n_components = kwargs.get("n_components", 5)
             covariance = kwargs.get("covariance", "diag")
             random_state = kwargs.get("random_state", 1)
-            _, _, classes = self.gmm(
+            gmm_comps, _, classes = self.gmm(
                 n_components, covariance, random_state)
             classes = classes[:, -2]
         else:
@@ -732,7 +733,11 @@ class imlocal:
             if len(flow) > min_length:
                 all_trajectories.append(flow)
                 all_frames.append(frames)
-        return all_trajectories, all_frames
+        return_dict = {"trajectories": all_trajectories,
+                       "frames": all_frames}
+        if run_gmm:
+            return_dict["gmm_components"] = gmm_comps
+        return return_dict
 
     @classmethod
     def renumerate_classes(cls, classes):
@@ -773,20 +778,22 @@ class imlocal:
                 Minimal length of trajectory to return
 
         Returns:
-            3-element tuple containing
-            i) list of defects/atoms trajectories,
-            ii) list of transition matrices for each trajectory,
-            iii) list of frames corresponding to the extracted trajectories
+            Pyhton dictionary containing
+            i) list of defects/atoms trajectories ("trajectories"),
+            ii) list of transition matrices for each trajectory ("transitions"),
+            iii) list of frames corresponding to the extracted trajectories ("frames"),
+            iv) GMM components as images ("gmm_components")
         """
-        trajectories_all, frames_all = self.get_all_trajectories(
-            min_length, run_gmm=True, n_components=n_components,
-            covariance=covariance, random_state=random_state, rmax=rmax)
+        dict_to_return = self.get_all_trajectories(
+            min_length, run_gmm=True, n_components=n_components, rmax=rmax,
+            covariance=covariance, random_state=random_state)
         transitions_all = []
-        for traj in trajectories_all:
+        for traj in dict_to_return["trajectories"]:
             classes = self.renumerate_classes(traj[:, -1])
             m = transitions(classes).calculate_transition_matrix()
             transitions_all.append(m)
-        return trajectories_all, transitions_all, frames_all
+        dict_to_return["transitions"] = transitions_all
+        return dict_to_return
 
 
 class transitions:
@@ -829,19 +836,30 @@ class transitions:
         return M
 
     @classmethod
-    def plot_transition_matrix(cls, m, plot_values=False):
+    def plot_transition_matrix(cls,
+                               matrix,
+                               gmm_components=None,
+                               plot_values=False,
+                               **kwargs):
         """
         Plots transition matrix
 
         Args:
             m (2D numpy array):
                 Transition matrix
+            gmm_components (4D numpy array):
+                GMM components (optional)
             plot_values (bool):
                 Show calculated transtion rates
+            **fsize (int): figure size
+            **cmap (str): color map
         """
+        fsize = kwargs.get("fsize", 6)
+        cmap = kwargs.get("cmap", "Reds")
+        m = matrix
         print('Transition matrix')
-        _, ax = plt.subplots(1, 1, figsize=(6, 6))
-        ax.matshow(m, cmap='Reds')
+        _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
+        ax.matshow(m, cmap=cmap)
         xt = np.arange(len(m))
         yt = np.arange(len(m))
         ax.set_xticks(xt)
@@ -849,11 +867,33 @@ class transitions:
         ax.set_xticklabels((xt+1).tolist(), rotation='horizontal', fontsize=14)
         ax.set_yticklabels((yt+1).tolist(), rotation='horizontal', fontsize=14)
         ax.set_title('Transition matrix', y=1.1, fontsize=20)
-        for (j, i), v in np.ndenumerate(m):
-            ax.text(i, j, np.around(v, 2), ha='center', va='center', c='b')
+        if plot_values:
+            for (j, i), v in np.ndenumerate(m):
+                ax.text(i, j, np.around(v, 2), ha='center', va='center', c='b')
         ax.set_xlabel('Transition class', fontsize=18)
         ax.set_ylabel('Starting class', fontsize=18)
         plt.show()
+        if gmm_components is not None:
+            idx_ = np.unravel_index(np.argsort(m.ravel()), m.shape)
+            idx_ = np.dstack(idx_)[0][::-1]
+            print()
+            for i_, i in enumerate(idx_):
+                _, (ax1, ax2) = plt.subplots(1, 2, figsize=(fsize, fsize//2))
+                if gmm_components.shape[-1] == 3:
+                    start_comp = gmm_components[i[0]]
+                    trans_comp = gmm_components[i[1]]
+                else:
+                    start_comp = np.sum(gmm_components[i[0]], axis=-1)
+                    trans_comp = np.sum(gmm_components[i[1]], axis=-1)
+                print("Starting class  --->  Transition class (Prob: {})".
+                      format(m[tuple(i)]))
+                ax1.imshow(start_comp, cmap=cmap)
+                ax1.set_title("GMM component {}".format(i[0]+1))
+                ax2.imshow(trans_comp, cmap=cmap)
+                ax2.set_title("GMM_component {}".format(i[1]+1))
+                plt.show()
+                if i_ == 5:
+                    break
 
 
 def plot_lattice_bonds(distances,
