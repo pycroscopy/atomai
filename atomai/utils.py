@@ -741,11 +741,14 @@ def plot_transitions(matrix,
             GMM components (optional)
         plot_values (bool):
             Show calculated transtion rates
+        **transitions_to_plot (int):
+            number of transitions (associated with largerst prob values) to plot
         **fsize (int): figure size
         **cmap (str): color map
     """
     fsize = kwargs.get("fsize", 6)
     cmap = kwargs.get("cmap", "Reds")
+    transitions_to_plot = kwargs.get("transitions_to_plot", 6)
     m = matrix
     _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
     ax.matshow(m, cmap=cmap)
@@ -782,7 +785,7 @@ def plot_transitions(matrix,
             ax2.imshow(trans_comp, cmap=cmap)
             ax2.set_title("GMM_component {}".format(states[i[1]]))
             plt.show()
-            if i_ == 5:
+            if i_ == transitions_to_plot - 1:
                 break
     return
 
@@ -798,6 +801,8 @@ def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
             an output of atomstat.transition_matrix
         k (int): Number of trajectory to vizualize
         plot_values (bool): Show calculated transtion rates
+        **transitions_to_plot (int):
+            number of transitions (associated with largerst prob values) to plot
         **fsize (int): figure size
         **cmap (str): color map
         **fov (int or list): field of view (scan size)

@@ -823,7 +823,7 @@ def calculate_transition_matrix(trace):
     return M
 
 
-def sum_transitions(trans_dict, msize, plot_results=False):
+def sum_transitions(trans_dict, msize, plot_results=False, **kwargs):
     """
     Sums and normalizes transitions associated with individual trajectories
 
@@ -834,9 +834,11 @@ def sum_transitions(trans_dict, msize, plot_results=False):
             an output of atomstat.transition_matrix
         msize (int):
             (m, m) size of full transition matrix
-        plot_results:
+        plot_results (bool):
             plot transition matrix and GMM components
             associated with highest transition frequencies
+        **transitions_to_plot (int):
+            number of transitions (associated with largerst prob values) to plot
     
     Returns:
         Full transition matrix as 2D numpy array
@@ -847,9 +849,11 @@ def sum_transitions(trans_dict, msize, plot_results=False):
         for (i, j), v in np.ndenumerate(trans):
             transmat_all[states[i]-1, states[j]-1] += v
     transmat_all = transmat_all/transmat_all.sum(axis=1, keepdims=1)
-    if plot:
+    if plot_results:
         plot_transitions(
-            transmat_all, gmm_components=trans_dict["gmm_components"])
+            transmat_all, 
+            gmm_components=trans_dict["gmm_components"],
+            **kwargs)
     return transmat_all
 
 
