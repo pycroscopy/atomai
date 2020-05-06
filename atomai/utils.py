@@ -731,13 +731,16 @@ def plot_transitions(matrix,
         plot_values (bool):
             Show calculated transtion rates
         **transitions_to_plot (int):
-            number of transitions (associated with largerst prob values) to plot
+            number of transitions (associated with largest prob values) to plot
+        **plot_toself (bool):
+            Skips transitions into self when plotting transitions with largest probs
         **fsize (int): figure size
         **cmap (str): color map
     """
     fsize = kwargs.get("fsize", 6)
     cmap = kwargs.get("cmap", "Reds")
     transitions_to_plot = kwargs.get("transitions_to_plot", 6)
+    plot_toself = kwargs.get("plot_toself", True)
     m = matrix
     _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
     ax.matshow(m, cmap=cmap)
@@ -759,7 +762,10 @@ def plot_transitions(matrix,
         idx_ = np.unravel_index(np.argsort(m.ravel()), m.shape)
         idx_ = np.dstack(idx_)[0][::-1]
         print()
-        for i_, i in enumerate(idx_):
+        i_ = 0
+        for i in idx_:
+            if plot_toself is False and i[0] == i[1]:
+                continue
             _, (ax1, ax2) = plt.subplots(1, 2, figsize=(fsize, fsize//2))
             if gmm_components.shape[-1] == 3:
                 start_comp = gmm_components[states[i[0]]-1]
@@ -774,6 +780,7 @@ def plot_transitions(matrix,
             ax2.imshow(trans_comp, cmap=cmap)
             ax2.set_title("GMM_component {}".format(states[i[1]]))
             plt.show()
+            i_ = i_ + 1
             if i_ == transitions_to_plot - 1:
                 break
     return
