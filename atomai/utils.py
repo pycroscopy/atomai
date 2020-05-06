@@ -118,39 +118,26 @@ def preprocess_training_data(images_all,
     Preprocess training and test data
 
     Args:
-        images_all (list or dict or 4D numpy array):
-            Training images in the form of list/dictionary of
-            small 4D numpy arrays (batches) or larger 4D numpy array
-            representing all the training images. For dictionary with N batches,
-            the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
-            represent 3D images :math:`(height \\times width \\times 1)` stacked
-            along the zeroth ("batch") dimension.
-        labels_all (list or dict or 4D numpy array):
-            Training labels (aka ground truth aka masks) in the form of
-            list/dictionary of small 3D (binary classification) or 4D (multiclass)
-            numpy arrays or larger 4D (binary) / 3D (multiclass) numpy array
-            containing all the training labels.
-            For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
-            Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
-            stacked along the zeroth ("batch") dimenstion. The reason why in the
-            multiclass case the images have 4 dimensions while the labels have only 3 dimensions
-            is because of how the cross-entropy loss is calculated in PyTorch
-            (see https://pytorch.org/docs/stable/nn.html#nllloss).
-        images_test_all (list or dict or 4D numpy array):
-            Test images in the form of list/dictionary of
-            small 4D numpy arrays (batches) or larger 4D numpy array
-            representing all the test images. For dictionary with N batches,
-            the keys must be 0, 1, 2, ... *N*. Both small and large 4D numpy arrays
-            represent 3D images :math:`(height \\times width \\times 1)` stacked
-            along the zeroth ("batch") dimension.
-        labels_test_all (list or dict or 4D numpy array):
-            Test labels (aka ground truth aka masks) in the form of
-            list/dictionary of small 3D (binary classification) or 4D (multiclass)
-            numpy arrays or larger 4D (binary) / 3D (multiclass) numpy array
-            containing all the test labels.
-            For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
-            Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
-            stacked along the zeroth ("batch") dimenstion.
+        images_all (list / dict / 4D numpy array):
+            List or dictionary of 4D numpy arrays or 4D numpy array
+            (3D image tensors stacked along the first dim)
+            representing training images
+        labels_all (list / dict / 4D numpy array):
+            List or dictionary of 3D numpy arrays or
+            4D (binary) / 3D (multiclass) numpy array
+            where 3D / 2D image are tensors stacked along the first dim
+            which represent training labels (aka masks aka ground truth)
+        images_test_all (list / dict / 4D numpy array):
+            List or dictionary of 4D numpy arrays or 4D numpy array
+            (3D image tensors stacked along the first dim)
+            representing test images
+        labels_test_all (list / dict / 4D numpy array):
+            List or dictionary of 3D numpy arrays or
+            4D (binary) / 3D (multiclass) numpy array
+            where 3D / 2D image are tensors stacked along the first dim
+            which represent test labels (aka masks aka ground truth)
+        batch_size (int):
+            Size of training and test batches
 
     Returns:
         4 lists processed with preprocessed training and test data,
@@ -161,10 +148,12 @@ def preprocess_training_data(images_all,
         raise AssertionError(
             "Provide all training and test data in the same format")
     if isinstance(labels_all, list):
-        num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
+        pass
     elif isinstance(labels_all, dict):
-        num_classes = max(
-            set([len(np.unique(lab)) for lab in labels_all.values()]))
+        images_all = [i for i in images_all.values()]
+        labels_all = [i for i in labels_all.values()]
+        images_test_all = [i for i in images_test_all.values()]
+        labels_test_all = [i for i in labels_test_all.values()]
     elif isinstance(labels_all, np.ndarray):
         n_train_batches, _ = np.divmod(labels_all.shape[0], batch_size)
         n_test_batches, _ = np.divmod(labels_test_all.shape[0], batch_size)
@@ -176,13 +165,13 @@ def preprocess_training_data(images_all,
             images_test_all[:n_test_batches*batch_size], n_test_batches)
         labels_test_all = np.split(
             labels_test_all[:n_test_batches*batch_size], n_test_batches)
-        num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
     else:
         raise NotImplementedError(
             "Provide training and test data as python list (or dictionary)",
             "of numpy arrays or as 4D (images)",
             "and 4D/3D (labels for single/multi class) numpy arrays"
         )
+    num_classes = max(set([len(np.unique(lab)) for lab in labels_all]))
     if num_classes == 1:
         raise AssertionError(
             "Confirm that you have a class corresponding to background")
