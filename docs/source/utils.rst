@@ -40,6 +40,14 @@ Atomic Coordinates
 .. autofunction:: atomai.utils.filter_cells_
 .. autofunction:: atomai.utils.cv_thresh
 
+
+Visualization
+--------------
+.. autofunction:: atomai.utils.plot_trajectories
+.. autofunction:: atomai.utils.plot_transitions
+.. autofunction:: atomai.utils.plot_trajectories_transitions
+
+
 Trained weights
 ----------------
 .. autofunction:: atomai.utils.load_weights
