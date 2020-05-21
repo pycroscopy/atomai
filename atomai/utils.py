@@ -8,16 +8,18 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import subprocess
-import torch
-import numpy as np
+import warnings
+from collections import OrderedDict
+
 import cv2
-from scipy import ndimage, fftpack, spatial, optimize
-from sklearn.feature_extraction.image import extract_patches_2d
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from scipy import fftpack, ndimage, optimize, spatial
 from skimage import exposure
 from skimage.util import random_noise
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import warnings
+from sklearn.feature_extraction.image import extract_patches_2d
 
 warnings.filterwarnings("ignore", module="scipy.optimize")
 
@@ -542,6 +544,17 @@ def filter_cells_(imgdata,
     return label_img
 
 
+def get_contours(imgdata):
+    """
+    Extracts object contours from image data
+    (image data must be binary thresholded)
+    """
+    imgdata_ = cv2.convertScaleAbs(imgdata)
+    contours = cv2.findContours(
+        imgdata_.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[0]
+    return contours
+
+
 def filter_cells(imgdata,
                  im_thresh=0.5,
                  blob_thresh=50,
@@ -570,6 +583,50 @@ def filter_cells(imgdata,
         filtered_stack[i] = filter_cells_(
             img, im_thresh, blob_thresh, filter_)
     return filtered_stack
+
+
+def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='above'):
+    """
+    Extracts position and angle of particles in each movie frame
+    
+    Args:
+        nn_output (4D numpy array):
+            out of neural network returned by atomnet.predictor
+        im_thresh (float):
+            value at which each image in the stack will be thresholded
+        blob_thresh (int):
+            maximum/mimimun blob size for thresholding
+        filter_ (string):
+            Select 'above' or 'below' to remove larger or smaller blobs,
+            respectively
+
+        Returns:
+            Nested dictionary where for each frame there is an ordered dictionary
+            with values of centers of the mass and angle for each detected particle
+            in that frame.
+    """
+    blob_dict = {}
+    nn_output = nn_output[..., 0] if np.ndim(nn_output) == 4 else nn_output
+    for i, frame in enumerate(nn_output):
+        contours = get_contours(frame)
+        dictionary = OrderedDict()
+        com_arr, angles = [], []
+        for cnt in contours:
+            if len(cnt) < 5:
+                continue
+            (com), _, angle = cv2.fitEllipse(cnt)
+            com_arr.append(np.array(com)[None, ...])
+            angles.append(angle)
+        if len(com_arr) > 0:
+            com_arr = np.concatenate(com_arr, axis=0)
+        else:
+            com_arr = None
+        angles = np.array(angles)
+        dictionary['decoded'] = frame
+        dictionary['coordinates'] = com_arr
+        dictionary['angles'] = angles
+        blob_dict[i] = dictionary
+    return blob_dict
 
 
 ##########################
