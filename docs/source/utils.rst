@@ -38,6 +38,7 @@ Atomic Coordinates
 .. autofunction:: atomai.utils.compare_coordinates
 .. autofunction:: atomai.utils.filter_cells
 .. autofunction:: atomai.utils.filter_cells_
+.. autofunction:: atomai.utils.get_blob_params
 .. autofunction:: atomai.utils.cv_thresh
 
 
