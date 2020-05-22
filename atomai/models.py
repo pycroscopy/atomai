@@ -31,6 +31,13 @@ class dilUnet(nn.Module):
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
+        **layers (list):
+            List with a number of layers in each block.
+            For U-Net the first 4 elements in the list
+            are used to determine the number of layers
+            in each block of the encoder (incluidng bottleneck layer),
+            and the number of layers in the decoder  is chosen accordingly
+            (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
                  nb_classes=1,
@@ -38,36 +45,40 @@ class dilUnet(nn.Module):
                  use_dropout=False,
                  batch_norm=True,
                  upsampling_mode="bilinear",
-                 with_dilation=True):
+                 with_dilation=True,
+                 **kwargs):
         """
         Initializes model parameters
         """
         super(dilUnet, self).__init__()
+        nbl = kwargs.get("layers", [1, 2, 2, 3])
+        dilation_values = torch.arange(2, 2*nbl[-1]+1, 2).tolist()
+        padding_values = dilation_values.copy()
         dropout_vals = [.1, .2, .1] if use_dropout else [0, 0, 0]
         self.c1 = conv2dblock(
-            1, 1, nb_filters,
+            nbl[0], 1, nb_filters,
             use_batchnorm=batch_norm
         )
         self.c2 = conv2dblock(
-            2, nb_filters, nb_filters*2,
+            nbl[1], nb_filters, nb_filters*2,
             use_batchnorm=batch_norm
         )
         self.c3 = conv2dblock(
-            2, nb_filters*2, nb_filters*4,
+            nbl[2], nb_filters*2, nb_filters*4,
             use_batchnorm=batch_norm,
             dropout_=dropout_vals[0]
         )
         if with_dilation:
             self.bn = dilated_block(
                 nb_filters*4, nb_filters*8,
-                dilation_values=[2, 4, 6],
-                padding_values=[2, 4, 6],
+                dilation_values=dilation_values,
+                padding_values=padding_values,
                 use_batchnorm=batch_norm,
                 dropout_=dropout_vals[1]
             )
         else:
             self.bn = conv2dblock(
-                3, nb_filters*4, nb_filters*8,
+                nbl[3], nb_filters*4, nb_filters*8,
                 use_batchnorm=batch_norm,
                 dropout_=dropout_vals[1]
             )
@@ -75,7 +86,7 @@ class dilUnet(nn.Module):
             nb_filters*8, nb_filters*4,
             mode=upsampling_mode)
         self.c4 = conv2dblock(
-            2, nb_filters*8, nb_filters*4,
+            nbl[2], nb_filters*8, nb_filters*4,
             use_batchnorm=batch_norm,
             dropout_=dropout_vals[2]
         )
@@ -83,14 +94,14 @@ class dilUnet(nn.Module):
             nb_filters*4, nb_filters*2,
             mode=upsampling_mode)
         self.c5 = conv2dblock(
-            2, nb_filters*4, nb_filters*2,
+            nbl[1], nb_filters*4, nb_filters*2,
             use_batchnorm=batch_norm
         )
         self.upsample_block3 = upsample_block(
             nb_filters*2, nb_filters,
             mode=upsampling_mode)
         self.c6 = conv2dblock(
-            1, nb_filters*2, nb_filters,
+            nbl[0], nb_filters*2, nb_filters,
             use_batchnorm=batch_norm
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
@@ -143,6 +154,8 @@ class dilnet(nn.Module):
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
+        **layers (list):
+            List with a number of layers for each block.
     """
 
     def __init__(self,
@@ -150,32 +163,42 @@ class dilnet(nn.Module):
                  nb_filters=25,
                  use_dropout=False,
                  batch_norm=True,
-                 upsampling_mode="bilinear"):
+                 upsampling_mode="bilinear",
+                 **kwargs):
         """
         Initializes model parameters
         """
         super(dilnet, self).__init__()
+        nbl = kwargs.get("layers", [1, 3, 3, 3])
+        dilation_values_1 = torch.arange(2, 2*nbl[1]+1, 2).tolist()
+        padding_values_1 = dilation_values_1.copy()
+        dilation_values_2 = torch.arange(2, 2*nbl[2]+1, 2).tolist()
+        padding_values_2 = dilation_values_2.copy()
         dropout_vals = [.3, .3] if use_dropout else [0, 0]
         self.c1 = conv2dblock(
-                    3, 1, nb_filters,
+                    nbl[0], 1, nb_filters,
                     use_batchnorm=batch_norm
         )
         self.at1 = dilated_block(
                     nb_filters, nb_filters*2,
-                    dilation_values=[2, 4, 6], padding_values=[2, 4, 6],
-                    use_batchnorm=batch_norm, dropout_=dropout_vals[0]
+                    dilation_values=dilation_values_1,
+                    padding_values=padding_values_1,
+                    use_batchnorm=batch_norm,
+                    dropout_=dropout_vals[0]
         )
         self.at2 = dilated_block(
                     nb_filters*2, nb_filters*2,
-                    dilation_values=[2, 4, 6], padding_values=[2, 4, 6],
-                    use_batchnorm=batch_norm, dropout_=dropout_vals[1]
+                    dilation_values=dilation_values_2,
+                    padding_values=padding_values_2,
+                    use_batchnorm=batch_norm,
+                    dropout_=dropout_vals[1]
         )
         self.up1 = upsample_block(
                     nb_filters*2, nb_filters,
                     mode=upsampling_mode
         )
         self.c2 = conv2dblock(
-                    3, nb_filters*2, nb_filters,
+                    nbl[3], nb_filters*2, nb_filters,
                     use_batchnorm=batch_norm
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
