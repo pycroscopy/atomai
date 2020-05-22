@@ -157,7 +157,7 @@ class trainer:
         if model_type == 'dilUnet':
             with_dilation = kwargs.get('with_dilation', True)
             nb_filters = kwargs.get('nb_filters', 16)
-            layers = kwargs.get("layers")
+            layers = kwargs.get("layers", [1, 2, 2, 3])
             self.net = dilUnet(
                 self.num_classes, nb_filters, use_dropouts,
                 use_batchnorm, upsampling, with_dilation,
@@ -165,6 +165,7 @@ class trainer:
             )
         elif model_type == 'dilnet':
             nb_filters = kwargs.get('nb_filters', 25)
+            layers = kwargs.get("layers", [1, 3, 3, 3])
             self.net = dilnet(
                 self.num_classes, nb_filters,
                 use_dropouts, use_batchnorm, upsampling,
@@ -212,6 +213,7 @@ class trainer:
             'dropout': use_dropouts,
             'upsampling': upsampling,
             'nb_filters': nb_filters,
+            'layers': layers,
             'nb_classes': self.num_classes,
             'weights': self.net.state_dict()
         }
