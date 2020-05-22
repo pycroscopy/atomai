@@ -217,7 +217,7 @@ class trainer:
             'nb_classes': self.num_classes,
             'weights': self.net.state_dict()
         }
-        if with_dilation in locals():
+        if "with_dilation" in locals():
             self.meta_state_dict["with_dilation"] = with_dilation
 
     def dataloader(self, batch_num, mode='train'):
