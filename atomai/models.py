@@ -409,12 +409,18 @@ def load_model(meta_state_dict):
     nb_filters = meta_dict['nb_filters']
     nb_classes = meta_dict['nb_classes']
     checkpoint = meta_dict['weights']
+    layers = meta_dict["layers"]
+    if "with_dilation" in meta_dict.keys():
+        with_dilation = meta_dict["with_dilation"]
     if model_type == 'dilUnet':
         model = dilUnet(
-            nb_classes, nb_filters, dropout, batchnorm, upsampling)
+            nb_classes, nb_filters, dropout,
+            batchnorm, upsampling, with_dilation,
+            layers=layers)
     elif model_type == 'dilnet':
         model = dilnet(
-            nb_classes, nb_filters, dropout, batchnorm, upsampling)
+            nb_classes, nb_filters, dropout,
+            batchnorm, upsampling, layers=layers)
     else:
         raise NotImplementedError(
             "Select between 'dilUnet' and 'dilnet' neural networks"
