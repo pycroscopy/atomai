@@ -90,6 +90,13 @@ class trainer:
             see definition of dilUnet and dilnet models for details)
         **with_dilation (bool):
             Use dilated convolutions in the bottleneck of dilUnet
+        **layers (list):
+            List with a number of layers in each block.
+            For U-Net the first 4 elements in the list
+            are used to determine the number of layers
+            in each block of the encoder (incluidng bottleneck layer),
+            and the number of layers in the decoder  is chosen accordingly
+            (to maintain symmetry between encoder and decoder)
         **print_loss (int):
             Prints loss every *n*-th epoch
         **savedir (str):
@@ -150,15 +157,19 @@ class trainer:
         if model_type == 'dilUnet':
             with_dilation = kwargs.get('with_dilation', True)
             nb_filters = kwargs.get('nb_filters', 16)
+            layers = kwargs.get("layers", [1, 2, 2, 3])
             self.net = dilUnet(
                 self.num_classes, nb_filters, use_dropouts,
                 use_batchnorm, upsampling, with_dilation,
+                layers=layers
             )
         elif model_type == 'dilnet':
             nb_filters = kwargs.get('nb_filters', 25)
+            layers = kwargs.get("layers", [1, 3, 3, 3])
             self.net = dilnet(
                 self.num_classes, nb_filters,
-                use_dropouts, use_batchnorm, upsampling
+                use_dropouts, use_batchnorm, upsampling,
+                layers=layers
             )
         else:
             raise NotImplementedError(
@@ -202,9 +213,12 @@ class trainer:
             'dropout': use_dropouts,
             'upsampling': upsampling,
             'nb_filters': nb_filters,
+            'layers': layers,
             'nb_classes': self.num_classes,
             'weights': self.net.state_dict()
         }
+        if "with_dilation" in locals():
+            self.meta_state_dict["with_dilation"] = with_dilation
 
     def dataloader(self, batch_num, mode='train'):
         """
