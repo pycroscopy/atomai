@@ -588,7 +588,7 @@ def filter_cells(imgdata,
 def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='above'):
     """
     Extracts position and angle of particles in each movie frame
-    
+
     Args:
         nn_output (4D numpy array):
             out of neural network returned by atomnet.predictor
@@ -881,7 +881,7 @@ class MakeAtom:
     Creates an image of atom modelled as
     2D Gaussian and a corresponding mask
     """
-    def __init__(self, sc=5, r_mask=3, theta=0, offset=0):
+    def __init__(self, sc=5, r_mask=3, intensity=1, theta=0, offset=0):
         """
         Args:
             sc (float): scale parameter, which determines Gaussian width
@@ -896,6 +896,7 @@ class MakeAtom:
         y = np.linspace(0, sc, sc)
         self.x, self.y = np.meshgrid(x, y)
         self.sigma_x, self.sigma_y = sc/4, sc/4
+        self.intensity = intensity
         self.theta = theta
         self.offset = offset
         self.r_mask = r_mask
@@ -910,9 +911,9 @@ class MakeAtom:
              (np.sin(2*self.theta))/(4*self.sigma_y**2)
         c = (np.sin(self.theta)**2)/(2*self.sigma_x**2) +\
             (np.cos(self.theta)**2)/(2*self.sigma_y**2)
-        g = self.offset + np.exp(
-            -(a*((self.x-self.xo)**2) + 2*b*(self.x-self.xo)*(self.y-self.yo) +
-              c*((self.y-self.yo)**2)))
+        g = self.offset + self.intensity*np.exp(
+            -(a*((self.x-self.xo)**2) + 2*b*(self.x-self.xo)*(self.y-self.yo) +\
+            c*((self.y-self.yo)**2)))
         return g
 
     def circularmask(self, image, radius):
@@ -991,11 +992,60 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     return lattice_mask
 
 
-def create_atom_mask_pair(sc=5, r_mask=5):
+def create_multiclass_lattice_mask(lattice, xyz_atoms, *args, **kwargs):
+    """
+    Given experimental image and *xyz* atomic coordinates
+    creates ground truth image. Notice that it will round fractional pixels.
+
+    Args:
+        lattice (2D numpy array):
+            Experimental image as 2D numpy array
+        xyz_atoms (N x 3 numpy array):
+            The first two columns are position of atoms.
+            The third column is the intensity of each atom.
+        *arg (python function):
+            Function that creates two 2D numpy arrays with atom and
+            corresponding mask for each atomic coordinate. It must have
+            three parameters, 'scale', 'rmask', and 'intensity' that control
+            size and intensity of simulated atom and corresponding atomic mask
+        **scale: int
+            Controls the atom size (width of 2D Gaussian)
+        **rmask: int
+            Controls the atomic mask size
+
+    Returns:
+        3D numpy array with ground truth data
+    """
+    if len(args) == 1:
+        create_mask_func = args[0]
+    else:
+        create_mask_func = create_atom_mask_pair
+    scale = kwargs.get("scale", 7)
+    rmask = kwargs.get("rmask", 7)
+    lattice_mask = np.zeros(
+        (lattice.shape[0], lattice.shape[1], len(np.unique(xyz_atoms[:, -1]))))
+    atom_ch_d = {}
+    for i, s in enumerate(np.unique(xyz_atoms[:, -1])):
+        atom_ch_d[s] = i
+    for atom in xyz_atoms:
+        x, y, z = atom
+        x = int(np.around(x))
+        y = int(np.around(y))
+        _, mask = create_mask_func(scale, rmask, z)
+        r_m = mask.shape[0] / 2
+        r_m1 = int(r_m + .5)
+        r_m2 = int(r_m - .5)
+        lattice_mask[x-r_m1:x+r_m2, y-r_m1:y+r_m2, atom_ch_d[z]] = mask
+    lattice_mask_b = 1 - np.sum(lattice_mask, axis=-1)
+    lattice_mask = np.concatenate((lattice_mask, lattice_mask_b[..., None]), axis=-1)
+    return lattice_mask
+
+
+def create_atom_mask_pair(sc=5, r_mask=5, intensity=1):
     """
     Helper function for creating atom-label pair
     """
-    amaker = MakeAtom(sc, r_mask)
+    amaker = MakeAtom(sc, r_mask, intensity)
     atom, mask = amaker.gen_atom_mask()
     return atom, mask
 
@@ -1015,86 +1065,208 @@ def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches):
     return images, labels
 
 
-class augmentor:
+class datatransform:
     """
     Applies a sequence of pre-defined operations for data augmentation.
 
     Args:
-        batch_size (int):
-            Number of images in the batch,
-        width (int):
-            Width of images in the batch,
-        height (int):
-            Height of images in the batch,
-        channels (int):
+        n_channels (int):
             Number of classes (channels) in the ground truth
         dim_order_in (str):
             Channel first or channel last ordering in the input masks
         dim_order_out (str):
             Channel first or channel last ordering in the output masks
-        norm (bool):
-            Normalization to (0, 1)
         seed (int):
             Determenism
-        **flip (bool):
-            Image vertical/horizonal flipping,
-        **rotate90 (bool):
-            Rotating image by +- 90 deg
-        **zoom (tuple):
-            Values for zooming-in (min height, max height, step);
-            assumes height==width
-        **noise (dict):
-            Dictionary of with range of noise values for each type of noise.
-            Dictionary keys are:
-            'poisson', 'gauss', 'blur', 'contrast', 'salt and pepper'.
-            For each case, you need to specify the range of values.
-            Notice that for poisson noise,
-            smaller values result in larger noise
+        **rotation (bool):
+            Rotating image by +- 90 deg (if image is square)
+            and horizontal/vertical flipping.
+        **zoom (bool or int):
+            Zooming-in by a specified zom factor (Default: 2)
+            Note that a zoom window is always square
+        **gauss (bool or list ot tuple):
+            Gaussian noise. You can pass min and max values as a list/tuple
+        **poisson (bool or list ot tuple):
+            Poisson noise. You can pass min and max values as a list/tuple
+        **salt_and_pepper (bool or list ot tuple):
+            Salt and pepper noise. You can pass min and max values as a list/tuple
+        **blur (bool or list ot tuple):
+            Gaussian blurring. You can pass min and max values as a list/tuple
+        **contrast (bool or list ot tuple):
+            Contrast level. You can pass min and max values as a list/tuple
         **resize (tuple):
-            Values for image resizing (min height, max height, step);
-            assumes heght==width
-
-    Examples:
-        Suppose we have a stack of images
-        and a stack of masks (aka labels aka ground truth)
-        with dimensions :math:`n images \\times height \\times width`
-        and :math:`images \\times height \\times width \\times channels`.
-        We can use the augmentor as follows.
-
-        >>> # Specify size, dimensions
-        >>> batch_size = len(labels_all) # here we will pass through the augmentor all data at once
-        >>> dim1, dim2, ch = labels_all.shape[1:]
-        >>> # Define image distortion/noise parameters
-        >>> zoom = (256-128, 256+1, 8)
-        >>> noise_dict = {}
-        >>> noise_dict['poisson'] = (80, 130)
-        >>> noise_dict['gauss'] = (1, 400)
-        >>> noise_dict['blur'] = (1, 40)
-        >>> noise_dict['contrast'] = (50, 400)
-        >>> noise_dict['salt and pepper'] = (1, 50)
-        >>> # Run the augmentor
-        >>> imaug = augmentor(
-        >>>    batch_size=batch_size, width=dim1, height=dim2, n_channels=ch,
-        >>>    dim_order_in='channel_last', dim_order_out='channel_first',
-        >>>    noise=noise_dict, zoom=zoom, flip=True, squeeze=True)
-        >>> images_all, labels_all = imaug.run(images_all, labels_all)
+            Values for image resizing (downscale factor, upscale factor)
     """
-    def __init__(self, batch_size, width, height,
-                 n_channels, dim_order_in='channel_last',
-                 dim_order_out='channel_first', squeeze=False,
-                 seed=None, **kwargs):
-        self.n, self.w, self.h = batch_size, width, height
+    def __init__(self,
+                 n_channels,
+                 dim_order_in='channel_last',
+                 dim_order_out='channel_first',
+                 squeeze=False,
+                 seed=None,
+                 **kwargs):
+
         self.ch = n_channels
         self.dim_order_in = dim_order_in
         self.dim_order_out = dim_order_out
         self.squeeze = squeeze
-        self.flip = kwargs.get('flip')
-        self.rotate90 = kwargs.get('rotate90')
+        self.rotation = kwargs.get('rotation')
+        self.gauss = kwargs.get('gauss')
+        if isinstance(self.gauss, bool):
+            self.gauss = [0, 50]
+        self.poisson = kwargs.get('poisson')
+        if isinstance(self.poisson, bool):
+            self.poisson = [30, 40]
+        self.salt_and_pepper = kwargs.get('salt_and_pepper')
+        if isinstance(self.salt_and_pepper, bool):
+            self.salt_and_pepper = [0, 50]
+        self.blur = kwargs.get('blur')
+        if isinstance(self.blur, bool):
+            self.blur = [1, 50]
+        self.contrast = kwargs.get('contrast')
+        if isinstance(self.contrast, bool):
+            self.contrast = [1, 20]
         self.zoom = kwargs.get('zoom')
-        self.noise = kwargs.get('noise')
+        if isinstance(self.zoom, bool):
+            self.zoom = 2  # [min, max] zoom
         self.resize = kwargs.get('resize')
+        if isinstance(self.resize, bool):
+            self.resize = [2, 1.5]
         if seed is not None:
             np.random.seed(seed)
+
+    def apply_gauss(self, X_batch, y_batch):
+        n, h, w = X_batch.shape[0:3]
+        X_batch_noisy = np.zeros((n, h, w))
+        for i, img in enumerate(X_batch):
+            gauss_var = np.random.randint(self.gauss[0], self.gauss[1])
+            img = random_noise(
+                img, mode='gaussian', var=1e-4*gauss_var)
+            X_batch_noisy[i] = img
+        return X_batch_noisy, y_batch
+
+    def apply_poisson(self, X_batch, y_batch):
+        def make_pnoise(image, l):
+            vals = len(np.unique(image))
+            vals = (50/l) ** np.ceil(np.log2(vals))
+            image_n_filt = np.random.poisson(image * vals) / float(vals)
+            return image_n_filt
+        n, h, w = X_batch.shape[0:3]
+        X_batch_noisy = np.zeros((n, h, w))
+        for i, img in enumerate(X_batch):
+            poisson_l = np.random.randint(self.poisson[0], self.poisson[1])
+            img = make_pnoise(img, poisson_l)
+            X_batch_noisy[i] = img
+        return X_batch_noisy, y_batch
+
+    def apply_sp(self, X_batch, y_batch):
+        n, h, w = X_batch.shape[0:3]
+        X_batch_noisy = np.zeros((n, h, w))
+        for i, img in enumerate(X_batch):
+            sp_amount = np.random.randint(
+                self.salt_and_pepper[0], self.salt_and_pepper[1])
+            img = random_noise(img, mode='s&p', amount=sp_amount*1e-3)
+        X_batch_noisy[i] = img
+        return X_batch_noisy, y_batch
+
+    def apply_blur(self, X_batch, y_batch):
+        n, h, w = X_batch.shape[0:3]
+        X_batch_noisy = np.zeros((n, h, w))
+        for i, img in enumerate(X_batch):
+            blur_amount = np.random.randint(self.blur[0], self.blur[1])
+            img = ndimage.filters.gaussian_filter(img, blur_amount*5e-2)
+        X_batch_noisy[i] = img
+        return X_batch_noisy, y_batch
+
+    def apply_contrast(self, X_batch, y_batch):
+        n, h, w = X_batch.shape[0:3]
+        X_batch_noisy = np.zeros((n, h, w))
+        for i, img in enumerate(X_batch):
+            clevel = np.random.randint(self.contrast[0], self.contrast[1])
+            img = exposure.adjust_gamma(img, clevel/10)
+        X_batch_noisy[i] = img
+        return X_batch_noisy, y_batch
+
+    def apply_zoom(self, X_batch, y_batch):
+        """
+        Zoom-in achieved by cropping image and then resizing
+        to the original size. The zooming window is a square.
+        """
+        n, h, w = X_batch.shape[0:3]
+        shortdim = min([w, h])
+        zoom_values = np.arange(shortdim // self.zoom, shortdim + 8, 8)
+        X_batch_z = np.zeros((n, shortdim, shortdim))
+        y_batch_z = np.zeros((n, shortdim, shortdim, self.ch))
+        for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
+            zv = np.random.choice(zoom_values)
+            img = img[
+                (h // 2) - (zv // 2): (h // 2) + (zv // 2),
+                (w // 2) - (zv // 2): (w // 2) + (zv // 2)]
+            gt = gt[
+                (h // 2) - (zv // 2): (h // 2) + (zv // 2),
+                (w // 2) - (zv // 2): (w // 2) + (zv // 2)]
+            img = cv2.resize(
+                img, (shortdim, shortdim), interpolation=cv2.INTER_CUBIC)
+            gt = cv2.resize(
+                gt, (shortdim, shortdim), interpolation=cv2.INTER_CUBIC)
+            gt = np.around(gt)
+            if len(gt.shape) != 3:
+                gt = np.expand_dims(gt, axis=2)
+            X_batch_z[i] = img
+            y_batch_z[i] = gt
+        return X_batch_z, y_batch_z
+
+    def apply_rotation(self, X_batch, y_batch):
+        """
+        Flips and rotates training images and correponding ground truth images
+        """
+        n, h, w = X_batch.shape[0:3]
+        X_batch_r = np.zeros((n, h, w))
+        y_batch_r = np.zeros((n, h, w, self.ch))
+        for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
+            flip_type = np.random.randint(-1, 3)
+            if flip_type == 3 and h == w:
+                img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+                gt = cv2.rotate(gt, cv2.ROTATE_90_CLOCKWISE)
+            elif flip_type == 2 and h == w:
+                img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                gt = cv2.rotate(gt, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            else:
+                img = cv2.flip(img, flip_type)
+                gt = cv2.flip(gt, flip_type)
+            if len(gt.shape) != 3:
+                gt = np.expand_dims(gt, axis=2)
+            X_batch_r[i] = img
+            y_batch_r[i] = gt
+        return X_batch_r, y_batch_r
+
+    def apply_imresize(self, X_batch, y_batch):
+        """
+        Resizes training images and corresponding ground truth images
+        """
+        rs_factor_d = 1 / self.resize[0]
+        rs_factor_u = self.resize[1]
+        n, h, w = X_batch.shape[0:3]
+        s, p = 0.03, 8
+        while (np.round((h * s), 7) % p != 0
+               and np.round((w * s), 7) % p != 0):
+            s += 1e-5
+        rs_h = (np.arange(rs_factor_d, rs_factor_u, s) * h).astype(np.int64)
+        rs_w = (np.arange(rs_factor_d, rs_factor_u, s) * w).astype(np.int64)
+        rs_idx = np.random.randint(len(rs_h))
+        if X_batch.shape[1:3] == (rs_h[rs_idx], rs_w[rs_idx]):
+            return X_batch, y_batch
+        X_batch_r = np.zeros((X_batch.shape[0], rs_h[rs_idx], rs_w[rs_idx]))
+        y_batch_r = np.zeros((y_batch.shape[0], rs_h[rs_idx], rs_w[rs_idx], self.ch))
+        for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
+            rs_method = cv2.INTER_AREA if rs_h[rs_idx] < h else cv2.INTER_CUBIC
+            img = cv2.resize(img, (rs_w[rs_idx], rs_h[rs_idx]), rs_method)
+            gt = cv2.resize(gt, (rs_w[rs_idx], rs_h[rs_idx]), rs_method)
+            gt = np.around(gt)
+            if len(gt.shape) < 3:
+                gt = np.expand_dims(gt, axis=-1)
+            X_batch_r[i] = img
+            y_batch_r[i] = gt
+        return X_batch_r, y_batch_r
 
     def run(self, images, masks):
         """
@@ -1107,15 +1279,23 @@ class augmentor:
             pass
         else:
             raise NotImplementedError("Use 'channel_first' or 'channel_last'")
-        images = (images - np.amin(images))/np.ptp(images)
-        if self.flip:
-            images, masks = self.batch_flip(images, masks)
-        if self.noise is not None:
-            images, masks = self.batch_noise(images, masks)
+        images = (images - images.min()) / images.ptp()
+        if self.rotation:
+            images, masks = self.apply_rotation(images, masks)
         if self.zoom is not None:
-            images, masks = self.batch_zoom(images, masks)
+            images, masks = self.apply_zoom(images, masks)
         if self.resize is not None:
-            images, masks = self.batch_resize(images, masks)
+            images, masks = self.apply_imresize(images, masks)
+        if self.gauss is not None:
+            images, mask = self.apply_gauss(images, masks)
+        if self.poisson is not None:
+            images, mask = self.apply_poisson(images, masks)
+        if self.salt_and_pepper is not None:
+            images, mask = self.apply_sp(images, masks)
+        if self.blur is not None:
+            images, mask = self.apply_blur(images, masks)
+        if self.contrast is not None:
+            images, mask = self.apply_contrast(images, masks)
         if self.squeeze:
             images, masks = self.squeeze_data(images, masks)
         if self.dim_order_out == 'channel_first':
@@ -1126,112 +1306,9 @@ class augmentor:
             images = np.expand_dims(images, axis=3)
         else:
             raise NotImplementedError("Use 'channel_first' or 'channel_last'")
-        images = (images - np.amin(images))/np.ptp(images)
+        images = (images - images.min()) / images.ptp()
         return images, masks
 
-    def batch_noise(self, X_batch, y_batch,):
-        """
-        Takes an image stack and applies
-        various types of noise to each image
-        """
-        def make_pnoise(image, l):
-            vals = len(np.unique(image))
-            vals = (l/50) ** np.ceil(np.log2(vals))
-            image_n_filt = np.random.poisson(image * vals) / float(vals)
-            return image_n_filt
-        pnoise_range = self.noise['poisson']
-        spnoise_range = self.noise['salt and pepper']
-        gnoise_range = self.noise['gauss']
-        blevel_range = self.noise['blur']
-        c_level_range = self.noise['contrast']
-        X_batch_a = np.zeros((self.n, self.w, self.h))
-        for i, img in enumerate(X_batch):
-            pnoise = np.random.randint(pnoise_range[0], pnoise_range[1])
-            spnoise = np.random.randint(spnoise_range[0], spnoise_range[1])
-            gnoise = np.random.randint(gnoise_range[0], gnoise_range[1])
-            blevel = np.random.randint(blevel_range[0], blevel_range[1])
-            clevel = np.random.randint(c_level_range[0], c_level_range[1])
-            img = ndimage.filters.gaussian_filter(img, blevel*1e-2)
-            img = make_pnoise(img, pnoise)
-            img = random_noise(img, mode='gaussian', var=gnoise*1e-4)
-            img = random_noise(img, mode='pepper', amount=spnoise*1e-4)
-            img = random_noise(img, mode='salt', amount=spnoise*5e-5)
-            img = exposure.adjust_gamma(img, clevel*1e-2)
-            X_batch_a[i, :, :] = img
-        return X_batch_a, y_batch
-
-    def batch_zoom(self, X_batch, y_batch):
-        """
-        Crops and then resizes to the original size
-        all images in one batch
-        """
-        zoom_list = np.arange(self.zoom[0], self.zoom[1], self.zoom[2])
-        X_batch_a = np.zeros((self.n, self.w, self.h))
-        y_batch_a = np.zeros((self.n, self.w, self.h, self.ch))
-        for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
-            rs = np.random.choice(zoom_list)
-            w1 = int((self.w-rs)/2)
-            w2 = int(rs + (self.w-rs)/2)
-            h1 = int((self.h-rs)/2)
-            h2 = int(rs + (self.h-rs)/2)
-            img = img[w1:w2, h1:h2]
-            gt = gt[w1:w2, h1:h2]
-            img = cv2.resize(img, (self.w, self.h))
-            gt = cv2.resize(gt, (self.w, self.h))
-            #_, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
-            gt = np.around(gt)
-            if len(gt.shape) != 3:
-                gt = np.expand_dims(gt, axis=2)
-            X_batch_a[i, :, :] = img
-            y_batch_a[i, :, :, :] = gt
-        return X_batch_a, y_batch_a
-
-    def batch_flip(self, X_batch, y_batch):
-        """
-        Flips and rotates all images and in one batch
-        and correponding labels (ground truth)
-        """
-        X_batch_a = np.zeros((self.n, self.w, self.h))
-        y_batch_a = np.zeros((self.n, self.w, self.h, self.ch))
-        int_r = (-1, 3) if self.rotate90 else (-1, 1)
-        for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
-            flip_type = np.random.randint(int_r[0], int_r[1])
-            if flip_type == 3:
-                img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-                gt = cv2.rotate(gt, cv2.ROTATE_90_CLOCKWISE)
-            elif flip_type == 2:
-                img = cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-                gt = cv2.rotate(gt, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            else:
-                img = cv2.flip(img, flip_type)
-                gt = cv2.flip(gt, flip_type)
-            if len(gt.shape) != 3:
-                gt = np.expand_dims(gt, axis=2)
-            X_batch_a[i, :, :] = img
-            y_batch_a[i, :, :, :] = gt
-        return X_batch_a, y_batch_a
-
-    def batch_resize(self, X_batch, y_batch):
-        """
-        Resize all images in one batch and
-        corresponding labels (ground truth)
-        """
-        rs_arr = np.arange(self.resize[0], self.resize[1], self.resize[2])
-        rs = np.random.choice(rs_arr)
-        if X_batch.shape[1:3] == (rs, rs):
-            return X_batch, y_batch
-        X_batch_a = np.zeros((self.n, rs, rs))
-        y_batch_a = np.zeros((self.n, rs, rs, self.ch))
-        for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
-            img = cv2.resize(img, (rs, rs), cv2.INTER_CUBIC)
-            gt = cv2.resize(gt, (rs, rs), cv2.INTER_CUBIC)
-            #_, gt = cv2.threshold(gt, 0.5, 1, cv2.THRESH_BINARY)
-            gt = np.around(gt)
-            if len(gt.shape) < 3:
-                gt = np.expand_dims(gt, axis=-1)
-            X_batch_a[i, :, :] = img
-            y_batch_a[i, :, :, :] = gt
-        return X_batch_a, y_batch_a
 
     @classmethod
     def squeeze_data(cls, images, labels):
