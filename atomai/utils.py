@@ -1255,8 +1255,8 @@ class datatransform:
         rs_idx = np.random.randint(len(rs_h))
         if X_batch.shape[1:3] == (rs_h[rs_idx], rs_w[rs_idx]):
             return X_batch, y_batch
-        X_batch_r = np.zeros((X_batch.shape[0], rs_h[rs_idx], rs_w[rs_idx]))
-        y_batch_r = np.zeros((y_batch.shape[0], rs_h[rs_idx], rs_w[rs_idx], self.ch))
+        X_batch_r = np.zeros((n, rs_h[rs_idx], rs_w[rs_idx]))
+        y_batch_r = np.zeros((n, rs_h[rs_idx], rs_w[rs_idx], self.ch))
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
             rs_method = cv2.INTER_AREA if rs_h[rs_idx] < h else cv2.INTER_CUBIC
             img = cv2.resize(img, (rs_w[rs_idx], rs_h[rs_idx]), rs_method)
@@ -1287,15 +1287,15 @@ class datatransform:
         if self.resize is not None:
             images, masks = self.apply_imresize(images, masks)
         if self.gauss is not None:
-            images, mask = self.apply_gauss(images, masks)
+            images, masks = self.apply_gauss(images, masks)
         if self.poisson is not None:
-            images, mask = self.apply_poisson(images, masks)
+            images, masks = self.apply_poisson(images, masks)
         if self.salt_and_pepper is not None:
-            images, mask = self.apply_sp(images, masks)
+            images, masks = self.apply_sp(images, masks)
         if self.blur is not None:
-            images, mask = self.apply_blur(images, masks)
+            images, masks = self.apply_blur(images, masks)
         if self.contrast is not None:
-            images, mask = self.apply_contrast(images, masks)
+            images, masks = self.apply_contrast(images, masks)
         if self.squeeze:
             images, masks = self.squeeze_data(images, masks)
         if self.dim_order_out == 'channel_first':
