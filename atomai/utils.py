@@ -20,6 +20,7 @@ from scipy import fftpack, ndimage, optimize, spatial
 from skimage import exposure
 from skimage.util import random_noise
 from sklearn.feature_extraction.image import extract_patches_2d
+from sklearn.preprocessing import OneHotEncoder
 
 warnings.filterwarnings("ignore", module="scipy.optimize")
 
@@ -1101,14 +1102,14 @@ class datatransform:
                  n_channels,
                  dim_order_in='channel_last',
                  dim_order_out='channel_first',
-                 squeeze=False,
+                 squeeze_channels=False,
                  seed=None,
                  **kwargs):
 
         self.ch = n_channels
         self.dim_order_in = dim_order_in
         self.dim_order_out = dim_order_out
-        self.squeeze = squeeze
+        self.squeeze = squeeze_channels
         self.rotation = kwargs.get('rotation')
         self.gauss = kwargs.get('gauss')
         if isinstance(self.gauss, bool):
@@ -1124,7 +1125,7 @@ class datatransform:
             self.blur = [1, 50]
         self.contrast = kwargs.get('contrast')
         if isinstance(self.contrast, bool):
-            self.contrast = [1, 20]
+            self.contrast = [5, 20]
         self.zoom = kwargs.get('zoom')
         if isinstance(self.zoom, bool):
             self.zoom = 2  # [min, max] zoom
@@ -1368,6 +1369,16 @@ def squeeze_data_(images, labels):
             labels_valid.append(label)
             images_valid.append(image[None, ...])
     return np.concatenate(images_valid), np.concatenate(labels_valid)
+
+
+def unsqueeze_channels(labels, n_channels):
+    n, h, w = labels.shape
+    lbl_all = np.zeros((n, h, w, n_channels))
+    for i, lbl in enumerate(labels):
+        lbl = np.array(OneHotEncoder().fit_transform(lbl.reshape(-1,1)).todense())
+        lbl = lbl.reshape(h, w, n_channels)
+        lbl_all[i] = lbl
+    return lbl_all.transpose([0, -1, 1, 2])
 
 
 def FFTmask(imgsrc, maskratio=10):

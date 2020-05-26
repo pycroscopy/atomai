@@ -19,8 +19,9 @@ import torch.nn.functional as F
 import atomai.losses_metrics as losses_metrics_
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
-                          img_resize, mock_forward, peak_refinement,
-                          plot_losses, preprocess_training_data, torch_format)
+                          img_resize, mock_forward, peak_refinement, datatransform,
+                          plot_losses, preprocess_training_data, torch_format,
+                          unsqueeze_channels)
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
@@ -45,7 +46,7 @@ class trainer:
             containing all the training labels.
             For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
             Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
-            stacked along the zeroth ("batch") dimenstion. The reason why in the
+            stacked along the zeroth ("batch") dimension. The reason why in the
             multiclass case the images have 4 dimensions while the labels have only 3 dimensions
             is because of how the cross-entropy loss is calculated in PyTorch
             (see https://pytorch.org/docs/stable/nn.html#nllloss).
@@ -200,6 +201,9 @@ class trainer:
             0, len(self.images_all), training_cycles)
         self.batch_idx_test = np.random.randint(
             0, len(self.images_test_all), training_cycles)
+        auglist = ["zoom", "gauss", "poisson", "contrast",
+                   "salt_and_pepper", "blur", "resize", "rotation"]
+        self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.training_cycles = training_cycles
         self.print_loss = kwargs.get("print_loss", 100)
@@ -231,6 +235,13 @@ class trainer:
         else:
             images = self.images_all[batch_num][:self.batch_size]
             labels = self.labels_all[batch_num][:self.batch_size]
+        # "Augment" data if applicable
+        if len(self.augdict) > 0:
+            dt = datatransform(
+                self.num_classes, "channel_first", 'channel_first',
+                True, None, **self.augdict)
+            images, labels = dt.run(
+                images[:, 0, ...], unsqueeze_channels(labels, self.num_classes))
         # Transform images and ground truth to torch tensors and move to GPU
         images = torch.from_numpy(images).float()
         if self.num_classes == 1:
