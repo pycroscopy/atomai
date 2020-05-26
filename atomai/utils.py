@@ -1140,9 +1140,9 @@ class datatransform:
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
             gauss_var = np.random.randint(self.gauss[0], self.gauss[1])
-            img = random_noise(
+            img_ = random_noise(
                 img, mode='gaussian', var=1e-4*gauss_var)
-            X_batch_noisy[i] = img
+            X_batch_noisy[i] = img_
         return X_batch_noisy, y_batch
 
     def apply_poisson(self, X_batch, y_batch):
@@ -1166,7 +1166,7 @@ class datatransform:
             sp_amount = np.random.randint(
                 self.salt_and_pepper[0], self.salt_and_pepper[1])
             img = random_noise(img, mode='s&p', amount=sp_amount*1e-3)
-        X_batch_noisy[i] = img
+            X_batch_noisy[i] = img
         return X_batch_noisy, y_batch
 
     def apply_blur(self, X_batch, y_batch):
@@ -1175,7 +1175,7 @@ class datatransform:
         for i, img in enumerate(X_batch):
             blur_amount = np.random.randint(self.blur[0], self.blur[1])
             img = ndimage.filters.gaussian_filter(img, blur_amount*5e-2)
-        X_batch_noisy[i] = img
+            X_batch_noisy[i] = img
         return X_batch_noisy, y_batch
 
     def apply_contrast(self, X_batch, y_batch):
@@ -1184,7 +1184,7 @@ class datatransform:
         for i, img in enumerate(X_batch):
             clevel = np.random.randint(self.contrast[0], self.contrast[1])
             img = exposure.adjust_gamma(img, clevel/10)
-        X_batch_noisy[i] = img
+            X_batch_noisy[i] = img
         return X_batch_noisy, y_batch
 
     def apply_zoom(self, X_batch, y_batch):

@@ -239,7 +239,7 @@ class trainer:
         if len(self.augdict) > 0:
             dt = datatransform(
                 self.num_classes, "channel_first", 'channel_first',
-                True, None, **self.augdict)
+                True, len(self.train_loss), **self.augdict)
             images, labels = dt.run(
                 images[:, 0, ...], unsqueeze_channels(labels, self.num_classes))
         # Transform images and ground truth to torch tensors and move to GPU
