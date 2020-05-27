@@ -1372,6 +1372,8 @@ def squeeze_data_(images, labels):
 
 
 def unsqueeze_channels(labels, n_channels):
+    if n_channels == 1:
+        return labels
     n, h, w = labels.shape
     lbl_all = np.zeros((n, h, w, n_channels))
     for i, lbl in enumerate(labels):
