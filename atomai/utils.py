@@ -1051,20 +1051,36 @@ def create_atom_mask_pair(sc=5, r_mask=5, intensity=1):
     return atom, mask
 
 
-def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches):
+def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches, **kwargs):
     """
-    Extracts subimages of the selected size from the 'mother images' of
-    atomic lattice and the corresponding mask
-    (atomic contours with constant pixel values)
+    Extracts subimages of the selected size from the 'mother" image and mask
     """
+    rs = kwargs.get("random_state", 0)
     if isinstance(patch_size, int):
         patch_size = (patch_size, patch_size)
     images = extract_patches_2d(
-        lattice_im, patch_size, max_patches=num_patches, random_state=0)
+        lattice_im, patch_size, max_patches=num_patches, random_state=rs)
     labels = extract_patches_2d(
-        lattice_mask, patch_size, max_patches=num_patches, random_state=0)
+        lattice_mask, patch_size, max_patches=num_patches, random_state=rs)
     return images, labels
 
+
+def extract_patches(images, masks, patch_size, num_patches, **kwargs):
+    """
+    Takes batch of images and batch of corresponding masks as an input
+    and for each image-mask pair it extracts stack of subimages (patches)
+    of the selected size.
+    """
+    images_aug, masks_aug = [], []
+    for im, ma in zip(images, masks):
+        im_aug, ma_aug = extract_patches_(
+            im, ma, patch_size, num_patches, **kwargs)
+        images_aug.append(im_aug)
+        masks_aug.append(ma_aug)
+    images_aug = np.concatenate(images_aug, axis=0)
+    masks_aug = np.concatenate(masks_aug, axis=0)
+    return images_aug, masks_aug
+        
 
 class datatransform:
     """
@@ -1083,20 +1099,26 @@ class datatransform:
             Rotating image by +- 90 deg (if image is square)
             and horizontal/vertical flipping.
         **zoom (bool or int):
-            Zooming-in by a specified zom factor (Default: 2)
+            Zooming-in by a specified zoom factor (Default: 2)
             Note that a zoom window is always square
         **gauss (bool or list ot tuple):
             Gaussian noise. You can pass min and max values as a list/tuple
+            (Default [min, max] range: [0, 50])
         **poisson (bool or list ot tuple):
             Poisson noise. You can pass min and max values as a list/tuple
+            (Default [min, max] range: [30, 40])
         **salt_and_pepper (bool or list ot tuple):
             Salt and pepper noise. You can pass min and max values as a list/tuple
+            (Default [min, max] range: [0, 50])
         **blur (bool or list ot tuple):
             Gaussian blurring. You can pass min and max values as a list/tuple
+            (Default [min, max] range: [1, 50])
         **contrast (bool or list ot tuple):
             Contrast level. You can pass min and max values as a list/tuple
+            (Default [min, max] range: [5, 20])
         **resize (tuple):
-            Values for image resizing (downscale factor, upscale factor)
+            Values for image resizing
+            [downscale factor (default: 2), upscale factor (default:1.5)]
     """
     def __init__(self,
                  n_channels,
@@ -1136,6 +1158,9 @@ class datatransform:
             np.random.seed(seed)
 
     def apply_gauss(self, X_batch, y_batch):
+        """
+        Random application of gaussian noise to each training inage in a stack
+        """
         n, h, w = X_batch.shape[0:3]
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
@@ -1146,6 +1171,9 @@ class datatransform:
         return X_batch_noisy, y_batch
 
     def apply_poisson(self, X_batch, y_batch):
+        """
+        Random application of poisson noise to each training inage in a stack
+        """
         def make_pnoise(image, l):
             vals = len(np.unique(image))
             vals = (50/l) ** np.ceil(np.log2(vals))
@@ -1160,6 +1188,9 @@ class datatransform:
         return X_batch_noisy, y_batch
 
     def apply_sp(self, X_batch, y_batch):
+        """
+        Random application of salt & pepper noise to each training inage in a stack
+        """
         n, h, w = X_batch.shape[0:3]
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
@@ -1170,6 +1201,9 @@ class datatransform:
         return X_batch_noisy, y_batch
 
     def apply_blur(self, X_batch, y_batch):
+        """
+        Random blurring of each training image in a stack
+        """
         n, h, w = X_batch.shape[0:3]
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
@@ -1179,6 +1213,9 @@ class datatransform:
         return X_batch_noisy, y_batch
 
     def apply_contrast(self, X_batch, y_batch):
+        """
+        Randomly change level of contrast of each training image on a stack
+        """
         n, h, w = X_batch.shape[0:3]
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
@@ -1372,6 +1409,9 @@ def squeeze_data_(images, labels):
 
 
 def unsqueeze_channels(labels, n_channels):
+    """
+    Separates pixels with different values into different channels
+    """
     if n_channels == 1:
         return labels
     n, h, w = labels.shape

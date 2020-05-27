@@ -107,6 +107,10 @@ class trainer:
             (appended with "_test_weights_best.pt" and "_weights_final.pt")
         **plot_training_history (bool):
             Plots training and test curves vs epochs at the end of training
+        **kwargs:
+            One can also pass kwargs for utils.datatransform class
+            to perform the augmentation "on-the-fly" (e.g. rotation=True,
+            or gauss=[20, 60])
 
     Example:
 
