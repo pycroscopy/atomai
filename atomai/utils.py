@@ -536,7 +536,7 @@ def filter_cells_(imgdata,
     imgdata = cv_thresh(imgdata, im_thresh)
     label_img, cc_num = ndimage.label(imgdata)
     cc_areas = ndimage.sum(imgdata, label_img, range(cc_num + 1))
-    if filter == 'above':
+    if filter_ == 'above':
         area_mask = (cc_areas > blob_thresh)
     else:
         area_mask = (cc_areas < blob_thresh)
