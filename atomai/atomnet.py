@@ -19,8 +19,9 @@ import torch.nn.functional as F
 import atomai.losses_metrics as losses_metrics_
 from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
-                          img_resize, mock_forward, peak_refinement,
-                          plot_losses, preprocess_training_data, torch_format)
+                          img_resize, mock_forward, peak_refinement, datatransform,
+                          plot_losses, preprocess_training_data, torch_format,
+                          unsqueeze_channels)
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
@@ -45,7 +46,7 @@ class trainer:
             containing all the training labels.
             For dictionary with N batches, the keys must be 0, 1, 2, ... *N*.
             Both small and large numpy arrays are 3D (binary) / 2D (multiclass) images
-            stacked along the zeroth ("batch") dimenstion. The reason why in the
+            stacked along the zeroth ("batch") dimension. The reason why in the
             multiclass case the images have 4 dimensions while the labels have only 3 dimensions
             is because of how the cross-entropy loss is calculated in PyTorch
             (see https://pytorch.org/docs/stable/nn.html#nllloss).
@@ -90,6 +91,13 @@ class trainer:
             see definition of dilUnet and dilnet models for details)
         **with_dilation (bool):
             Use dilated convolutions in the bottleneck of dilUnet
+        **layers (list):
+            List with a number of layers in each block.
+            For U-Net the first 4 elements in the list
+            are used to determine the number of layers
+            in each block of the encoder (incluidng bottleneck layer),
+            and the number of layers in the decoder  is chosen accordingly
+            (to maintain symmetry between encoder and decoder)
         **print_loss (int):
             Prints loss every *n*-th epoch
         **savedir (str):
@@ -99,6 +107,10 @@ class trainer:
             (appended with "_test_weights_best.pt" and "_weights_final.pt")
         **plot_training_history (bool):
             Plots training and test curves vs epochs at the end of training
+        **kwargs:
+            One can also pass kwargs for utils.datatransform class
+            to perform the augmentation "on-the-fly" (e.g. rotation=True,
+            or gauss=[20, 60])
 
     Example:
 
@@ -150,15 +162,19 @@ class trainer:
         if model_type == 'dilUnet':
             with_dilation = kwargs.get('with_dilation', True)
             nb_filters = kwargs.get('nb_filters', 16)
+            layers = kwargs.get("layers", [1, 2, 2, 3])
             self.net = dilUnet(
                 self.num_classes, nb_filters, use_dropouts,
                 use_batchnorm, upsampling, with_dilation,
+                layers=layers
             )
         elif model_type == 'dilnet':
             nb_filters = kwargs.get('nb_filters', 25)
+            layers = kwargs.get("layers", [1, 3, 3, 3])
             self.net = dilnet(
                 self.num_classes, nb_filters,
-                use_dropouts, use_batchnorm, upsampling
+                use_dropouts, use_batchnorm, upsampling,
+                layers=layers
             )
         else:
             raise NotImplementedError(
@@ -189,6 +205,9 @@ class trainer:
             0, len(self.images_all), training_cycles)
         self.batch_idx_test = np.random.randint(
             0, len(self.images_test_all), training_cycles)
+        auglist = ["zoom", "gauss", "poisson", "contrast",
+                   "salt_and_pepper", "blur", "resize", "rotation"]
+        self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.training_cycles = training_cycles
         self.print_loss = kwargs.get("print_loss", 100)
@@ -202,9 +221,12 @@ class trainer:
             'dropout': use_dropouts,
             'upsampling': upsampling,
             'nb_filters': nb_filters,
+            'layers': layers,
             'nb_classes': self.num_classes,
             'weights': self.net.state_dict()
         }
+        if "with_dilation" in locals():
+            self.meta_state_dict["with_dilation"] = with_dilation
 
     def dataloader(self, batch_num, mode='train'):
         """
@@ -217,6 +239,13 @@ class trainer:
         else:
             images = self.images_all[batch_num][:self.batch_size]
             labels = self.labels_all[batch_num][:self.batch_size]
+        # "Augment" data if applicable
+        if len(self.augdict) > 0:
+            dt = datatransform(
+                self.num_classes, "channel_first", 'channel_first',
+                True, len(self.train_loss), **self.augdict)
+            images, labels = dt.run(
+                images[:, 0, ...], unsqueeze_channels(labels, self.num_classes))
         # Transform images and ground truth to torch tensors and move to GPU
         images = torch.from_numpy(images).float()
         if self.num_classes == 1:
