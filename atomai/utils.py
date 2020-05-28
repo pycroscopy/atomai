@@ -249,7 +249,7 @@ def torch_format(image_data):
     return image_data
 
 
-def img_resize(image_data, rs):
+def img_resize(image_data, rs, round_=False):
     """
     Resizes a stack of images
 
@@ -257,7 +257,9 @@ def img_resize(image_data, rs):
         image_data (3D numpy array):
             Image stack with dimensions (n_batches x height x width)
         rs (tuple):
-            Target width and height
+            Target height and width
+        round_(bool):
+            rounding (in case of labeled pixels)
 
     Returns:
         Resized stack of images
@@ -267,15 +269,36 @@ def img_resize(image_data, rs):
     image_data_r = np.zeros(
         (image_data.shape[0], rs[0], rs[1]))
     for i, img in enumerate(image_data):
-        img = cv2.resize(img, (rs[0], rs[1]))
+        img = cv_resize(img, rs, round_)
         image_data_r[i, :, :] = img
     return image_data_r
+
+
+def cv_resize(img, rs, round_=False):
+    """
+    Wrapper for open-cv resize function
+    
+    Args:
+        img (2D numpy array): input 2D image
+        rs (tuple): target height and width
+        round_(bool): rounding (in case of labeled pixels)
+    
+    Returns:
+        Resized image
+    """
+    if img.shape == rs:
+        return img
+    rs_method = cv2.INTER_AREA if img.shape[0] < rs[0] else cv2.INTER_CUBIC
+    img_rs = cv2.resize(img, rs, interpolation=rs_method)
+    if round_:
+        img_rs = np.round(img_rs)
+    return img_rs
 
 
 def img_pad(image_data, pooling):
     """
     Pads the image if its size (w, h)
-    is not divisible by :math:`2^n`, where n is a number
+    is not divisible by :math:`2^n`, where *n* is a number
     of pooling layers in a network
 
     Args:
@@ -528,7 +551,7 @@ def cv_thresh(imgdata,
 def filter_cells_(imgdata,
                   im_thresh=.5,
                   blob_thresh=150,
-                  filter_='above'):
+                  filter_='below'):
     """
     Filters out blobs above/below cetrain size
     in the thresholded neural network output
@@ -536,7 +559,7 @@ def filter_cells_(imgdata,
     imgdata = cv_thresh(imgdata, im_thresh)
     label_img, cc_num = ndimage.label(imgdata)
     cc_areas = ndimage.sum(imgdata, label_img, range(cc_num + 1))
-    if filter == 'above':
+    if filter_ == 'above':
         area_mask = (cc_areas > blob_thresh)
     else:
         area_mask = (cc_areas < blob_thresh)
@@ -559,7 +582,7 @@ def get_contours(imgdata):
 def filter_cells(imgdata,
                  im_thresh=0.5,
                  blob_thresh=50,
-                 filter_='above'):
+                 filter_='below'):
     """
     Filters blobs above/below certain size
     for each image in the stack.
@@ -586,7 +609,7 @@ def filter_cells(imgdata,
     return filtered_stack
 
 
-def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='above'):
+def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='below'):
     """
     Extracts position and angle of particles in each movie frame
 
@@ -601,10 +624,10 @@ def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='above'):
             Select 'above' or 'below' to remove larger or smaller blobs,
             respectively
 
-        Returns:
-            Nested dictionary where for each frame there is an ordered dictionary
-            with values of centers of the mass and angle for each detected particle
-            in that frame.
+    Returns:
+        Nested dictionary where for each frame there is an ordered dictionary
+        with values of centers of the mass and angle for each detected particle
+        in that frame.
     """
     blob_dict = {}
     nn_output = nn_output[..., 0] if np.ndim(nn_output) == 4 else nn_output
@@ -1231,7 +1254,7 @@ class datatransform:
         """
         n, h, w = X_batch.shape[0:3]
         shortdim = min([w, h])
-        zoom_values = np.arange(shortdim // self.zoom, shortdim + 8, 8)
+        zoom_values = np.arange(int(shortdim // self.zoom), shortdim + 8, 8)
         X_batch_z = np.zeros((n, shortdim, shortdim))
         y_batch_z = np.zeros((n, shortdim, shortdim, self.ch))
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):

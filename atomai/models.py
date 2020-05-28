@@ -169,7 +169,7 @@ class dilnet(nn.Module):
         Initializes model parameters
         """
         super(dilnet, self).__init__()
-        nbl = kwargs.get("layers", [1, 3, 3, 3])
+        nbl = kwargs.get("layers", [3, 3, 3, 3])
         dilation_values_1 = torch.arange(2, 2*nbl[1]+1, 2).tolist()
         padding_values_1 = dilation_values_1.copy()
         dilation_values_2 = torch.arange(2, 2*nbl[2]+1, 2).tolist()
