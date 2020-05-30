@@ -1139,6 +1139,9 @@ class datatransform:
         **contrast (bool or list ot tuple):
             Contrast level. You can pass min and max values as a list/tuple
             (Default [min, max] range: [5, 20])
+        **background (bool):
+            Adds/substracts asymmetric 2D gaussian of random width and intensity
+            from the image
         **resize (tuple):
             Values for image resizing
             [downscale factor (default: 2), upscale factor (default:1.5)]
@@ -1156,6 +1159,7 @@ class datatransform:
         self.dim_order_out = dim_order_out
         self.squeeze = squeeze_channels
         self.rotation = kwargs.get('rotation')
+        self.background = kwargs.get('background')
         self.gauss = kwargs.get('gauss')
         if isinstance(self.gauss, bool):
             self.gauss = [0, 50]
@@ -1299,7 +1303,28 @@ class datatransform:
             X_batch_r[i] = img
             y_batch_r[i] = gt
         return X_batch_r, y_batch_r
-
+    
+    def apply_background(self, X_batch, y_batch):
+        """
+        Emulates thickness variation in STEM or height variation in STM
+        """
+        def gauss2d(xy, x0, y0, a, b, fwhm):
+            return np.exp(-np.log(2)*(a*(xy[0]-x0)**2 + b*(xy[1]-y0)**2) / fwhm**2)
+        n, h, w = X_batch.shape[0:3]
+        X_batch_b = np.zeros((n, h, w))
+        x, y = np.meshgrid(
+            np.linspace(0, h, h),np.linspace(0, w, w), indexing='ij')
+        for i, img in enumerate(X_batch):
+            x0 = np.random.randint(0, h - h // 4)
+            y0 = np.random.randint(0, w - w // 4)
+            a, b = np.random.randint(10, 20, 2) / 10
+            fwhm = np.random.randint(min([h, w]) // 4, min([h, w]) -  min([h, w]) // 2)
+            Z = gauss2d([x, y], x0, y0, a, b, fwhm)
+            img = img + 0.1 * np.random.randint(-10, 10) * Z 
+            X_batch_b[i] = img
+        return X_batch_b, y_batch
+        
+        
     def apply_imresize(self, X_batch, y_batch):
         """
         Resizes training images and corresponding ground truth images
@@ -1357,6 +1382,8 @@ class datatransform:
             images, masks = self.apply_blur(images, masks)
         if self.contrast is not None:
             images, masks = self.apply_contrast(images, masks)
+        if self.background is not None:
+            images, masks = self.apply_background(images, masks)
         if self.squeeze:
             images, masks = self.squeeze_data(images, masks)
         if self.dim_order_out == 'channel_first':
