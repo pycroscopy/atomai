@@ -810,6 +810,9 @@ def calculate_transition_matrix(trace):
     Args:
         trace (1D numpy array or python list):
             sequence of states/classes
+            
+    Returns:
+        Computed 2D matrix of transition probabilities
     """
     n = 1 + max(trace)  # number of states
     M = np.zeros(shape=(n, n))

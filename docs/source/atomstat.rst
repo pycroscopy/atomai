@@ -10,10 +10,8 @@ Analysis of local sub-images
 
 Transitions
 ------------
-.. autoclass:: atomai.atomstat.transitions
-    :members:
-    :undoc-members:
-    :member-order: bysource
+.. autofunction:: atomai.atomstat.calculate_transition_matrix
+.. autofunction:: atomai.atomstat.sum_transitions
 
 Distances and intensities
 -------------------------

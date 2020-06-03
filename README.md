@@ -1,8 +1,10 @@
 [![PyPI version](https://badge.fury.io/py/atomai.svg)](https://badge.fury.io/py/atomai)
 [![Build Status](https://travis-ci.com/ziatdinovmax/atomai.svg?branch=master)](https://travis-ci.com/ziatdinovmax/atomai)
 [![Documentation Status](https://readthedocs.org/projects/atomai/badge/?version=latest)](https://atomai.readthedocs.io/en/latest/?badge=latest)
-[![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/8fa8829627f040dda46e2dc30e48aca1)](https://app.codacy.com/manual/ziatdinovmax/atomai?utm_source=github.com&utm_medium=referral&utm_content=ziatdinovmax/atomai&utm_campaign=Badge_Grade_Dashboard)
+[![Downloads](https://pepy.tech/badge/atomai/month)](https://pepy.tech/project/atomai/month)
+[![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/ziatdinovmax/atomai)
 
 # AtomAI
 
@@ -80,6 +82,8 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 3) Analyze trajectories of atomic defects in atomic movie - TBA
 
 4) [Prepare training data from experimental image with atomic coordinates (beta)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+
+5) [Atom finding using deep ensembles for uncertainty quantification (advanced)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_deep_ensembles.ipynb)
 
 ## Installation
 First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, install AtomAI via

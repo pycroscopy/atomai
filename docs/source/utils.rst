@@ -4,12 +4,14 @@ Utility Functions
 
 Training data preparation
 -------------------------
-.. autoclass:: atomai.utils.augmentor
+.. autoclass:: atomai.utils.datatransform
     :members:
     :undoc-members:
     :member-order: bysource
 .. autofunction:: atomai.utils.create_lattice_mask
+.. autofunction:: atomai.utils.create_multiclass_lattice_mask
 .. autofunction:: atomai.utils.extract_patches_
+.. autofunction:: atomai.utils.extract_patches
 .. autoclass:: atomai.utils.MakeAtom
     :members:
     :undoc-members:
@@ -38,7 +40,16 @@ Atomic Coordinates
 .. autofunction:: atomai.utils.compare_coordinates
 .. autofunction:: atomai.utils.filter_cells
 .. autofunction:: atomai.utils.filter_cells_
+.. autofunction:: atomai.utils.get_blob_params
 .. autofunction:: atomai.utils.cv_thresh
+
+
+Visualization
+--------------
+.. autofunction:: atomai.utils.plot_trajectories
+.. autofunction:: atomai.utils.plot_transitions
+.. autofunction:: atomai.utils.plot_trajectories_transitions
+
 
 Trained weights
 ----------------
