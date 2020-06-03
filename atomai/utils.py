@@ -277,12 +277,12 @@ def img_resize(image_data, rs, round_=False):
 def cv_resize(img, rs, round_=False):
     """
     Wrapper for open-cv resize function
-    
+
     Args:
         img (2D numpy array): input 2D image
         rs (tuple): target height and width
         round_(bool): rounding (in case of labeled pixels)
-    
+
     Returns:
         Resized image
     """
@@ -1103,7 +1103,7 @@ def extract_patches(images, masks, patch_size, num_patches, **kwargs):
     images_aug = np.concatenate(images_aug, axis=0)
     masks_aug = np.concatenate(masks_aug, axis=0)
     return images_aug, masks_aug
-        
+
 
 class datatransform:
     """
@@ -1212,7 +1212,7 @@ class datatransform:
             img_ = np.array([np.roll(row, z) for row, z in zip(img, shift_arr)])
             X_batch_noisy[i] = img_
         return X_batch_noisy, y_batch
-    
+
     def apply_poisson(self, X_batch, y_batch):
         """
         Random application of poisson noise to each training inage in a stack
@@ -1296,7 +1296,7 @@ class datatransform:
             X_batch_z[i] = img
             y_batch_z[i] = gt
         return X_batch_z, y_batch_z
-    
+
     def apply_background(self, X_batch, y_batch):
         """
         Emulates thickness variation in STEM or height variation in STM
@@ -1306,14 +1306,14 @@ class datatransform:
         n, h, w = X_batch.shape[0:3]
         X_batch_b = np.zeros((n, h, w))
         x, y = np.meshgrid(
-            np.linspace(0, h, h),np.linspace(0, w, w), indexing='ij')
+            np.linspace(0, h, h), np.linspace(0, w, w), indexing='ij')
         for i, img in enumerate(X_batch):
             x0 = np.random.randint(0, h - h // 4)
             y0 = np.random.randint(0, w - w // 4)
             a, b = np.random.randint(10, 20, 2) / 10
-            fwhm = np.random.randint(min([h, w]) // 4, min([h, w]) -  min([h, w]) // 2)
+            fwhm = np.random.randint(min([h, w]) // 4, min([h, w]) - min([h, w]) // 2)
             Z = gauss2d([x, y], x0, y0, a, b, fwhm)
-            img = img + 0.05 * np.random.randint(-10, 10) * Z 
+            img = img + 0.05 * np.random.randint(-10, 10) * Z
             X_batch_b[i] = img
         return X_batch_b, y_batch
 
@@ -1340,28 +1340,7 @@ class datatransform:
             X_batch_r[i] = img
             y_batch_r[i] = gt
         return X_batch_r, y_batch_r
-    
-    def apply_background(self, X_batch, y_batch):
-        """
-        Emulates thickness variation in STEM or height variation in STM
-        """
-        def gauss2d(xy, x0, y0, a, b, fwhm):
-            return np.exp(-np.log(2)*(a*(xy[0]-x0)**2 + b*(xy[1]-y0)**2) / fwhm**2)
-        n, h, w = X_batch.shape[0:3]
-        X_batch_b = np.zeros((n, h, w))
-        x, y = np.meshgrid(
-            np.linspace(0, h, h),np.linspace(0, w, w), indexing='ij')
-        for i, img in enumerate(X_batch):
-            x0 = np.random.randint(0, h - h // 4)
-            y0 = np.random.randint(0, w - w // 4)
-            a, b = np.random.randint(10, 20, 2) / 10
-            fwhm = np.random.randint(min([h, w]) // 4, min([h, w]) -  min([h, w]) // 2)
-            Z = gauss2d([x, y], x0, y0, a, b, fwhm)
-            img = img + 0.1 * np.random.randint(-10, 10) * Z 
-            X_batch_b[i] = img
-        return X_batch_b, y_batch
-        
-        
+
     def apply_imresize(self, X_batch, y_batch):
         """
         Resizes training images and corresponding ground truth images
@@ -1421,7 +1400,7 @@ class datatransform:
             images, masks = self.apply_blur(images, masks)
         if isinstance(self.contrast, list) or isinstance(self.contrast, tuple):
             images, masks = self.apply_contrast(images, masks)
-        if self.background is not None:
+        if self.background:
             images, masks = self.apply_background(images, masks)
         if self.squeeze:
             images, masks = self.squeeze_data(images, masks)
