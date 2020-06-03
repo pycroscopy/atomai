@@ -16,7 +16,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from scipy import fftpack, ndimage, optimize, spatial
+from scipy import fftpack, ndimage, optimize, spatial, stats
 from skimage import exposure
 from skimage.util import random_noise
 from sklearn.feature_extraction.image import extract_patches_2d
@@ -1157,25 +1157,28 @@ class datatransform:
         self.squeeze = squeeze_channels
         self.rotation = kwargs.get('rotation')
         self.gauss = kwargs.get('gauss')
-        if isinstance(self.gauss, bool):
+        if self.gauss is True:
             self.gauss = [0, 50]
+        self.jitter = kwargs.get("jitter")
+        if self.jitter is True:
+            self.jitter = [0, 50]
         self.poisson = kwargs.get('poisson')
-        if isinstance(self.poisson, bool):
+        if self.poisson is True:
             self.poisson = [30, 40]
         self.salt_and_pepper = kwargs.get('salt_and_pepper')
-        if isinstance(self.salt_and_pepper, bool):
+        if self.salt_and_pepper is True:
             self.salt_and_pepper = [0, 50]
         self.blur = kwargs.get('blur')
-        if isinstance(self.blur, bool):
+        if self.blur is True:
             self.blur = [1, 50]
         self.contrast = kwargs.get('contrast')
-        if isinstance(self.contrast, bool):
+        if self.contrast is True:
             self.contrast = [5, 20]
         self.zoom = kwargs.get('zoom')
-        if isinstance(self.zoom, bool):
+        if self.zoom is True:
             self.zoom = 2  # [min, max] zoom
         self.resize = kwargs.get('resize')
-        if isinstance(self.resize, bool):
+        if self.resize is True:
             self.resize = [2, 1.5]
         if seed is not None:
             np.random.seed(seed)
@@ -1193,6 +1196,19 @@ class datatransform:
             X_batch_noisy[i] = img_
         return X_batch_noisy, y_batch
 
+    def apply_jitter(self, X_batch, y_batch):
+        """
+        Random application of jitter noise to each training image in a stack
+        """
+        n, h, w = X_batch.shape[0:3]
+        X_batch_noisy = np.zeros((n, h, w))
+        for i, img in enumerate(X_batch):
+            jitter_amount = np.random.randint(self.jitter[0], self.jitter[1]) / 10
+            shift_arr = stats.poisson.rvs(jitter_amount, loc=0, size=h)
+            img_ = np.array([np.roll(row, z) for row, z in zip(img, shift_arr)])
+            X_batch_noisy[i] = img_
+        return X_batch_noisy, y_batch
+    
     def apply_poisson(self, X_batch, y_batch):
         """
         Random application of poisson noise to each training inage in a stack
@@ -1343,19 +1359,21 @@ class datatransform:
         images = (images - images.min()) / images.ptp()
         if self.rotation:
             images, masks = self.apply_rotation(images, masks)
-        if self.zoom is not None:
+        if isinstance(self.zoom, int):
             images, masks = self.apply_zoom(images, masks)
-        if self.resize is not None:
+        if isinstance(self.resize, list) or isinstance(self.resize, tuple):
             images, masks = self.apply_imresize(images, masks)
-        if self.gauss is not None:
+        if isinstance(self.gauss, list) or isinstance(self.gauss, tuple):
             images, masks = self.apply_gauss(images, masks)
-        if self.poisson is not None:
+        if isinstance(self.jitter, list) or isinstance(self.jitter, tuple):
+            images, masks = self.apply_jitter(images, masks)
+        if isinstance(self.poisson, list) or isinstance(self.poisson, tuple):
             images, masks = self.apply_poisson(images, masks)
-        if self.salt_and_pepper is not None:
+        if isinstance(self.salt_and_pepper, list) or isinstance(self.salt_and_pepper, tuple):
             images, masks = self.apply_sp(images, masks)
-        if self.blur is not None:
+        if isinstance(self.blur, list) or isinstance(self.blur, tuple):
             images, masks = self.apply_blur(images, masks)
-        if self.contrast is not None:
+        if isinstance(self.contrast, list) or isinstance(self.contrast, tuple):
             images, masks = self.apply_contrast(images, masks)
         if self.squeeze:
             images, masks = self.squeeze_data(images, masks)
