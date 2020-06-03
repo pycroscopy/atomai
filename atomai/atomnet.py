@@ -205,8 +205,9 @@ class trainer:
             0, len(self.images_all), training_cycles)
         self.batch_idx_test = np.random.randint(
             0, len(self.images_test_all), training_cycles)
-        auglist = ["zoom", "gauss", "poisson", "contrast", "background",
-                   "salt_and_pepper", "blur", "resize", "rotation"]
+        auglist = ["zoom", "gauss", "jitter", "poisson", "contrast",
+                   "salt_and_pepper", "blur", "resize", "rotation",
+                   "background"]
         self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.training_cycles = training_cycles
