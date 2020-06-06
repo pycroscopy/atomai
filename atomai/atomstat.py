@@ -90,7 +90,7 @@ class imlocal:
          self.imgstack_com,
          self.imgstack_frames) = self.extract_subimages()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
-        self.X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
+        #self.X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
 
     def extract_subimages(self):
         """
@@ -185,7 +185,8 @@ class imlocal:
             n_components=n_components,
             covariance_type=covariance,
             random_state=random_state)
-        classes = clf.fit_predict(self.X_vec) + 1
+        X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
+        classes = clf.fit_predict(X_vec) + 1
         cla = np.ndarray(shape=(
             np.amax(classes), int(self.r*2), int(self.r*2), self.nb_classes))
         if plot_results:
@@ -246,7 +247,8 @@ class imlocal:
         pca = decomposition.PCA(
             n_components=n_components,
             random_state=random_state)
-        X_vec_t = pca.fit_transform(self.X_vec)
+        X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
+        X_vec_t = pca.fit_transform(X_vec)
         components = pca.components_
         components = components.reshape(
             n_components, self.d1, self.d2, self.d3)
@@ -285,7 +287,8 @@ class imlocal:
         ica = decomposition.FastICA(
             n_components=n_components,
             random_state=random_state)
-        X_vec_t = ica.fit_transform(self.X_vec)
+        X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
+        X_vec_t = ica.fit_transform(X_vec)
         components = ica.components_
         components = components.reshape(
             n_components, self.d1, self.d2, self.d3)
@@ -329,7 +332,8 @@ class imlocal:
             n_components=n_components,
             random_state=random_state,
             max_iter=max_iter)
-        X_vec_t = nmf.fit_transform(self.X_vec)
+        X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
+        X_vec_t = nmf.fit_transform(X_vec)
         components = nmf.components_
         components = components.reshape(
             n_components, self.d1, self.d2, self.d3)
@@ -403,7 +407,8 @@ class imlocal:
         """
         # PCA decomposition
         pca = decomposition.PCA()
-        pca.fit(self.X_vec)
+        X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
+        pca.fit(X_vec)
         explained_var = pca.explained_variance_ratio_
         if plot_results:
             # Plotting
