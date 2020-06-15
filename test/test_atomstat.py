@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from atomai import atomstat
+from atomai.core import atomstat
 import pytest
 from numpy.testing import assert_allclose
 import matplotlib
