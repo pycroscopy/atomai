@@ -88,7 +88,7 @@ class rDecoderNet(nn.Module):
         """
         super(rDecoderNet, self).__init__()
         self.reshape_ = out_dim
-        self.fc_coord = nn.Linear(latent_dim, hidden_dim)
+        self.fc_coord = nn.Linear(2, hidden_dim)
         self.fc_latent = nn.Linear(latent_dim, hidden_dim, bias=False)
         self.activation = nn.Tanh()
         fc_decoder = []
