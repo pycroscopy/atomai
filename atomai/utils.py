@@ -971,7 +971,7 @@ def get_imgstack(imgdata, coord, r):
         cx = int(np.around(c[0]))
         cy = int(np.around(c[1]))
         img_cr = np.copy(
-            imgdata[cx-r//2:cx+r//2, cy-r//2:cy+r//2, :])
+            imgdata[cx-r//2:cx+r//2, cy-r//2:cy+r//2])
         if img_cr.shape[0:2] == (int(r), int(r)):
             img_cr_all.append(img_cr[None, ...])
             com.append(c[None, ...])
@@ -998,7 +998,7 @@ def imcrop_randpx(img, window_size, num_images, random_state=0):
         x = np.random.randint(
             window_size // 2 + 1, img.shape[0] - window_size // 2 - 1)
         y = np.random.randint(
-            window_size // 2 + 1, img.shape[0] - window_size // 2 - 1)
+            window_size // 2 + 1, img.shape[1] - window_size // 2 - 1)
         if (x, y) not in list_xy:
             com_x.append(x)
             com_y.append(y)
@@ -1007,7 +1007,7 @@ def imcrop_randpx(img, window_size, num_images, random_state=0):
     com_xy = np.concatenate(
         (np.array(com_x)[:, None], np.array(com_y)[:, None]),
         axis=1)
-    subimages, com = get_imgstack(img, com_xy, window_size // 2)
+    subimages, com = get_imgstack(img, com_xy, window_size)
     return subimages, com
 
 
@@ -1041,7 +1041,7 @@ def extract_random_subimages(imgdata, window_size, num_images,
     (if coordinates are not known/available)
 
     Args:
-        imgdata (numpy array): 3D stack of images
+        imgdata (numpy array): 4D stack of images (n, height, width, channel)
         window_size (int):
             Side of the square for subimage cropping
         num_images (int): number of images to extract from each "frame" in the stack
@@ -1064,6 +1064,8 @@ def extract_random_subimages(imgdata, window_size, num_images,
     """
     if coordinates:
         coord_class = kwargs.get("coord_class", 0)
+    if np.ndim(imgdata) < 4:
+        imgdata = imgdata[..., None]
     subimages_all = np.zeros(
         (num_images * imgdata.shape[0],
          window_size, window_size, imgdata.shape[-1]))
@@ -1116,7 +1118,7 @@ def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
     (usually from a neural network output)
 
     Args:
-        imgdata (numpy array): 3D stack of images
+        imgdata (numpy array): 4D stack of images (n, height, width, channel)
         coordinates (dict): Prediction from atomnet.locator
             (can be from other source but must be in the same format)
             Each element is a :math:`N \\times 3` numpy array,
