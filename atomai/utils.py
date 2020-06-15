@@ -295,6 +295,26 @@ def cv_resize(img, rs, round_=False):
     return img_rs
 
 
+def cv_resize_stack(imgdata, rs, round_=False):
+    """
+    Resizes a 3D stack of images
+
+    Args:
+        imgdata (3D numpy array): stack of 3D images to be resized
+        rs (tuple or int): target height and width
+        round_(bool): rounding (in case of labeled pixels)
+
+    Returns:
+        Resized image
+    """
+    rs = [rs, rs] if isinstance(rs, int) else rs
+    imgdata_rs = np.zeros((imgdata.shape[0], rs[0], rs[1]))
+    for i, img in enumerate(imgdata):
+        img_rs = cv_resize(img, rs, round_)
+        imgdata_rs[i] = img_rs
+    return imgdata_rs
+
+
 def img_pad(image_data, pooling):
     """
     Pads the image if its size (w, h)
@@ -369,6 +389,32 @@ def get_nn_distances_(coordinates, nn=2, upper_bound=None):
     nn = np.delete(nn, idx_to_del, axis=0)
     d = np.delete(d, idx_to_del, axis=0)
     return d[:, 1:], coordinates[nn]
+
+
+def transform_coordinates(coord, phi, coord_dx):
+    """
+    Pytorch-based 2D rotation of coordinates followed by translation.
+    Operates on batches.
+
+    Args:
+        coord (numpy array or torch tensor): batch with initial coordinates
+        phi (float): rotational angle in rad
+        coord_dx (numpy array or torch tensor): translation vector
+
+    Returns:
+        Transformed coordinates batch
+    """
+
+    if isinstance(coord, np.ndarray):
+        coord = torch.from_numpy(coord).float()
+    if isinstance(coord_dx, np.ndarray):
+        coord_dx = torch.from_numpy(coord_dx).float()
+    rotmat_r1 = torch.stack([torch.cos(phi), torch.sin(phi)], 1)
+    rotmat_r2 = torch.stack([-torch.sin(phi), torch.cos(phi)], 1)
+    rotmat = torch.stack([rotmat_r1, rotmat_r2], axis=1)
+    coord = torch.bmm(coord, rotmat)
+
+    return coord + coord_dx
 
 
 def get_nn_distances(coordinates, nn=2, upper_bound=None):
@@ -899,6 +945,211 @@ def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
 #############################
 # Training data preparation #
 #############################
+
+def get_imgstack(imgdata, coord, r):
+    """
+    Extracts subimages centered at specified coordinates
+    for a single image
+
+    Args:
+        imgdata (3D numpy array):
+            Prediction of a neural network with dimensions
+            :math:`height \\times width \\times n channels`
+        coord (N x 2 numpy array):
+            (x, y) coordinates
+        r (int):
+            Window size
+
+    Returns:
+        2-element tuple containing
+        i) Stack of subimages and
+        ii) (x, y) coordinates of their centers
+    """
+    img_cr_all = []
+    com = []
+    for c in coord:
+        cx = int(np.around(c[0]))
+        cy = int(np.around(c[1]))
+        img_cr = np.copy(
+            imgdata[cx-r//2:cx+r//2, cy-r//2:cy+r//2, :])
+        if img_cr.shape[0:2] == (int(r), int(r)):
+            img_cr_all.append(img_cr[None, ...])
+            com.append(c[None, ...])
+    if len(img_cr_all) == 0:
+        return None, None
+    img_cr_all = np.concatenate(img_cr_all, axis=0)
+    com = np.concatenate(com, axis=0)
+    return img_cr_all, com
+
+
+def imcrop_randpx(img, window_size, num_images, random_state=0):
+    """
+    Extracts subimages at random pixels
+
+    Returns:
+        2-element tuple containing
+        i) Stack of subimages and
+        ii) (x, y) coordinates of their centers
+    """
+    list_xy = []
+    com_x, com_y = [], []
+    n = 0
+    while n < num_images:
+        x = np.random.randint(
+            window_size // 2 + 1, img.shape[0] - window_size // 2 - 1)
+        y = np.random.randint(
+            window_size // 2 + 1, img.shape[0] - window_size // 2 - 1)
+        if (x, y) not in list_xy:
+            com_x.append(x)
+            com_y.append(y)
+            list_xy.append((x, y))
+            n += 1
+    com_xy = np.concatenate(
+        (np.array(com_x)[:, None], np.array(com_y)[:, None]),
+        axis=1)
+    subimages, com = get_imgstack(img, com_xy, window_size // 2)
+    return subimages, com
+
+
+def imcrop_randcoord(img, coord, window_size, num_images, random_state=0):
+    """
+    Extracts subimages at random coordinates
+
+    Returns:
+        2-element tuple containing
+        i) Stack of subimages and
+        ii) (x, y) coordinates of their centers
+    """
+    list_idx, com_xy = [], []
+    n = 0
+    while n < num_images:
+        i = np.random.randint(len(coord))
+        if i not in list_idx:
+            com_xy.append(coord[i].tolist())
+            list_idx.append(i)
+            n += 1
+    com_xy = np.array(com_xy)
+    subimages, com = get_imgstack(img, com_xy, window_size)
+    return subimages, com
+
+
+def extract_random_subimages(imgdata, window_size, num_images,
+                             coordinates=None, **kwargs):
+    """
+    Extracts randomly subimages centered at certain atom class/type
+    (usually from a neural network output) or just at random pixels
+    (if coordinates are not known/available)
+
+    Args:
+        imgdata (numpy array): 3D stack of images
+        window_size (int):
+            Side of the square for subimage cropping
+        num_images (int): number of images to extract from each "frame" in the stack
+        coordinates (dict): Optional. Prediction from atomnet.locator
+            (can be from other source but must be in the same format)
+            Each element is a :math:`N \\times 3` numpy array,
+            where *N* is a number of detected atoms/defects,
+            the first 2 columns are *xy* coordinates
+            and the third columns is class (starts with 0)
+        **coord_class (int):
+            Class of atoms/defects around around which the subimages
+            will be cropped (3rd column in the atomnet.locator output)
+
+    Returns:
+        3-element tuple containing
+        i) stack of subimages,
+        ii) (x, y) coordinates of their centers,
+        iii) frame number associated with each subimage
+
+    """
+    if coordinates:
+        coord_class = kwargs.get("coord_class", 0)
+    subimages_all = np.zeros(
+        (num_images * imgdata.shape[0],
+         window_size, window_size, imgdata.shape[-1]))
+    com_all = np.zeros((num_images * imgdata.shape[0], 2))
+    frames_all = np.zeros((num_images * imgdata.shape[0]))
+    for i, img in enumerate(imgdata):
+        if coordinates is None:
+            stack_i, com_i = imcrop_randpx(
+                img, window_size, num_images, random_state=i)
+        else:
+            coord = coordinates[i]
+            coord = coord[coord[:, -1] == coord_class]
+            coord = coord[:, :2]
+            coord = remove_edge_coord(coord, imgdata.shape[1:3], window_size // 2 + 1)
+            if num_images > len(coord):
+                raise ValueError(
+                    "Number of images cannot be greater than the available coordinates")
+            stack_i, com_i = imcrop_randcoord(
+                img, coord, window_size, num_images, random_state=i)
+        subimages_all[i * num_images: (i + 1) * num_images] = stack_i
+        com_all[i * num_images: (i + 1) * num_images] = com_i
+        frames_all[i * num_images: (i + 1) * num_images] = np.ones(len(com_i), int) * i
+    return subimages_all, com_all, frames_all
+
+
+def remove_edge_coord(coordinates, dim, dist_edge):
+    """
+    Removes coordinates at the image edges
+    """
+
+    def coord_edges(coordinates, h, w):
+        return [coordinates[0] > w - dist_edge,
+                coordinates[0] < dist_edge,
+                coordinates[1] > h - dist_edge,
+                coordinates[1] < dist_edge]
+
+    h, w = dim
+    coord_to_rem = [
+                    idx for idx, c in enumerate(coordinates)
+                    if any(coord_edges(c, h, w))
+                    ]
+    coord_to_rem = np.array(coord_to_rem, dtype=int)
+    coordinates = np.delete(coordinates, coord_to_rem, axis=0)
+    return coordinates
+
+
+def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
+    """
+    Extracts subimages centered at certain atom class/type
+    (usually from a neural network output)
+
+    Args:
+        imgdata (numpy array): 3D stack of images
+        coordinates (dict): Prediction from atomnet.locator
+            (can be from other source but must be in the same format)
+            Each element is a :math:`N \\times 3` numpy array,
+            where *N* is a number of detected atoms/defects,
+            the first 2 columns are *xy* coordinates
+            and the third columns is class (starts with 0)
+        window_size (int):
+            Side of the square for subimage cropping
+        coord_class (int):
+            Class of atoms/defects around around which the subimages
+            will be cropped (3rd column in the atomnet.locator output)
+
+    Returns:
+        3-element tuple containing
+        i) stack of subimages,
+        ii) (x, y) coordinates of their centers,
+        iii) frame number associated with each subimage
+    """
+    subimages_all, com_all, frames_all = [], [], []
+    for i, (img, coord) in enumerate(
+            zip(imgdata, coordinates.values())):
+        coord_i = coord[np.where(coord[:, 2] == coord_class)][:, :2]
+        stack_i, com_i = get_imgstack(img, coord_i, window_size)
+        if stack_i is None:
+            continue
+        subimages_all.append(stack_i)
+        com_all.append(com_i)
+        frames_all.append(np.ones(len(com_i), int) * i)
+    subimages_all = np.concatenate(subimages_all, axis=0)
+    com_all = np.concatenate(com_all, axis=0)
+    frames_all = np.concatenate(frames_all, axis=0)
+    return subimages_all, com_all, frames_all
+
 
 class MakeAtom:
     """
