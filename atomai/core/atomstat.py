@@ -997,7 +997,7 @@ def cluster_coord(coord_class_dict, eps, min_samples=10):
         3-element tuple containing
         i) coordinates of points in each identified cluster,
         ii) center of the mass for each cluster,
-        iii) standard deviation of points in each cluster
+        iii) variance of points in each cluster
     """
     coordinates_all = np.empty((0, 3))
     for k in range(len(coord_class_dict)):
@@ -1006,14 +1006,14 @@ def cluster_coord(coord_class_dict, eps, min_samples=10):
     clustering = cluster.DBSCAN(
         eps=eps, min_samples=min_samples).fit(coordinates_all[:, :2])
     labels = clustering.labels_
-    clusters, clusters_std, clusters_mean = [], [], []
+    clusters, clusters_var, clusters_mean = [], [], []
     for l in np.unique(labels)[1:]:
         coord = coordinates_all[np.where(labels == l)]
         clusters.append(coord)
         clusters_mean.append(np.mean(coord[:, :2], axis=0))
-        clusters_std.append(np.std(coord[:, :2], axis=0))
+        clusters_var.append(np.var(coord[:, :2], axis=0))
     return (np.array(clusters), np.array(clusters_mean),
-            np.array(clusters_std))
+            np.array(clusters_var))
 
 
 def find_coord_clusters(coord_class_dict_1, coord_class_dict_2, rmax):
