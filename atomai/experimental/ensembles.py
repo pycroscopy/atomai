@@ -1,10 +1,12 @@
 import copy
-from typing import Dict, Tuple, Type
+from collections import OrderedDict
+from typing import Dict, Tuple, Type, Union
 
 import numpy as np
+from sklearn.model_selection import train_test_split
 import torch
-from atomai import atomnet, models
-from atomai.utils import average_weights
+from atomai.core import atomnet, atomstat, models
+from atomai.utils import average_weights, Hook, mock_forward
 
 
 class ensemble_trainer:
@@ -29,13 +31,17 @@ class ensemble_trainer:
             "on-the-fly" (e.g. rotation=True, gauss=[20, 60], etc.)
     """
     def __init__(self, X_train: np.ndarray, y_train: np.ndarray,
-                 X_test: np.ndarray, y_test: np.ndarray,
+                 X_test: np.ndarray = None, y_test: np.ndarray = None,
                  n_models=30, model_type: str = "dilUnet",
                  training_cycles_base: int = 1000,
                  training_cycles_ensemble: int = 50,
-                 upsampling_method="bilinear",
-                 filename: str = "./model.pt", **kwargs: Dict) -> None:
+                 upsampling_method="nearest",
+                 filename: str = "./model", **kwargs: Dict) -> None:
 
+        if X_test is None or y_test is None:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=kwargs.get("test_size", 0.15),
+                shuffle=True, random_state=0)
         self.X_train, self.y_train = X_train, y_train
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model_type, n_models
@@ -43,11 +49,13 @@ class ensemble_trainer:
         self.iter_ensemble = training_cycles_ensemble
         self.upsampling_method = upsampling_method
         self.filename, self.kdict = filename, kwargs
+        self.ensemble_state_dict = {}
 
     def train_baseline(self) -> Type[torch.nn.Module]:
         """
         Trains a single baseline model
         """
+        print('Training baseline model:')
         trainer_base = atomnet.trainer(
             self.X_train, self.y_train, self.X_test, self.y_test,
             self.iter_base, self.model_type, upsampling=self.upsampling_method,
@@ -57,14 +65,34 @@ class ensemble_trainer:
 
         return trained_basemodel
 
-    def train_ensemble(self, basemodel) -> Dict[str, torch.Tensor]:
+    def train_ensemble(self,
+                       basemodel: Union[OrderedDict, Type[torch.nn.Module]],
+                       **kwargs: Dict
+                       ) -> Tuple[Dict[int, Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]:
         """
         Trains ensemble of models starting each time from baseline weights
+
+        Args:
+            basemodel: Baseline model or baseline weights
+            **kwargs: Updates kwargs from the ensemble class initialization
+                (can be useful for iterative training)
         """
-        initial_model_state_dict = copy.deepcopy(basemodel.state_dict())
-        ensemble_state_dict = {}
+        if len(kwargs) != 0:
+            for k, v in kwargs.items():
+                self.kdict[k] = v
+        if isinstance(basemodel, OrderedDict):
+            initial_model_state_dict = copy.deepcopy(basemodel)
+        else:
+            initial_model_state_dict = copy.deepcopy(basemodel.state_dict())
+        n_models = kwargs.get("n_models")
+        if n_models is not None:
+            self.n_models = n_models
+        filename = kwargs.get("filename")
+        if filename is not None:
+            self.filename = filename
         print('Training ensemble models:')
         for i in range(self.n_models):
+            print('Ensemble model', i+1)
             trainer_i = atomnet.trainer(
                 self.X_train, self.y_train, self.X_test, self.y_test,
                 self.iter_ensemble, self.model_type,
@@ -72,52 +100,94 @@ class ensemble_trainer:
                 print_loss=10, plot_training_history=False, **self.kdict)
             trainer_i.net.load_state_dict(initial_model_state_dict)
             trained_model_i = trainer_i.run()
-            ensemble_state_dict[i] = trained_model_i.state_dict()
-        ensemble_state_dict_aver = average_weights(ensemble_state_dict)
+            self.ensemble_state_dict[i] = trained_model_i.state_dict()
 
         ensemble_metadict = copy.deepcopy(trainer_i.meta_state_dict)
-        ensemble_metadict["weights"] = ensemble_state_dict
+        ensemble_metadict["weights"] = self.ensemble_state_dict
         torch.save(ensemble_metadict, self.filename + "_ensemble.tar")
+
+        ensemble_state_dict_aver = average_weights(self.ensemble_state_dict)
         ensemble_aver_metadict = copy.deepcopy(trainer_i.meta_state_dict)
         ensemble_aver_metadict["weights"] = ensemble_state_dict_aver
         torch.save(ensemble_metadict, self.filename + "_ensemble_aver_weights.pt")
 
-        return ensemble_state_dict, ensemble_state_dict_aver
+        return self.ensemble_state_dict, ensemble_state_dict_aver
+
+    def set_data(self,
+                 X_train: np.ndarray, y_train: np.ndarray,
+                 X_test: np.ndarray = None, y_test: np.ndarray = None) -> None:
+        """
+        Sets data for ensemble training (useful for iterative training)
+        """
+        if X_test is None or y_test is None:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=self.kdict.get("test_size", 0.15),
+                shuffle=True, random_state=0)
+        self.X_train = X_train
+        self.y_train = y_train
+        self.X_test = X_test
+        self.y_test = y_test
 
     def run(self) -> Tuple[Type[torch.nn.Module], Dict, Dict]:
         """
         Trains a baseline model and ensemble of models
         """
-        print('Training baseline model:')
         basemodel = self.train_baseline()
-        print('Training ensemble models:')
         ensemble, ensemble_aver = self.train_ensemble(basemodel)
-        return basemodel, ensemble, ensemble_ave
+        return basemodel, ensemble, ensemble_aver
 
 
 def ensemble_predict(predictive_model: Type[torch.nn.Module],
                      ensemble: Dict[int, Dict[str, torch.Tensor]],
-                     expdata: np.ndarray,num_classes: int = 1) -> Tuple[np.ndarray, np.ndarray]:
+                     expdata: np.ndarray, calculate_coordinates=True,
+                     **kwargs: Dict
+                     ) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
     """
-    Makes a prediction (mean and variance/uncertainty) with ensemble of models
+    mean and variance/uncertainty) with ensemble of models
     Args:
         predictive_model: model skeleton (can be with randomly initialized weights)
         ensemble: nested dictionary with weights of each model in the ensemble
         expdata: 2D experimental image
-        num_classes: number of classes in the classification scheme # TODO: this should be inferred automatically from predictive model
+        calculate_coordinates: computes atomic coordinates for each prediction
+        **eps: DBSCAN epsilon for clustering coordinates
+        **num_classes: number of classes in the classification scheme
+        **downsample_factor: image downsampling (max_size / min_size) in NN
     """
     use_gpu = torch.cuda.is_available()
     img_h, img_w = expdata.shape
+
+    num_classes = kwargs.get("num_classes")
+    if num_classes is None:
+        hookF = [Hook(layer[1]) for layer in list(predictive_model._modules.items())]
+        mock_forward(predictive_model)
+        num_classes = [hook.output.shape for hook in hookF][-1][1]
+    downsample_factor = kwargs.get("downsample_factor")
+    if downsample_factor is None:
+        hookF = [Hook(layer[1]) for layer in list(predictive_model._modules.items())]
+        mock_forward(predictive_model)
+        imsize = [hook.output.shape[-1] for hook in hookF]
+        downsample_factor = max(imsize) / min(imsize)
+
     nn_output_ensemble = np.zeros((len(ensemble), img_h, img_w, num_classes))
+    coordinates = {}
+    coord_mean, coord_var = None, None
     for i, w in ensemble.items():
         predictive_model.load_state_dict(w)
         predictive_model.eval()
         _, nn_output = atomnet.predictor(
-            expdata, predictive_model, use_gpu=use_gpu, verbose=False).decode()
+            expdata, predictive_model,
+            nb_classes=num_classes, downsampling=downsample_factor,
+            use_gpu=use_gpu, verbose=False).decode()
         nn_output_ensemble[i] = nn_output[0]
+        if calculate_coordinates:
+            coord = atomnet.locator(nn_output).run()
+            coordinates[i] = coord[0]
     nn_output_mean = np.mean(nn_output_ensemble, axis=0)
     nn_output_var = np.var(nn_output_ensemble, axis=0)
-    return nn_output_mean, nn_output_var
+    if calculate_coordinates:
+        eps = kwargs.get("eps", 0.5)
+        _, coord_mean, coord_var = atomstat.cluster_coord(coordinates, eps)
+    return (nn_output_mean, nn_output_var), (coord_mean, coord_var)
 
 
 def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[str, torch.Tensor]]]:
