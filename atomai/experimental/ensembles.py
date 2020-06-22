@@ -22,7 +22,6 @@ class ensemble_trainer:
         model_type: 'dilUnet' or 'dilnet'. See atomai.models for details
         training_cycles_base: Number of training iterations for baseline model
         training_cycles_ensemble: Number of training iterations for every ensemble model
-        upsampling: "bilinear" or "nearest" upsampling method
         filename: Filepath for saving weights
         **kwargs:
             One can also pass kwargs to atomai.atomnet.trainer class for adjusting
@@ -35,7 +34,6 @@ class ensemble_trainer:
                  n_models=30, model_type: str = "dilUnet",
                  training_cycles_base: int = 1000,
                  training_cycles_ensemble: int = 50,
-                 upsampling_method="nearest",
                  filename: str = "./model", **kwargs: Dict) -> None:
 
         if X_test is None or y_test is None:
@@ -47,7 +45,6 @@ class ensemble_trainer:
         self.model_type, self.n_models = model_type, n_models
         self.iter_base = training_cycles_base
         self.iter_ensemble = training_cycles_ensemble
-        self.upsampling_method = upsampling_method
         self.filename, self.kdict = filename, kwargs
         self.ensemble_state_dict = {}
 
@@ -57,9 +54,11 @@ class ensemble_trainer:
         """
         print('Training baseline model:')
         trainer_base = atomnet.trainer(
-            self.X_train, self.y_train, self.X_test, self.y_test,
-            self.iter_base, self.model_type, upsampling=self.upsampling_method,
-            plot_training_history=True, savename=self.filename + "_base.pt",
+            self.X_train, self.y_train,
+            self.X_test, self.y_test,
+            self.iter_base, self.model_type,
+            plot_training_history=True,
+            savename=self.filename + "_base.pt",
             **self.kdict)
         trained_basemodel = trainer_base.run()
 
@@ -95,8 +94,7 @@ class ensemble_trainer:
             print('Ensemble model', i+1)
             trainer_i = atomnet.trainer(
                 self.X_train, self.y_train, self.X_test, self.y_test,
-                self.iter_ensemble, self.model_type,
-                upsampling=self.upsampling_method, batch_seed=i,
+                self.iter_ensemble, self.model_type, batch_seed=i,
                 print_loss=10, plot_training_history=False, **self.kdict)
             trainer_i.net.load_state_dict(initial_model_state_dict)
             trained_model_i = trainer_i.run()
@@ -109,7 +107,7 @@ class ensemble_trainer:
         ensemble_state_dict_aver = average_weights(self.ensemble_state_dict)
         ensemble_aver_metadict = copy.deepcopy(trainer_i.meta_state_dict)
         ensemble_aver_metadict["weights"] = ensemble_state_dict_aver
-        torch.save(ensemble_metadict, self.filename + "_ensemble_aver_weights.pt")
+        torch.save(ensemble_aver_metadict, self.filename + "_ensemble_aver_weights.pt")
 
         return self.ensemble_state_dict, ensemble_state_dict_aver
 
@@ -141,20 +139,24 @@ def ensemble_predict(predictive_model: Type[torch.nn.Module],
                      ensemble: Dict[int, Dict[str, torch.Tensor]],
                      expdata: np.ndarray, calculate_coordinates=True,
                      **kwargs: Dict
-                     ) -> Tuple[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray]]:
+                     ) -> Tuple[Tuple[np.ndarray, np.ndarray],
+                                Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]]:
     """
     mean and variance/uncertainty) with ensemble of models
     Args:
-        predictive_model: model skeleton (can be with randomly initialized weights)
+        predictive_model: model skeleton (can have randomly initialized weights)
         ensemble: nested dictionary with weights of each model in the ensemble
-        expdata: 2D experimental image
+        expdata: 2D experimental image or 3D image stack
         calculate_coordinates: computes atomic coordinates for each prediction
         **eps: DBSCAN epsilon for clustering coordinates
+        **threshold: value at which a neural network output is thresholded for calculating coordinates
         **num_classes: number of classes in the classification scheme
         **downsample_factor: image downsampling (max_size / min_size) in NN
     """
     use_gpu = torch.cuda.is_available()
-    img_h, img_w = expdata.shape
+    if np.ndim(expdata) == 2:
+        expdata = np.expand_dims(expdata, axis=0)
+    batch_dim, img_h, img_w = expdata.shape
 
     num_classes = kwargs.get("num_classes")
     if num_classes is None:
@@ -168,9 +170,8 @@ def ensemble_predict(predictive_model: Type[torch.nn.Module],
         imsize = [hook.output.shape[-1] for hook in hookF]
         downsample_factor = max(imsize) / min(imsize)
 
-    nn_output_ensemble = np.zeros((len(ensemble), img_h, img_w, num_classes))
-    coordinates = {}
-    coord_mean, coord_var = None, None
+    nn_output_ensemble = np.zeros((
+        len(ensemble), batch_dim, img_h, img_w, num_classes))
     for i, w in ensemble.items():
         predictive_model.load_state_dict(w)
         predictive_model.eval()
@@ -178,16 +179,43 @@ def ensemble_predict(predictive_model: Type[torch.nn.Module],
             expdata, predictive_model,
             nb_classes=num_classes, downsampling=downsample_factor,
             use_gpu=use_gpu, verbose=False).decode()
-        nn_output_ensemble[i] = nn_output[0]
-        if calculate_coordinates:
-            coord = atomnet.locator(nn_output).run()
-            coordinates[i] = coord[0]
+        nn_output_ensemble[i] = nn_output
     nn_output_mean = np.mean(nn_output_ensemble, axis=0)
     nn_output_var = np.var(nn_output_ensemble, axis=0)
+    coord_mean, coord_var = None, None
     if calculate_coordinates:
-        eps = kwargs.get("eps", 0.5)
-        _, coord_mean, coord_var = atomstat.cluster_coord(coordinates, eps)
+        coord_mean, coord_var = ensemble_locate(nn_output_ensemble, **kwargs)
     return (nn_output_mean, nn_output_var), (coord_mean, coord_var)
+
+
+def ensemble_locate(nn_output_ensemble: np.ndarray,
+                    **kwargs: Dict) -> Tuple[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Finds coordinates for each ensemble predictions
+    (basically, an atomnet.locator for ensembles)
+
+    Args:
+        nn_output_ensembles: 5D numpy array with ensemble predictions
+        **eps: DBSCAN epsilon for clustering coordinates
+        **threshold: threshold value for atomnet.locator
+
+    Returns:
+        Mean and variance for every detected atom/defect/particle coordinate
+    """
+    eps = kwargs.get("eps", 0.5)
+    thresh = kwargs.get("threshold", 0.5)
+    coord_mean_all = {}
+    coord_var_all = {}
+    for i in range(nn_output_ensemble.shape[1]):
+        coordinates = {}
+        nn_output = nn_output_ensemble[:, i]
+        for i2, img in enumerate(nn_output):
+            coord = atomnet.locator(img[None, ...], thresh).run()
+            coordinates[i2] = coord[0]
+        _, coord_mean, coord_var = atomstat.cluster_coord(coordinates, eps)
+        coord_mean_all[i] = coord_mean
+        coord_var_all[i] = coord_var
+    return coord_mean_all, coord_var_all
 
 
 def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[str, torch.Tensor]]]:
