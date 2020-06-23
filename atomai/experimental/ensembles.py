@@ -96,7 +96,8 @@ class ensemble_trainer:
                 self.X_train, self.y_train, self.X_test, self.y_test,
                 self.iter_ensemble, self.model_type, batch_seed=i,
                 print_loss=10, plot_training_history=False, **self.kdict)
-            trainer_i.net.load_state_dict(initial_model_state_dict)
+            self.update_weights(trainer_i.net.state_dict().values(),
+                                initial_model_state_dict.values())
             trained_model_i = trainer_i.run()
             self.ensemble_state_dict[i] = trained_model_i.state_dict()
 
@@ -110,6 +111,12 @@ class ensemble_trainer:
         torch.save(ensemble_aver_metadict, self.filename + "_ensemble_aver_weights.pt")
 
         return self.ensemble_state_dict, ensemble_state_dict_aver
+
+    @classmethod
+    def update_weights(cls, statedict1, statedict2):
+        for p1, p2 in zip(statedict1, statedict2):
+            if p1.shape == p2.shape:
+                p1.copy_(p2)
 
     def set_data(self,
                  X_train: np.ndarray, y_train: np.ndarray,
