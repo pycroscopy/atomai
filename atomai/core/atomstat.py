@@ -8,6 +8,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import os
+import copy
 import warnings
 
 import matplotlib.gridspec as gridspec
@@ -18,7 +19,7 @@ from scipy import spatial
 from sklearn import cluster, decomposition, mixture
 
 from atomai.utils import (get_intensities, get_nn_distances, peak_refinement,
-                          plot_transitions)
+                          plot_transitions, extract_subimages)
 
 
 class imlocal:
@@ -42,7 +43,7 @@ class imlocal:
             the first 2 columns are *xy* coordinates
             and the third columns is class (starts with 0)
         crop_size (int):
-            Half of the side of the square for subimage cropping
+            Side of the square for subimage cropping
         coord_class (int):
             Class of atoms/defects around around which
             the subimages will be cropped; in the atomnet.locator output
@@ -55,7 +56,7 @@ class imlocal:
         >>> # First obtain a "cleaned" image and atomic coordinates using a trained model
         >>> nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, model, use_gpu=False).run()
         >>> # Now get local image descriptors using atomstat.imlocal
-        >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=16, coord_class=1)
+        >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
         >>> # Compute PCA scree plot to estimate the number of components/sources
         >>> imstack.pca_scree_plot(plot_results=True);
         >>> # Do PCA analysis and plot results
@@ -90,7 +91,6 @@ class imlocal:
          self.imgstack_com,
          self.imgstack_frames) = self.extract_subimages()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
-        #self.X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
 
     def extract_subimages(self):
         """
@@ -103,56 +103,9 @@ class imlocal:
             ii) (x, y) coordinates of their centers,
             iii) frame number associated with each subimage
         """
-        imgstack, imgstack_com, imgstack_frames = [], [], []
-        for i, (img, coord) in enumerate(
-                zip(self.network_output, self.coord_all.values())):
-            c = coord[np.where(coord[:,2]==self.coord_class)][:,0:2]
-            img_cr_all, com = self._extract_subimages(img, c, self.r)
-            if img_cr_all is None:
-                continue
-            imgstack.append(img_cr_all)
-            imgstack_com.append(com)
-            imgstack_frames.append(np.ones(len(com), int) * i)
-        imgstack = np.concatenate(imgstack, axis=0)
-        imgstack_com = np.concatenate(imgstack_com, axis=0)
-        imgstack_frames = np.concatenate(imgstack_frames, axis=0)
+        imgstack, imgstack_com, imgstack_frames = extract_subimages(
+            self.network_output, self.coord_all, self.r, self.coord_class)
         return imgstack, imgstack_com, imgstack_frames
-
-    @classmethod
-    def _extract_subimages(cls, imgdata, coord, r):
-        """
-        Extracts subimages centered at specified coordinates
-        for a single image
-
-        Args:
-            imgdata (3D numpy array):
-                Prediction of a neural network with dimensions
-                :math:`height \\times width \\times n channels`
-            coord (N x 2 numpy array):
-                (x, y) coordinates
-            r (int):
-                Half side of subimage square
-
-        Returns:
-            2-element tuple containing
-            i) Stack of subimages and
-            ii) (x, y) coordinates of their centers
-        """
-        img_cr_all = []
-        com = []
-        for c in coord:
-            cx = int(np.around(c[0]))
-            cy = int(np.around(c[1]))
-            img_cr = np.copy(
-                imgdata[cx-r:cx+r, cy-r:cy+r, :])
-            if img_cr.shape[0:2] == (int(r*2), int(r*2)):
-                img_cr_all.append(img_cr[None, ...])
-                com.append(c[None, ...])
-        if len(img_cr_all) == 0:
-            return None, None
-        img_cr_all = np.concatenate(img_cr_all, axis=0)
-        com = np.concatenate(com, axis=0)
-        return img_cr_all, com
 
     def gmm(self,
             n_components,
@@ -188,7 +141,7 @@ class imlocal:
         X_vec = self.imgstack.reshape(self.d0, self.d1*self.d2*self.d3)
         classes = clf.fit_predict(X_vec) + 1
         cla = np.ndarray(shape=(
-            np.amax(classes), int(self.r*2), int(self.r*2), self.nb_classes))
+            np.amax(classes), int(self.r), int(self.r), self.nb_classes))
         if plot_results:
             rows = int(np.ceil(float(n_components)/5))
             cols = int(np.ceil(float(np.amax(classes))/rows))
@@ -206,7 +159,7 @@ class imlocal:
                     ax.imshow(cla[i], Interpolation='Gaussian')
                 elif self.nb_classes == 1:
                     ax.imshow(cla[i, :, :, 0], cmap='seismic',
-                    Interpolation='Gaussian')
+                              Interpolation='Gaussian')
                 else:
                     raise NotImplementedError(
                         "Can plot only images with 3 and 1 channles")
@@ -1090,9 +1043,10 @@ def update_classes(coordinates,
         Returns:
             Updated coordinates
     """
-    intensities = get_intensities(coordinates, nn_input)
-    intensities_ = np.concatenate(intensities)
+    coordinates_ = copy.deepcopy(coordinates)
     if method == 'threshold':
+        intensities = get_intensities(coordinates_, nn_input)
+        intensities_ = np.concatenate(intensities)
         thresh = kwargs.get('thresh')
         if thresh is None:
             raise AttributeError(
@@ -1100,7 +1054,7 @@ def update_classes(coordinates,
         for i, iarray in enumerate(intensities):
             iarray[iarray < thresh] = 0
             iarray[iarray >= thresh] = 1
-            coordinates[i][:, -1] = iarray
+            coordinates_[i][:, -1] = iarray
         plt.figure(figsize=(5, 5))
         counts = plt.hist(intensities_, bins=20)[0]
         plt.vlines(thresh, np.min(counts), np.max(counts),
@@ -1109,19 +1063,32 @@ def update_classes(coordinates,
         plt.title('Intensities (arb. units)')
         plt.show()
     elif method == 'kmeans':
+        intensities = get_intensities(coordinates_, nn_input)
+        intensities_ = np.concatenate(intensities)
         n_components = kwargs.get('n_components')
-        if thresh is None:
+        if n_components is None:
             raise AttributeError(
                 "Specify number of components ('n_components')")
         kmeans = cluster.KMeans(
             n_clusters=n_components, random_state=42).fit(intensities_[:, None])
         for i, iarray in enumerate(intensities):
-            iarray = 0
-            coordinates[i][:, -1] = kmeans.predict(iarray[:, None])
+            coordinates_[i][:, -1] = kmeans.predict(iarray[:, None])
+    elif method == "gmm_local":
+        n_components = kwargs.get('n_components')
+        window_size = kwargs.get("window_size")
+        coord_class = kwargs.get("coord_class", 0)
+        if None in (n_components, window_size):
+            raise AttributeError(
+                "Specify number of components ('n_components') and window size ('window_size')"
+            )
+        s = imlocal(nn_input, coordinates_, window_size, coord_class)
+        _, _, com_frames = s.gmm(n_components, plot_results=True)
+        for i in range(len(coordinates_)):
+            coordinates_[i] = com_frames[:, :3]
     else:
         raise NotImplementedError(
-            "Choose between 'threshold' and 'kmeans' methods")
-    return coordinates
+            "Choose between 'threshold', 'kmeans', and 'gmm_local' methods")
+    return coordinates_
 
 
 def update_positions(coordinates, nn_input, d=None):
