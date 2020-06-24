@@ -25,7 +25,7 @@ def imstack_():
     test_coord_m = np.load(test_coord_m_)
     test_coord_m = {'0': test_coord_m}
     imstack = atomstat.imlocal(
-        test_nn_output, test_coord_m, crop_size=16, coord_class=1)
+        test_nn_output, test_coord_m, crop_size=32, coord_class=1)
     return imstack
 
 
@@ -36,12 +36,14 @@ def test_pca(imstack_):
     assert_allclose(components, components_desired)
     assert_allclose(Xt, Xt_desired)
 
+
 def test_ica(imstack_):
     test_ica = np.load(test_ica_, allow_pickle=True)
     components_desired, Xt_desired = test_ica[0:2]
     components, Xt, _ = imstack_.ica(4)
     assert_allclose(components, components_desired)
     assert_allclose(Xt, Xt_desired)
+  
     
 def test_nmf(imstack_):
     test_nmf = np.load(test_nmf_, allow_pickle=True)
