@@ -106,12 +106,13 @@ class ensemble_trainer:
         torch.save(ensemble_metadict, self.filename + "_ensemble.tar")
 
         ensemble_state_dict_aver = average_weights(self.ensemble_state_dict)
-        ensemble_aver = trainer_i.net.load_state_dict(ensemble_state_dict_aver)
         ensemble_aver_metadict = copy.deepcopy(trainer_i.meta_state_dict)
         ensemble_aver_metadict["weights"] = ensemble_state_dict_aver
         torch.save(ensemble_aver_metadict, self.filename + "_ensemble_aver_weights.pt")
 
-        return self.ensemble_state_dict, ensemble_aver
+        trainer_i.net.load_state_dict(ensemble_state_dict_aver)
+        
+        return self.ensemble_state_dict, trainer_i.net
 
     @classmethod
     def update_weights(cls, statedict1, statedict2):
