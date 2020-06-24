@@ -67,7 +67,7 @@ class ensemble_trainer:
     def train_ensemble(self,
                        basemodel: Union[OrderedDict, Type[torch.nn.Module]],
                        **kwargs: Dict
-                       ) -> Tuple[Dict[int, Dict[str, torch.Tensor]], Dict[str, torch.Tensor]]:
+                       ) -> Tuple[Dict[int, Dict[str, torch.Tensor]], Type[torch.nn.Module]]:
         """
         Trains ensemble of models starting each time from baseline weights
 
@@ -106,11 +106,12 @@ class ensemble_trainer:
         torch.save(ensemble_metadict, self.filename + "_ensemble.tar")
 
         ensemble_state_dict_aver = average_weights(self.ensemble_state_dict)
+        ensemble_aver = trainer_i.net.load_state_dict(ensemble_state_dict_aver)
         ensemble_aver_metadict = copy.deepcopy(trainer_i.meta_state_dict)
         ensemble_aver_metadict["weights"] = ensemble_state_dict_aver
         torch.save(ensemble_aver_metadict, self.filename + "_ensemble_aver_weights.pt")
 
-        return self.ensemble_state_dict, ensemble_state_dict_aver
+        return self.ensemble_state_dict, ensemble_aver
 
     @classmethod
     def update_weights(cls, statedict1, statedict2):
@@ -149,7 +150,9 @@ def ensemble_predict(predictive_model: Type[torch.nn.Module],
                      ) -> Tuple[Tuple[np.ndarray, np.ndarray],
                                 Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]]:
     """
-    mean and variance/uncertainty) with ensemble of models
+    Predicts mean and variance/uncertainty in image pixels
+    and (optionally) coordinates with ensemble of models
+
     Args:
         predictive_model: model skeleton (can have randomly initialized weights)
         ensemble: nested dictionary with weights of each model in the ensemble
