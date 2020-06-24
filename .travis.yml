@@ -3,11 +3,15 @@ language: python
 python:
     - '3.6'
     - '3.7'
+    - '3.8'
 
 os:
     - linux
 
 cache: pip
+
+before_install:
+  - pip install -U pip
 
 install:
     - python setup.py install
