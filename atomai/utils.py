@@ -1179,25 +1179,29 @@ def combine_classes_(classes_all, classes_to_combine):
     return classes_all
 
 
-def renumerate_classes_(classes):
+def renumerate_classes_(classes, start_from_1=True):
     """
-    Renumerate classes such that they are ordered starting from 1
+    Renumerate classes such that they are ordered starting from 1 or 0
     with an increment of 1
     """
     diff = np.unique(classes) - np.arange(len(np.unique(classes)))
     diff_d = {cl: d for d, cl in zip(diff, np.unique(classes))}
     classes_renum = [cl - diff_d[cl] for cl in classes]
-    return np.array(classes_renum, dtype=np.float)
+    classes_renum = np.array(classes_renum, dtype=np.float)
+    if start_from_1:
+        classes_renum = classes_renum + 1
+    return classes_renum
 
 
-def renumerate_classes(coord_class_dict):
+def renumerate_classes(coord_class_dict, start_from_1=True):
     """
     Renumerate classes in a dictionary from atomnet.locator or atomnet.predictor output
-    such that they are ordered starting from 1 with an increment of 1
+    such that they are ordered starting from 1 or 0 with an increment of 1
     """
     coord_class_dict_ = copy.deepcopy(coord_class_dict)
     for i in range(len(coord_class_dict)):
-        coord_class_dict_[i][:, -1] = renumerate_classes_(coord_class_dict_[i][:, -1])
+        coord_class_dict_[i][:, -1] = renumerate_classes_(
+            coord_class_dict_[i][:, -1], start_from_1=True)
     return coord_class_dict_
 
 
