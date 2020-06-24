@@ -1321,7 +1321,41 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     return lattice_mask
 
 
-def create_multiclass_lattice_mask(lattice, xyz_atoms, *args, **kwargs):
+def create_multiclass_lattice_mask(imgdata, coord_class_dict, *args, **kwargs):
+    """
+    Given a stack of experimental images and dictionary with atomic coordinates and classes
+    creates a ground truth image. Notice that it will round fractional pixels.
+
+    Args:
+        lattice (3D numpy array):
+            Experimental image as 2D numpy array
+        xyz_atoms (N x 3 numpy array):
+            The first two columns are position of atoms.
+            The third column is the intensity/class of each atom.
+        *arg (python function):
+            Function that creates two 2D numpy arrays with atom and
+            corresponding mask for each atomic coordinate. It must have
+            three parameters, 'scale', 'rmask', and 'intensity' that control
+            size and intensity of simulated atom and corresponding atomic mask
+        **scale: int
+            Controls the atom size (width of 2D Gaussian)
+        **rmask: int
+            Controls the atomic mask size
+
+    Returns:
+        4D numpy array with ground truth data or list of 3D numpy arrays
+    """
+    masks = []
+    for i, img in enumerate(imgdata):
+        masks.append(create_multiclass_lattice_mask_(
+                        img, coord_class_dict[i], *args, **kwargs))
+    shapes = [m.shape for m in masks]
+    if len(set(shapes)) <= 1:
+        masks = np.array(masks)
+    return masks
+
+
+def create_multiclass_lattice_mask_(lattice, xyz_atoms, *args, **kwargs):
     """
     Given experimental image and *xyz* atomic coordinates
     creates ground truth image. Notice that it will round fractional pixels.
