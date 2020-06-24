@@ -7,6 +7,7 @@ Utility functions
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+import copy
 import subprocess
 import warnings
 from collections import OrderedDict
@@ -1151,6 +1152,53 @@ def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
     com_all = np.concatenate(com_all, axis=0)
     frames_all = np.concatenate(frames_all, axis=0)
     return subimages_all, com_all, frames_all
+
+
+def combine_classes(coord_class_dict, classes_to_combine, renumerate=True):
+    """
+    Combines classes in a dictionary from atomnet.locator or atomnet.predictor output
+    """
+    coord_class_dict_ = copy.deepcopy(coord_class_dict)
+    for i in range(len(coord_class_dict_)):
+        coord_class_dict_[i][:, -1] = combine_classes_(
+            coord_class_dict_[i][:, -1], classes_to_combine)
+    if renumerate:
+        coord_class_dict_ = renumerate_classes(coord_class_dict_)
+    return coord_class_dict_
+
+
+def combine_classes_(classes_all, classes_to_combine):
+    """
+    Given a list of classes to combine substitutes listed classes
+    with a minimum value from the list
+    """
+    for comb in classes_to_combine:
+        cls_min = min(comb)
+        for c in comb:
+            classes_all[classes_all == c] = cls_min
+    return classes_all
+
+
+def renumerate_classes_(classes):
+    """
+    Renumerate classes such that they are ordered starting from 1
+    with an increment of 1
+    """
+    diff = np.unique(classes) - np.arange(len(np.unique(classes)))
+    diff_d = {cl: d for d, cl in zip(diff, np.unique(classes))}
+    classes_renum = [cl - diff_d[cl] for cl in classes]
+    return np.array(classes_renum, dtype=np.float)
+
+
+def renumerate_classes(coord_class_dict):
+    """
+    Renumerate classes in a dictionary from atomnet.locator or atomnet.predictor output
+    such that they are ordered starting from 1 with an increment of 1
+    """
+    coord_class_dict_ = copy.deepcopy(coord_class_dict)
+    for i in range(len(coord_class_dict)):
+        coord_class_dict_[i][:, -1] = renumerate_classes_(coord_class_dict_[i][:, -1])
+    return coord_class_dict_
 
 
 class MakeAtom:
