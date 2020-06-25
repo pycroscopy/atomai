@@ -108,7 +108,7 @@ class dilUnet(nn.Module):
 
     def forward(self, x):
         """
-        Defines a forward path
+        Defines a forward pass
         """
         # Contracting path
         c1 = self.c1(x)
@@ -205,7 +205,7 @@ class dilnet(nn.Module):
 
     def forward(self, x):
         """
-        Defines a forward path
+        Defines a forward pass
         """
         c1 = self.c1(x)
         d1 = F.max_pool2d(c1, kernel_size=2, stride=2)
@@ -268,7 +268,7 @@ class conv2dblock(nn.Module):
 
     def forward(self, x):
         """
-        Forward path
+        Defines a forward pass
         """
         output = self.block(x)
         return output
@@ -310,7 +310,7 @@ class upsample_block(nn.Module):
 
     def forward(self, x):
         """
-        Defines a forward path
+        Defines a forward pass
         """
         x = F.interpolate(
             x, scale_factor=self.scale_factor, mode=self.mode)
@@ -375,7 +375,7 @@ class dilated_block(nn.Module):
 
     def forward(self, x):
         """
-        Forward path
+        Defines a forward pass
         """
         atrous_layers = []
         for conv_layer in self.atrous_module:
