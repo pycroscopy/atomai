@@ -87,6 +87,9 @@ class ensemble_trainer:
         if n_models is not None:
             self.n_models = n_models
         filename = kwargs.get("filename")
+        training_cycles_ensemble = kwargs.get("training_cycles_ensemble")
+        if training_cycles_ensemble is not None:
+            self.iter_ensemble = training_cycles_ensemble
         if filename is not None:
             self.filename = filename
         print('Training ensemble models:')
