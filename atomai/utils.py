@@ -1401,6 +1401,7 @@ def create_multiclass_lattice_mask_(lattice, xyz_atoms, *args, **kwargs):
         lattice_mask[x-r_m1:x+r_m2, y-r_m1:y+r_m2, atom_ch_d[z]] = mask
     lattice_mask_b = 1 - np.sum(lattice_mask, axis=-1)
     lattice_mask = np.concatenate((lattice_mask, lattice_mask_b[..., None]), axis=-1)
+    lattice_mask[lattice_mask < 0] = 0
     return lattice_mask
 
 
