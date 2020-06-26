@@ -1329,9 +1329,12 @@ def create_multiclass_lattice_mask(imgdata, coord_class_dict, *args, **kwargs):
     Args:
         lattice (3D numpy array):
             Experimental image as 2D numpy array
-        xyz_atoms (N x 3 numpy array):
-            The first two columns are position of atoms.
-            The third column is the intensity/class of each atom.
+        coord_class_dict (dict or N x 3 numpy array):
+            Dictionary with arrays containing coordiantes and classes for each atom/defect
+            In each array, the first two columns are position of atoms.
+            The third column is the "intensity"/class of each atom.
+            It is also possible to pass a single N x 3 ndarray, which will be
+            wrapped into a dictioanry automatically.
         *arg (python function):
             Function that creates two 2D numpy arrays with atom and
             corresponding mask for each atomic coordinate. It must have
@@ -1347,6 +1350,8 @@ def create_multiclass_lattice_mask(imgdata, coord_class_dict, *args, **kwargs):
     """
     if np.ndim(imgdata) == 2:
         imgdata = imgdata[None, ...]
+    if isinstance(coord_class_dict, np.ndarray):
+        coord_class_dict = {0: coord_class_dict}
     masks = []
     for i, img in enumerate(imgdata):
         masks.append(create_multiclass_lattice_mask_(
