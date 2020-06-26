@@ -1387,6 +1387,8 @@ def create_multiclass_lattice_mask_(lattice, xyz_atoms, *args, **kwargs):
     rmask = kwargs.get("rmask", 7)
     lattice_mask = np.zeros(
         (lattice.shape[0], lattice.shape[1], len(np.unique(xyz_atoms[:, -1]))))
+    if 0 in np.unique(xyz_atoms[:, -1]):
+        xyz_atoms[:, -1] = xyz_atoms[:, -1] + 1
     atom_ch_d = {}
     for i, s in enumerate(np.unique(xyz_atoms[:, -1])):
         atom_ch_d[s] = i
