@@ -1345,6 +1345,8 @@ def create_multiclass_lattice_mask(imgdata, coord_class_dict, *args, **kwargs):
     Returns:
         4D numpy array with ground truth data or list of 3D numpy arrays
     """
+    if np.ndim(imgdata) == 2:
+        imgdata = imgdata[None, ...]
     masks = []
     for i, img in enumerate(imgdata):
         masks.append(create_multiclass_lattice_mask_(
@@ -1436,6 +1438,8 @@ def extract_patches(images, masks, patch_size, num_patches, **kwargs):
     and for each image-mask pair it extracts stack of subimages (patches)
     of the selected size.
     """
+    if np.ndim(images) == 2:
+        images = images[None, ...]
     images_aug, masks_aug = [], []
     for im, ma in zip(images, masks):
         im_aug, ma_aug = extract_patches_(
