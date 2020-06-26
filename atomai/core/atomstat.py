@@ -1114,6 +1114,10 @@ def update_positions(coordinates, nn_input, d=None):
     Returns:
         Updated coordinates
     """
+    if isinstance(coordinates, np.ndarray):
+        coordinates = {0: coordinates}
+    if np.ndim(nn_input) == 2:
+        nn_input = nn_input[None, ..., None]
     print('\rRefining atomic positions... ', end="")
     coordinates_r = {}
     for i, (img, coord) in enumerate(zip(nn_input, coordinates.values())):
