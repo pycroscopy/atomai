@@ -1036,7 +1036,7 @@ def update_classes(coordinates,
             Image(s) served as an input to neural network
         method (str):
             Method for intensity-based update of atomic classes
-            ('threshold', 'kmeans', 'gmm_local)
+            ('threshold', 'kmeans', 'gmm_local')
         **thresh (float or int):
             Intensity threshold value. Values above/below are set to 1/0
         **n_components (int):
@@ -1103,13 +1103,14 @@ def update_positions(coordinates, nn_input, d=None):
     peak refinement procedure at each predicted position
 
     Args:
-        coordinates (dict):
-            Output of atomnet.predictor
+        coordinates (dict or ndarray):
+            Dictionary with coordinates (output of atomnet.predictor).
+            Can be also a single N x 3 ndarray.
         nn_input (numpy array):
             Image(s) served as an input to neural network
         d (int):
-        Half of the side of the square box where the fitting is performed;
-        defaults to 1/4 of mean nearest neighbor distance in the system
+            Half of the side of the square box where the fitting is performed;
+            defaults to 1/4 of mean nearest neighbor distance in the system
 
     Returns:
         Updated coordinates
