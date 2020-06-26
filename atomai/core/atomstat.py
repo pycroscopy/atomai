@@ -1029,12 +1029,14 @@ def update_classes(coordinates,
 
     Args:
         coordinates (dict):
-            Output of atomnet.predictor
+            Output of atomnet.predictor. It is also possible to pass a single
+            dictionary value associated with a specific image in a stack. In
+            this case, the same image needs to be passed as 'nn_input'.
         nn_input (numpy array):
             Image(s) served as an input to neural network
         method (str):
             Method for intensity-based update of atomic classes
-            ('threshold' or 'kmeans')
+            ('threshold', 'kmeans', 'gmm_local)
         **thresh (float or int):
             Intensity threshold value. Values above/below are set to 1/0
         **n_components (int):
@@ -1043,6 +1045,10 @@ def update_classes(coordinates,
         Returns:
             Updated coordinates
     """
+    if isinstance(coordinates, np.ndarray):
+        coordinates = {0: coordinates}
+    if np.ndim(nn_input) == 2:
+        nn_input = nn_input[None, ..., None]
     coordinates_ = copy.deepcopy(coordinates)
     if method == 'threshold':
         intensities = get_intensities(coordinates_, nn_input)
