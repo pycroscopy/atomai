@@ -7,6 +7,7 @@ Utility functions
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+import copy
 import subprocess
 import warnings
 from collections import OrderedDict
@@ -295,6 +296,26 @@ def cv_resize(img, rs, round_=False):
     return img_rs
 
 
+def cv_resize_stack(imgdata, rs, round_=False):
+    """
+    Resizes a 3D stack of images
+
+    Args:
+        imgdata (3D numpy array): stack of 3D images to be resized
+        rs (tuple or int): target height and width
+        round_(bool): rounding (in case of labeled pixels)
+
+    Returns:
+        Resized image
+    """
+    rs = [rs, rs] if isinstance(rs, int) else rs
+    imgdata_rs = np.zeros((imgdata.shape[0], rs[0], rs[1]))
+    for i, img in enumerate(imgdata):
+        img_rs = cv_resize(img, rs, round_)
+        imgdata_rs[i] = img_rs
+    return imgdata_rs
+
+
 def img_pad(image_data, pooling):
     """
     Pads the image if its size (w, h)
@@ -369,6 +390,32 @@ def get_nn_distances_(coordinates, nn=2, upper_bound=None):
     nn = np.delete(nn, idx_to_del, axis=0)
     d = np.delete(d, idx_to_del, axis=0)
     return d[:, 1:], coordinates[nn]
+
+
+def transform_coordinates(coord, phi, coord_dx):
+    """
+    Pytorch-based 2D rotation of coordinates followed by translation.
+    Operates on batches.
+
+    Args:
+        coord (numpy array or torch tensor): batch with initial coordinates
+        phi (float): rotational angle in rad
+        coord_dx (numpy array or torch tensor): translation vector
+
+    Returns:
+        Transformed coordinates batch
+    """
+
+    if isinstance(coord, np.ndarray):
+        coord = torch.from_numpy(coord).float()
+    if isinstance(coord_dx, np.ndarray):
+        coord_dx = torch.from_numpy(coord_dx).float()
+    rotmat_r1 = torch.stack([torch.cos(phi), torch.sin(phi)], 1)
+    rotmat_r2 = torch.stack([-torch.sin(phi), torch.cos(phi)], 1)
+    rotmat = torch.stack([rotmat_r1, rotmat_r2], axis=1)
+    coord = torch.bmm(coord, rotmat)
+
+    return coord + coord_dx
 
 
 def get_nn_distances(coordinates, nn=2, upper_bound=None):
@@ -653,6 +700,66 @@ def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='below'):
     return blob_dict
 
 
+class subimg_trajectories:
+    """
+    Extracts a trajectory of a single defect/atom from image stack
+    together with the associated subimages
+
+    Args:
+        imgdata (np.ndarray):
+            Stack of images (can be raw data or NN output)
+        coord_class_dict (dict):
+            Dictionary of atomic coordinates
+            (same format as produced by atomnet.locator)
+        window_size (int):
+            size of window for subimage cropping
+        min_length (int):
+            Minimal length of trajectory to return
+        rmax (int):
+            Max allowed distance (projected on xy plane) between defect
+            in one frame and the position of its nearest neighbor in the next one
+    """
+    def __init__(self, imgdata, coord_class_dict, window_size, min_length=0, rmax=10):
+        self.imgdata = imgdata
+        self.coord_class_dict = coord_class_dict
+        self.r = window_size
+        self.min_length = min_length
+        self.rmax = rmax
+
+    def get_trajectory(self, img, start_coord):
+
+        def crop_(img_, c_):
+            cx = int(np.around(c_[0]))
+            cy = int(np.around(c_[1]))
+            img_cr = img_[cx-self.r//2:cx+self.r//2, cy-self.r//2:cy+self.r//2]
+            return img_cr
+
+        flow, frames, img_cr_all = [], [], []
+        c0 = start_coord
+        for k, c in self.coord_class_dict.items():
+            d, index = spatial.cKDTree(
+                c[:, :2]).query(c0, distance_upper_bound=self.rmax)
+            if d != np.inf:
+                img_cr = crop_(self.imgdata[k], c[index])
+                if img_cr.shape[0:2] == (self.r, self.r):
+                    flow.append(c[index])
+                    img_cr_all.append(img_cr)
+                    frames.append(k)
+                    c0 = c[index][:2]
+        return np.array(flow), np.array(frames), np.array(img_cr_all)
+
+    def get_all_trajectories(self):
+        trajectories_all, frames_all = [], []
+        subimgs_all = []
+        for ck in self.coord_class_dict[list(self.coord_class_dict.keys())[0]][:,:2]:
+            flow, frames, subimgs = self.get_trajectory(self.coord_class_dict, ck)
+            if len(flow) > self.min_length:
+                trajectories_all.append(flow)
+                frames_all.append(frames)
+                subimgs_all.append(subimgs)
+        return trajectories_all, frames_all, subimgs_all
+
+
 ##########################
 # NN structure inference #
 ##########################
@@ -766,19 +873,26 @@ def plot_trajectories(traj, frames, **kwargs):
             and the 3rd columd are classes
         frames ((n,) ndarray):
             numpy array with frame numbers
+        **lv (int):
+            latent variable value to visualize (Default: 1)
         **fov (int or list):
             field of view or scan size
         **fsize (int):
-            figure size
+            figure size (Default: 6)
         **cmap (str):
-            colormap (default: jet)
+            colormap (Default: jet)
     """
     fov = kwargs.get("fov")
     cmap = kwargs.get("cmap", "jet")
     fsize = kwargs.get("fsize", 6)
     r_coord = np.linalg.norm(traj[:, :2], axis=1)
+    if traj.shape[1] == 3:
+        c_ = traj[:, -1]
+    elif traj.shape[1] > 3:
+        lv = kwargs.get("lv", 1)
+        c_ = traj[:, 1 + lv]
     plt.figure(figsize=(fsize*2, fsize))
-    plt.scatter(frames, r_coord, c=traj[:, -1], cmap=cmap)
+    plt.scatter(frames, r_coord, c=c_, cmap=cmap)
     if fov:
         if isinstance(fov, list) and len(fov) == 2:
             fov = np.sqrt(fov[0]**2 + fov[1]**2)
@@ -790,7 +904,8 @@ def plot_trajectories(traj, frames, **kwargs):
     plt.xlabel("Time step (a.u.)", fontsize=18)
     plt.ylabel("Position vector", fontsize=18)
     cbar = plt.colorbar()
-    cbar.set_label("States", fontsize=16)
+    cbar_lbl = "States" if traj.shape[1] == 3 else "Latent variable {}".format(lv)
+    cbar.set_label(cbar_lbl, fontsize=16)
     plt.clabel
     plt.title("Trajectory", fontsize=20)
     plt.show()
@@ -899,6 +1014,264 @@ def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
 #############################
 # Training data preparation #
 #############################
+
+def get_imgstack(imgdata, coord, r):
+    """
+    Extracts subimages centered at specified coordinates
+    for a single image
+
+    Args:
+        imgdata (3D numpy array):
+            Prediction of a neural network with dimensions
+            :math:`height \\times width \\times n channels`
+        coord (N x 2 numpy array):
+            (x, y) coordinates
+        r (int):
+            Window size
+
+    Returns:
+        2-element tuple containing
+        i) Stack of subimages and
+        ii) (x, y) coordinates of their centers
+    """
+    img_cr_all = []
+    com = []
+    for c in coord:
+        cx = int(np.around(c[0]))
+        cy = int(np.around(c[1]))
+        img_cr = np.copy(
+            imgdata[cx-r//2:cx+r//2, cy-r//2:cy+r//2])
+        if img_cr.shape[0:2] == (int(r), int(r)):
+            img_cr_all.append(img_cr[None, ...])
+            com.append(c[None, ...])
+    if len(img_cr_all) == 0:
+        return None, None
+    img_cr_all = np.concatenate(img_cr_all, axis=0)
+    com = np.concatenate(com, axis=0)
+    return img_cr_all, com
+
+
+def imcrop_randpx(img, window_size, num_images, random_state=0):
+    """
+    Extracts subimages at random pixels
+
+    Returns:
+        2-element tuple containing
+        i) Stack of subimages and
+        ii) (x, y) coordinates of their centers
+    """
+    list_xy = []
+    com_x, com_y = [], []
+    n = 0
+    while n < num_images:
+        x = np.random.randint(
+            window_size // 2 + 1, img.shape[0] - window_size // 2 - 1)
+        y = np.random.randint(
+            window_size // 2 + 1, img.shape[1] - window_size // 2 - 1)
+        if (x, y) not in list_xy:
+            com_x.append(x)
+            com_y.append(y)
+            list_xy.append((x, y))
+            n += 1
+    com_xy = np.concatenate(
+        (np.array(com_x)[:, None], np.array(com_y)[:, None]),
+        axis=1)
+    subimages, com = get_imgstack(img, com_xy, window_size)
+    return subimages, com
+
+
+def imcrop_randcoord(img, coord, window_size, num_images, random_state=0):
+    """
+    Extracts subimages at random coordinates
+
+    Returns:
+        2-element tuple containing
+        i) Stack of subimages and
+        ii) (x, y) coordinates of their centers
+    """
+    list_idx, com_xy = [], []
+    n = 0
+    while n < num_images:
+        i = np.random.randint(len(coord))
+        if i not in list_idx:
+            com_xy.append(coord[i].tolist())
+            list_idx.append(i)
+            n += 1
+    com_xy = np.array(com_xy)
+    subimages, com = get_imgstack(img, com_xy, window_size)
+    return subimages, com
+
+
+def extract_random_subimages(imgdata, window_size, num_images,
+                             coordinates=None, **kwargs):
+    """
+    Extracts randomly subimages centered at certain atom class/type
+    (usually from a neural network output) or just at random pixels
+    (if coordinates are not known/available)
+
+    Args:
+        imgdata (numpy array): 4D stack of images (n, height, width, channel)
+        window_size (int):
+            Side of the square for subimage cropping
+        num_images (int): number of images to extract from each "frame" in the stack
+        coordinates (dict): Optional. Prediction from atomnet.locator
+            (can be from other source but must be in the same format)
+            Each element is a :math:`N \\times 3` numpy array,
+            where *N* is a number of detected atoms/defects,
+            the first 2 columns are *xy* coordinates
+            and the third columns is class (starts with 0)
+        **coord_class (int):
+            Class of atoms/defects around around which the subimages
+            will be cropped (3rd column in the atomnet.locator output)
+
+    Returns:
+        3-element tuple containing
+        i) stack of subimages,
+        ii) (x, y) coordinates of their centers,
+        iii) frame number associated with each subimage
+
+    """
+    if coordinates:
+        coord_class = kwargs.get("coord_class", 0)
+    if np.ndim(imgdata) < 4:
+        imgdata = imgdata[..., None]
+    subimages_all = np.zeros(
+        (num_images * imgdata.shape[0],
+         window_size, window_size, imgdata.shape[-1]))
+    com_all = np.zeros((num_images * imgdata.shape[0], 2))
+    frames_all = np.zeros((num_images * imgdata.shape[0]))
+    for i, img in enumerate(imgdata):
+        if coordinates is None:
+            stack_i, com_i = imcrop_randpx(
+                img, window_size, num_images, random_state=i)
+        else:
+            coord = coordinates[i]
+            coord = coord[coord[:, -1] == coord_class]
+            coord = coord[:, :2]
+            coord = remove_edge_coord(coord, imgdata.shape[1:3], window_size // 2 + 1)
+            if num_images > len(coord):
+                raise ValueError(
+                    "Number of images cannot be greater than the available coordinates")
+            stack_i, com_i = imcrop_randcoord(
+                img, coord, window_size, num_images, random_state=i)
+        subimages_all[i * num_images: (i + 1) * num_images] = stack_i
+        com_all[i * num_images: (i + 1) * num_images] = com_i
+        frames_all[i * num_images: (i + 1) * num_images] = np.ones(len(com_i), int) * i
+    return subimages_all, com_all, frames_all
+
+
+def remove_edge_coord(coordinates, dim, dist_edge):
+    """
+    Removes coordinates at the image edges
+    """
+
+    def coord_edges(coordinates, h, w):
+        return [coordinates[0] > w - dist_edge,
+                coordinates[0] < dist_edge,
+                coordinates[1] > h - dist_edge,
+                coordinates[1] < dist_edge]
+
+    h, w = dim
+    coord_to_rem = [
+                    idx for idx, c in enumerate(coordinates)
+                    if any(coord_edges(c, h, w))
+                    ]
+    coord_to_rem = np.array(coord_to_rem, dtype=int)
+    coordinates = np.delete(coordinates, coord_to_rem, axis=0)
+    return coordinates
+
+
+def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
+    """
+    Extracts subimages centered at certain atom class/type
+    (usually from a neural network output)
+
+    Args:
+        imgdata (numpy array): 4D stack of images (n, height, width, channel)
+        coordinates (dict): Prediction from atomnet.locator
+            (can be from other source but must be in the same format)
+            Each element is a :math:`N \\times 3` numpy array,
+            where *N* is a number of detected atoms/defects,
+            the first 2 columns are *xy* coordinates
+            and the third columns is class (starts with 0)
+        window_size (int):
+            Side of the square for subimage cropping
+        coord_class (int):
+            Class of atoms/defects around around which the subimages
+            will be cropped (3rd column in the atomnet.locator output)
+
+    Returns:
+        3-element tuple containing
+        i) stack of subimages,
+        ii) (x, y) coordinates of their centers,
+        iii) frame number associated with each subimage
+    """
+    subimages_all, com_all, frames_all = [], [], []
+    for i, (img, coord) in enumerate(
+            zip(imgdata, coordinates.values())):
+        coord_i = coord[np.where(coord[:, 2] == coord_class)][:, :2]
+        stack_i, com_i = get_imgstack(img, coord_i, window_size)
+        if stack_i is None:
+            continue
+        subimages_all.append(stack_i)
+        com_all.append(com_i)
+        frames_all.append(np.ones(len(com_i), int) * i)
+    subimages_all = np.concatenate(subimages_all, axis=0)
+    com_all = np.concatenate(com_all, axis=0)
+    frames_all = np.concatenate(frames_all, axis=0)
+    return subimages_all, com_all, frames_all
+
+
+def combine_classes(coord_class_dict, classes_to_combine, renumerate=True):
+    """
+    Combines classes in a dictionary from atomnet.locator or atomnet.predictor output
+    """
+    coord_class_dict_ = copy.deepcopy(coord_class_dict)
+    for i in range(len(coord_class_dict_)):
+        coord_class_dict_[i][:, -1] = combine_classes_(
+            coord_class_dict_[i][:, -1], classes_to_combine)
+    if renumerate:
+        coord_class_dict_ = renumerate_classes(coord_class_dict_)
+    return coord_class_dict_
+
+
+def combine_classes_(classes_all, classes_to_combine):
+    """
+    Given a list of classes to combine substitutes listed classes
+    with a minimum value from the list
+    """
+    for comb in classes_to_combine:
+        cls_min = min(comb)
+        for c in comb:
+            classes_all[classes_all == c] = cls_min
+    return classes_all
+
+
+def renumerate_classes_(classes, start_from_1=True):
+    """
+    Renumerate classes such that they are ordered starting from 1 or 0
+    with an increment of 1
+    """
+    diff = np.unique(classes) - np.arange(len(np.unique(classes)))
+    diff_d = {cl: d for d, cl in zip(diff, np.unique(classes))}
+    classes_renum = [cl - diff_d[cl] for cl in classes]
+    classes_renum = np.array(classes_renum, dtype=np.float)
+    if start_from_1:
+        classes_renum = classes_renum + 1
+    return classes_renum
+
+
+def renumerate_classes(coord_class_dict, start_from_1=True):
+    """
+    Renumerate classes in a dictionary from atomnet.locator or atomnet.predictor output
+    such that they are ordered starting from 1 or 0 with an increment of 1
+    """
+    coord_class_dict_ = copy.deepcopy(coord_class_dict)
+    for i in range(len(coord_class_dict)):
+        coord_class_dict_[i][:, -1] = renumerate_classes_(
+            coord_class_dict_[i][:, -1], start_from_1=True)
+    return coord_class_dict_
+
 
 class MakeAtom:
     """
@@ -1016,7 +1389,48 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     return lattice_mask
 
 
-def create_multiclass_lattice_mask(lattice, xyz_atoms, *args, **kwargs):
+def create_multiclass_lattice_mask(imgdata, coord_class_dict, *args, **kwargs):
+    """
+    Given a stack of experimental images and dictionary with atomic coordinates and classes
+    creates a ground truth image. Notice that it will round fractional pixels.
+
+    Args:
+        lattice (3D numpy array):
+            Experimental image as 2D numpy array
+        coord_class_dict (dict or N x 3 numpy array):
+            Dictionary with arrays containing coordiantes and classes for each atom/defect
+            In each array, the first two columns are position of atoms.
+            The third column is the "intensity"/class of each atom.
+            It is also possible to pass a single N x 3 ndarray, which will be
+            wrapped into a dictioanry automatically.
+        *arg (python function):
+            Function that creates two 2D numpy arrays with atom and
+            corresponding mask for each atomic coordinate. It must have
+            three parameters, 'scale', 'rmask', and 'intensity' that control
+            size and intensity of simulated atom and corresponding atomic mask
+        **scale: int
+            Controls the atom size (width of 2D Gaussian)
+        **rmask: int
+            Controls the atomic mask size
+
+    Returns:
+        4D numpy array with ground truth data or list of 3D numpy arrays
+    """
+    if np.ndim(imgdata) == 2:
+        imgdata = imgdata[None, ...]
+    if isinstance(coord_class_dict, np.ndarray):
+        coord_class_dict = {0: coord_class_dict}
+    masks = []
+    for i, img in enumerate(imgdata):
+        masks.append(create_multiclass_lattice_mask_(
+                        img, coord_class_dict[i], *args, **kwargs))
+    shapes = [m.shape for m in masks]
+    if len(set(shapes)) <= 1:
+        masks = np.array(masks)
+    return masks
+
+
+def create_multiclass_lattice_mask_(lattice, xyz_atoms, *args, **kwargs):
     """
     Given experimental image and *xyz* atomic coordinates
     creates ground truth image. Notice that it will round fractional pixels.
@@ -1048,6 +1462,8 @@ def create_multiclass_lattice_mask(lattice, xyz_atoms, *args, **kwargs):
     rmask = kwargs.get("rmask", 7)
     lattice_mask = np.zeros(
         (lattice.shape[0], lattice.shape[1], len(np.unique(xyz_atoms[:, -1]))))
+    if 0 in np.unique(xyz_atoms[:, -1]):
+        xyz_atoms[:, -1] = xyz_atoms[:, -1] + 1
     atom_ch_d = {}
     for i, s in enumerate(np.unique(xyz_atoms[:, -1])):
         atom_ch_d[s] = i
@@ -1062,6 +1478,7 @@ def create_multiclass_lattice_mask(lattice, xyz_atoms, *args, **kwargs):
         lattice_mask[x-r_m1:x+r_m2, y-r_m1:y+r_m2, atom_ch_d[z]] = mask
     lattice_mask_b = 1 - np.sum(lattice_mask, axis=-1)
     lattice_mask = np.concatenate((lattice_mask, lattice_mask_b[..., None]), axis=-1)
+    lattice_mask[lattice_mask < 0] = 0
     return lattice_mask
 
 
@@ -1094,6 +1511,8 @@ def extract_patches(images, masks, patch_size, num_patches, **kwargs):
     and for each image-mask pair it extracts stack of subimages (patches)
     of the selected size.
     """
+    if np.ndim(images) == 2:
+        images = images[None, ...]
     images_aug, masks_aug = [], []
     for im, ma in zip(images, masks):
         im_aug, ma_aug = extract_patches_(

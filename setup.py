@@ -3,7 +3,7 @@ __copyright__ = "Copyright Maxim Ziatdinov (2019)"
 __maintainer__ = "Maxim Ziatdinov"
 __email__ = "maxim.ziatdinov@ai4microcopy.com"
 
-from setuptools import setup
+from setuptools import setup, find_packages
 import os
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,11 +23,11 @@ if __name__ == "__main__":
         author='Maxim Ziatdinov',
         author_email='maxim.ziatdinov@ai4microcopy.com',
         license='MIT license',
-        packages=['atomai'],
+        packages=find_packages(include=['atomai', 'atomai.*']),
         zip_safe=False,
         install_requires=[
             'torch>=1.0.0',
-            'numpy>=1.16.4',
+            'numpy>=1.18.5',
             'scipy>=1.3.0',
             'scikit-learn>=0.22.1',
             'scikit-image==0.16.2',

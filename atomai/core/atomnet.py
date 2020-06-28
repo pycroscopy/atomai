@@ -16,8 +16,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-import atomai.losses_metrics as losses_metrics_
-from atomai.models import dilnet, dilUnet
+import atomai.core.losses_metrics as losses_metrics_
+from atomai.core.models import dilnet, dilUnet
 from atomai.utils import (Hook, cv_thresh, find_com, gpu_usage_map, img_pad,
                           img_resize, mock_forward, peak_refinement, datatransform,
                           plot_losses, preprocess_training_data, torch_format,
@@ -465,12 +465,8 @@ class predictor:
         return images_numpy, decoded_imgs
 
     def run(self):
-        warn_msg = (f"The output of predictor.run() has changed from "
-        f"'nn_input, nn_output' to 'nn_input, (nn_output, coordinates)'. "
-        f"Example: 'nn_input, (nn_output, coordinates) = predictor(args).run()'")
         start_time = time.time()
         images, decoded_imgs = self.decode()
-        warnings.warn(warn_msg, UserWarning)
         coordinates = locator(decoded_imgs, self.thresh).run()
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
