@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Type, Union
+from typing import Dict, Tuple, Type, Union, List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +9,7 @@ from scipy.stats import norm
 from sklearn.model_selection import train_test_split
 
 from atomai.core import models
-from atomai.utils import transform_coordinates
+from atomai.utils import transform_coordinates, subimg_trajectories
 
 
 class EncoderNet(nn.Module):
@@ -335,6 +335,38 @@ class EncoderDecoder:
             decoded_all.append(self.decode_(z_sample))
         decoded_all = np.concatenate(decoded_all, axis=0)
         return decoded_all
+
+    def encode_trajectories(self,
+                            imgdata: np.ndarray,
+                            coord_class_dict: Dict[int, np.ndarray],
+                            window_size: int,
+                            min_length: int,
+                            rmax: int,
+                            **kwargs: Dict) -> Dict[str, List[np.ndarray]]:
+        """
+        Calculates trajectories and latent variable value
+        for each point in a trajectory.
+
+        Args:
+            imgdata: NN output (preferable) or raw data
+            coord_class_dict: atomic/defect/particle coordinates
+            window_size: size of subimages to crop
+            min_length: minimum length of trajectory to be included
+            rmax: maximum allowed distance (projected on xy plane) between defect
+                in one frame and the position of its nearest neigbor in the next one
+            **num_batches: number of batches for self.encode (Default: 10)
+
+        """
+        t = subimg_trajectories(
+                imgdata, coord_class_dict, window_size, min_length, rmax)
+        trajectories, frames, subimgs_all = t.get_all_trajectories()
+        trajectories_enc_all = []
+        for traj, subimgs in zip(trajectories, subimgs_all):
+            z_mean, _ = self.encode(
+                subimgs, num_batches=kwargs.get("num_batches", 10))
+            traj_enc = np.concatenate((traj[:, :2], z_mean), axis=-1)
+            trajectories_enc_all.append(traj_enc)
+        return trajectories_enc_all, frames
 
     def manifold2d(self, **kwargs: Dict) -> None:
         """

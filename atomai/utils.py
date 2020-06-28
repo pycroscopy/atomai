@@ -700,6 +700,66 @@ def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='below'):
     return blob_dict
 
 
+class subimg_trajectories:
+    """
+    Extracts a trajectory of a single defect/atom from image stack
+    together with the associated subimages
+
+    Args:
+        imgdata (np.ndarray):
+            Stack of images (can be raw data or NN output)
+        coord_class_dict (dict):
+            Dictionary of atomic coordinates
+            (same format as produced by atomnet.locator)
+        window_size (int):
+            size of window for subimage cropping
+        min_length (int):
+            Minimal length of trajectory to return
+        rmax (int):
+            Max allowed distance (projected on xy plane) between defect
+            in one frame and the position of its nearest neighbor in the next one
+    """
+    def __init__(self, imgdata, coord_class_dict, window_size, min_length=0, rmax=10):
+        self.imgdata = imgdata
+        self.coord_class_dict = coord_class_dict
+        self.r = window_size
+        self.min_length = min_length
+        self.rmax = rmax
+
+    def get_trajectory(self, img, start_coord):
+
+        def crop_(img_, c_):
+            cx = int(np.around(c_[0]))
+            cy = int(np.around(c_[1]))
+            img_cr = img_[cx-self.r//2:cx+self.r//2, cy-self.r//2:cy+self.r//2]
+            return img_cr
+
+        flow, frames, img_cr_all = [], [], []
+        c0 = start_coord
+        for k, c in self.coord_class_dict.items():
+            d, index = spatial.cKDTree(
+                c[:, :2]).query(c0, distance_upper_bound=self.rmax)
+            if d != np.inf:
+                img_cr = crop_(self.imgdata[k], c[index])
+                if img_cr.shape[0:2] == (self.r, self.r):
+                    flow.append(c[index])
+                    img_cr_all.append(img_cr)
+                    frames.append(k)
+                    c0 = c[index][:2]
+        return np.array(flow), np.array(frames), np.array(img_cr_all)
+
+    def get_all_trajectories(self):
+        trajectories_all, frames_all = [], []
+        subimgs_all = []
+        for ck in self.coord_class_dict[list(self.coord_class_dict.keys())[0]][:,:2]:
+            flow, frames, subimgs = self.get_trajectory(self.coord_class_dict, ck)
+            if len(flow) > self.min_length:
+                trajectories_all.append(flow)
+                frames_all.append(frames)
+                subimgs_all.append(subimgs)
+        return trajectories_all, frames_all, subimgs_all
+
+
 ##########################
 # NN structure inference #
 ##########################
@@ -813,19 +873,26 @@ def plot_trajectories(traj, frames, **kwargs):
             and the 3rd columd are classes
         frames ((n,) ndarray):
             numpy array with frame numbers
+        **lv (int):
+            latent variable value to visualize (Default: 1)
         **fov (int or list):
             field of view or scan size
         **fsize (int):
-            figure size
+            figure size (Default: 6)
         **cmap (str):
-            colormap (default: jet)
+            colormap (Default: jet)
     """
     fov = kwargs.get("fov")
     cmap = kwargs.get("cmap", "jet")
     fsize = kwargs.get("fsize", 6)
     r_coord = np.linalg.norm(traj[:, :2], axis=1)
+    if traj.shape[1] == 3:
+        c_ = traj[:, -1]
+    elif traj.shape[1] > 3:
+        lv = kwargs.get("lv", 1)
+        c_ = traj[:, 1 + lv]
     plt.figure(figsize=(fsize*2, fsize))
-    plt.scatter(frames, r_coord, c=traj[:, -1], cmap=cmap)
+    plt.scatter(frames, r_coord, c=c_, cmap=cmap)
     if fov:
         if isinstance(fov, list) and len(fov) == 2:
             fov = np.sqrt(fov[0]**2 + fov[1]**2)
@@ -837,7 +904,8 @@ def plot_trajectories(traj, frames, **kwargs):
     plt.xlabel("Time step (a.u.)", fontsize=18)
     plt.ylabel("Position vector", fontsize=18)
     cbar = plt.colorbar()
-    cbar.set_label("States", fontsize=16)
+    cbar_lbl = "States" if traj.shape[1] == 3 else "Latent variable {}".format(lv)
+    cbar.set_label(cbar_lbl, fontsize=16)
     plt.clabel
     plt.title("Trajectory", fontsize=20)
     plt.show()
