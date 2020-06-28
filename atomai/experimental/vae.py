@@ -223,7 +223,10 @@ class EncoderDecoder:
 
         self.coord = coord
 
-    def load_weights(self, filepath):
+    def load_weights(self, filepath: str) -> None:
+        """
+        Loads saved weights
+        """
         weights = torch.load(filepath)
         encoder_weights = weights["encoder"]
         decoder_weights = weights["decoder"]
@@ -232,7 +235,10 @@ class EncoderDecoder:
         self.decoder_net.load_state_dict(decoder_weights)
         self.decoder_net.eval()
 
-    def save_weights(self, *args):
+    def save_weights(self, *args: List[str]) -> None:
+        """
+        Saves trained weights
+        """
         try:
             savepath = args[0]
         except IndexError:
@@ -246,6 +252,10 @@ class EncoderDecoder:
                **kwargs: Dict) -> Tuple[np.ndarray]:
         """
         Encodes input image data using a trained VAE's encoder
+
+        Args:
+            x_test: image array to encode
+            **num_batches: number of batches (Default: 10)
         """
         def inference() -> np.ndarray:
             with torch.no_grad():
@@ -317,6 +327,10 @@ class EncoderDecoder:
         Forward prediction with uncertainty quantification by sampling from
         the encoded mean and std. Works ony for regular VAE
         (without rotational / translational invariance)
+
+        Args:
+            x_new: image array to encode
+            **num_samples: number of samples to generate from normal distribution
         """
         num_samples = kwargs.get("num_samples", 32)
         if isinstance(x_new, np.ndarray):
@@ -342,7 +356,8 @@ class EncoderDecoder:
                             window_size: int,
                             min_length: int,
                             rmax: int,
-                            **kwargs: Dict) -> Dict[str, List[np.ndarray]]:
+                            **kwargs: Dict
+                            ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         Calculates trajectories and latent variable value
         for each point in a trajectory.
@@ -355,7 +370,6 @@ class EncoderDecoder:
             rmax: maximum allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor in the next one
             **num_batches: number of batches for self.encode (Default: 10)
-
         """
         t = subimg_trajectories(
                 imgdata, coord_class_dict, window_size, min_length, rmax)
@@ -373,6 +387,9 @@ class EncoderDecoder:
         Performs mapping from latent space to data space allowing the learned
         manifold to be visualized. This works only for 2d latent variable
         (not counting angle & translation dimensions)
+
+        Args:
+            **cmap: color map (Default: gnuplot)
         """
         n, m = self.im_dim
         d = kwargs.get("d", 9)
