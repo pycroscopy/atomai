@@ -243,7 +243,7 @@ class ensemble_predictor:
             coord_var_all = np.zeros(coord_mu_all.shape)
 
         for i in range(num_batches):
-            print("\rBatch {}/{}".format(i+1, self.num_batches), end="")
+            print("\rBatch {}/{}".format(i+1, num_batches), end="")
             x_i = imgdata[i*batch_size:(i+1)*batch_size]
             (img_mu_i, img_var_i), (coord_mu_i, coord_var_i) = self.predict(x_i)
             img_mu_all[i*batch_size:(i+1)*batch_size] = img_mu_i
