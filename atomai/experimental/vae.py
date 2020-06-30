@@ -117,8 +117,7 @@ class rDecoderNet(nn.Module):
 
 class DecoderNet(nn.Module):
     """
-    Spatial decoder network
-    (based on https://arxiv.org/abs/1909.11663)
+    Decoder network
 
     Args:
 
@@ -177,8 +176,9 @@ class EncoderDecoder:
     Args:
         im_dim: xy planar dimensions (height, width) of input images
         latent_dim: latent dimension in deep latent variable model
-        conv_encoder: use convolutional layers in encoder
         seed: seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder: use convolutional layers in encoder
+        **conv_decoder: use convolutional layers in encoder (doesn't apply to spatial decoder)
         **numlayers_encoder: number of layers in encoder (Default: 2)
         **numlayers_decoder: number of layers in decoder (Default: 2)
         **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
@@ -426,8 +426,8 @@ class rVAE(EncoderDecoder):
         training_cycles: number of training 'epochs' (Default: 300)
         minibatch_size: size of training batch for each training epoch (Default: 200)
         test_size: proportion of the dataset for model evaluation (Default: 0.15)
-        conv_encoder: use convolutional layers in encoder
         seed: seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder: use convolutional layers in encoder
         **numlayers_encoder: number of layers in encoder (Default: 2)
         **numlayers_decoder: number of layers in decoder (Default: 2)
         **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
