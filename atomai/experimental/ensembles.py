@@ -157,7 +157,6 @@ class ensemble_predictor:
         predictive_model: model skeleton (can have randomly initialized weights)
         ensemble: nested dictionary with weights of each model in the ensemble
         calculate_coordinates: computes atomic coordinates for each prediction
-        **num_batches: number of batches (for large datasets to make sure everything fits into memory)
         **eps: DBSCAN epsilon for clustering coordinates
         **threshold: value at which a neural network output is thresholded for calculating coordinates
         **num_classes: number of classes in the classification scheme
@@ -186,7 +185,6 @@ class ensemble_predictor:
             imsize = [hook.output.shape[-1] for hook in hookF]
             self.downsample_factor = max(imsize) / min(imsize)
 
-        self.num_batches = kwargs.get("num_batches", 10)
         self.calculate_coordinates = calculate_coordinates
         if self.calculate_coordinates:
             self.eps = kwargs.get("eps", 0.5)
@@ -222,7 +220,8 @@ class ensemble_predictor:
         return (nn_output_mean, nn_output_var), (coord_mean, coord_var)
 
     def run(self,
-            imgdata: np.ndarray
+            imgdata: np.ndarray,
+            **kwargs: Dict
             ) -> Tuple[Tuple[np.ndarray, np.ndarray],
                        Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]]:
         """
@@ -230,10 +229,12 @@ class ensemble_predictor:
 
         Args:
             imgdata: 2D experimental image or 3D image stack
+            **num_batches: number of batches (for large datasets to make sure everything fits into memory)
         """
         if np.ndim(imgdata) == 2:
             imgdata = np.expand_dims(imgdata, axis=0)
-        batch_size = len(imgdata) // self.num_batches
+        num_batches = kwargs.get("num_batches", 10)
+        batch_size = len(imgdata) // num_batches
         img_mu_all = np.zeros((*imgdata.shape[0:3], self.num_classes))
         img_var_all = np.zeros(img_mu_all.shape)
         coord_mu_all, coord_var_all = None, None
@@ -241,7 +242,7 @@ class ensemble_predictor:
             coord_mu_all = np.zeros((imgdata.shape[0], 3))
             coord_var_all = np.zeros(coord_mu_all.shape)
 
-        for i in range(self.num_batches):
+        for i in range(num_batches):
             print("\rBatch {}/{}".format(i+1, self.num_batches), end="")
             x_i = imgdata[i*batch_size:(i+1)*batch_size]
             (img_mu_i, img_var_i), (coord_mu_i, coord_var_i) = self.predict(x_i)
