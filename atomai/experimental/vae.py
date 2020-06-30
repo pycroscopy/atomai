@@ -389,6 +389,7 @@ class EncoderDecoder:
         (not counting angle & translation dimensions)
 
         Args:
+            **d: grid size
             **cmap: color map (Default: gnuplot)
         """
         n, m = self.im_dim
