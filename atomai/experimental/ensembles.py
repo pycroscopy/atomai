@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import torch
 from atomai.core import atomnet, atomstat, models
-from atomai.utils import average_weights, Hook, mock_forward
+from atomai.utils import average_weights, Hook, mock_forward, img_pad
 
 
 class ensemble_trainer:
@@ -200,6 +200,7 @@ class ensemble_predictor:
         Args:
             x_new: batch of images
         """
+        x_new = img_pad(x_new, self.downsample_factor)
         batch_dim, img_h, img_w = x_new.shape
         nn_output_ensemble = np.zeros((
             len(self.ensemble), batch_dim, img_h, img_w, self.num_classes))
@@ -233,6 +234,7 @@ class ensemble_predictor:
         """
         if np.ndim(imgdata) == 2:
             imgdata = np.expand_dims(imgdata, axis=0)
+        imgdata = img_pad(imgdata, self.downsample_factor)
         num_batches = kwargs.get("num_batches", 10)
         batch_size = len(imgdata) // num_batches
         img_mu_all = np.zeros((*imgdata.shape[0:3], self.num_classes))
