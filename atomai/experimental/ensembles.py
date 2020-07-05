@@ -118,7 +118,17 @@ class ensemble_trainer:
         return self.ensemble_state_dict, trainer_i.net
 
     @classmethod
-    def update_weights(cls, statedict1, statedict2):
+    def update_weights(cls,
+                       statedict1: Dict[str, torch.Tensor],
+                       statedict2: Dict[str, torch.Tensor]) -> None:
+        """
+        Updates (in place) state dictionary of pytorch model
+        with weights from another model with the same structure;
+        skips layers that have different dimensions
+        (e.g. if one model is for single class classification
+        and the other one is for multiclass classification,
+        then the last layer wights are not updated)
+        """
         for p1, p2 in zip(statedict1, statedict2):
             if p1.shape == p2.shape:
                 p1.copy_(p2)
@@ -196,7 +206,7 @@ class ensemble_predictor:
                            Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]]:
         """
         Runs ensemble decoding for a single batch
-        
+
         Args:
             x_new: batch of images
         """
@@ -298,10 +308,12 @@ def ensemble_locate(nn_output_ensemble: np.ndarray,
 def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[str, torch.Tensor]]]:
     """
     Loads trained ensemble models
+
     Args:
         meta_state_dict (str):
             filepath to dictionary with trained weights and key information
             about model's structure
+
     Returns:
         Model skeleton (initialized) and dictionary with weights of all the models
     """
