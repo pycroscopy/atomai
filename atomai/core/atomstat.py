@@ -89,10 +89,10 @@ class imlocal:
         self.r = crop_size
         (self.imgstack,
          self.imgstack_com,
-         self.imgstack_frames) = self.extract_subimages()
+         self.imgstack_frames) = self.extract_subimages_()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
 
-    def extract_subimages(self):
+    def extract_subimages_(self):
         """
         Extracts subimages centered at certain atom class/type
         in the neural network output
