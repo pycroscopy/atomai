@@ -868,7 +868,7 @@ def plot_lattice_bonds(distances,
             x = [a[0][0], a[i+1][0]]
             y = [a[0][1], a[i+1][1]]
             color = colorst[np.where(d[i] == d_uniq)[0][0]]
-            ax1.plot(x, y, c=color)
+            ax1.plot(y, x, c=color)
     ax1.axis(False)
     ax1.set_aspect('auto')
     clrbar = np.linspace(np.amin(d_uniq), np.amax(d_uniq), d_uniq.shape[0]-1).reshape(-1, 1)
