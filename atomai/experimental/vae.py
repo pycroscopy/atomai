@@ -72,11 +72,10 @@ class rDecoderNet(nn.Module):
     (based on https://arxiv.org/abs/1909.11663)
 
     Args:
-
-    latent_dim: number of latent dimensions associated with images content
-    num_layers: number of fully connected layers
-    hidden_dim: number of neurons in each fully connected layer
-    out_dim: output image dimensions (height and width)
+        latent_dim: number of latent dimensions associated with images content
+        num_layers: number of fully connected layers
+        hidden_dim: number of neurons in each fully connected layer
+        out_dim: output image dimensions (height and width)
     """
     def __init__(self,
                  latent_dim: int,
@@ -120,12 +119,11 @@ class DecoderNet(nn.Module):
     Decoder network
 
     Args:
-
-    latent_dim: number of latent dimensions associated with images content
-    num_layers: number of fully connected layers
-    hidden_dim: number of neurons in each fully connected layer
-    out_dim: output image dimensions (height and width)
-    mlp: using a simple multi-layer perceptron instead of convolutional layers (Default: False)
+        latent_dim: number of latent dimensions associated with images content
+        num_layers: number of fully connected layers
+        hidden_dim: number of neurons in each fully connected layer
+        out_dim: output image dimensions (height and width)
+        mlp: using a simple multi-layer perceptron instead of convolutional layers (Default: False)
     """
     def __init__(self,
                  latent_dim: int,

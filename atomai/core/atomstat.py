@@ -89,10 +89,10 @@ class imlocal:
         self.r = crop_size
         (self.imgstack,
          self.imgstack_com,
-         self.imgstack_frames) = self.extract_subimages()
+         self.imgstack_frames) = self.extract_subimages_()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
 
-    def extract_subimages(self):
+    def extract_subimages_(self):
         """
         Extracts subimages centered at certain atom class/type
         in the neural network output
@@ -768,7 +768,7 @@ def calculate_transition_matrix(trace):
     Args:
         trace (1D numpy array or python list):
             sequence of states/classes
-            
+
     Returns:
         Computed 2D matrix of transition probabilities
     """
@@ -800,7 +800,7 @@ def sum_transitions(trans_dict, msize, plot_results=False, **kwargs):
             associated with highest transition frequencies
         **transitions_to_plot (int):
             number of transitions (associated with largerst prob values) to plot
-    
+
     Returns:
         Full transition matrix as 2D numpy array
     """
@@ -812,7 +812,7 @@ def sum_transitions(trans_dict, msize, plot_results=False, **kwargs):
     transmat_all = transmat_all/transmat_all.sum(axis=1, keepdims=1)
     if plot_results:
         plot_transitions(
-            transmat_all, 
+            transmat_all,
             gmm_components=trans_dict["gmm_components"],
             **kwargs)
     return transmat_all
@@ -868,7 +868,7 @@ def plot_lattice_bonds(distances,
             x = [a[0][0], a[i+1][0]]
             y = [a[0][1], a[i+1][1]]
             color = colorst[np.where(d[i] == d_uniq)[0][0]]
-            ax1.plot(x, y, c=color)
+            ax1.plot(y, x, c=color)
     ax1.axis(False)
     ax1.set_aspect('auto')
     clrbar = np.linspace(np.amin(d_uniq), np.amax(d_uniq), d_uniq.shape[0]-1).reshape(-1, 1)
@@ -900,7 +900,7 @@ def map_bonds(coordinates,
             the third column is atom class.
         nn (int): Number of nearest neighbors to search for.
         upper_bound (float or int, non-negative):
-            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Upper distance bound (in px) for Query the kd-tree for nearest neighbors.
             Only distances below this value will be counted.
         distance_ideal (float):
             Bond distance in ideal lattice.

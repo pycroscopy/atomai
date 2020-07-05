@@ -1039,8 +1039,14 @@ def get_imgstack(imgdata, coord, r):
     for c in coord:
         cx = int(np.around(c[0]))
         cy = int(np.around(c[1]))
-        img_cr = np.copy(
-            imgdata[cx-r//2:cx+r//2, cy-r//2:cy+r//2])
+        if r % 2 != 0:
+            img_cr = np.copy(
+                imgdata[cx-r//2:cx+r//2+1,
+                        cy-r//2:cy+r//2+1])
+        else:
+            img_cr = np.copy(
+                imgdata[cx-r//2:cx+r//2,
+                        cy-r//2:cy+r//2])
         if img_cr.shape[0:2] == (int(r), int(r)):
             img_cr_all.append(img_cr[None, ...])
             com.append(c[None, ...])
