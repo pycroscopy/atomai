@@ -594,9 +594,9 @@ class rVAE(EncoderDecoder):
             template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
             print(template.format(e+1, self.training_cycles,
                   -elbo_epoch, -elbo_epoch_test))
-            if self.recording and self.z_dim == 2:
+            if self.recording and self.z_dim == 5:
                 self.manifold2d(savefig=True, filename=str(e))
-        if self.recording and self.z_dim == 2:
+        if self.recording and self.z_dim == 5:
             self.visualize_manifold_learning("./vae_learning")
         return
 
