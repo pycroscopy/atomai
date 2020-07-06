@@ -818,7 +818,7 @@ def nb_filters_classes(weights_path):
 
 
 #####################
-# Vizualization #
+# Visualization #
 #####################
 
 def plot_losses(train_loss, test_loss):
@@ -1009,6 +1009,24 @@ def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
         trans, s_true, trans_dict["gmm_components"],
         plot_values, **kwargs)
     return
+
+
+def animation_from_png(png_dir, moviename='anim', duration=1,
+                       savedir='./', remove_dir=True):
+    """
+    Create animation from saved png files
+    """
+    import os, imageio, shutil
+    images = []
+    if ".ipynb_checkpoints" in os.listdir(png_dir):
+        shutil.rmtree(os.path.join(png_dir, ".ipynb_checkpoints"))
+    for file_name in sorted(os.listdir(png_dir),
+                            key=lambda fname: int(fname.split('.')[0])):
+        if file_name.endswith('.png'):
+            images.append(imageio.imread(os.path.join(png_dir, file_name)))
+    imageio.mimsave(os.path.join(savedir, moviename + '.gif'), images)
+    if remove_dir:
+        shutil.rmtree(png_dir)
 
 
 #############################

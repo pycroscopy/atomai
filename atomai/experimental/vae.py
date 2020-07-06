@@ -1,4 +1,5 @@
-from typing import Dict, Tuple, Type, Union, List
+import os
+from typing import Dict, List, Tuple, Type, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +10,7 @@ from scipy.stats import norm
 from sklearn.model_selection import train_test_split
 
 from atomai.core import models
-from atomai.utils import transform_coordinates, subimg_trajectories
+from atomai.utils import subimg_trajectories, transform_coordinates
 
 
 class EncoderNet(nn.Module):
@@ -403,14 +404,24 @@ class EncoderDecoder:
                 imdec = self.decode(z_sample)
                 figure[i * n: (i + 1) * n, j * m: (j + 1) * m] = imdec
 
-        _, ax = plt.subplots(figsize=(10, 10))
+        fig, ax = plt.subplots(figsize=(10, 10))
         ax.imshow(figure, cmap=cmap)
         major_ticks_x = np.arange(0, d * n, n)
         major_ticks_y = np.arange(0, d * m, m)
         ax.set_xticks(major_ticks_x)
         ax.set_yticks(major_ticks_y)
         ax.grid(which='major', alpha=0.6)
-        plt.show()
+        if not kwargs.get("savefig"):
+            plt.show()
+        else:
+            savedir = kwargs.get("savedir", './vae_learning/')
+            fname = kwargs.get("filename", "manifold_2d")
+            if not os.path.exists(savedir):
+                os.makedirs(savedir)
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            fig.savefig(os.path.join(savedir, '{}.png'.format(fname)))
+            plt.close(fig)
 
 
 class rVAE(EncoderDecoder):
@@ -433,6 +444,7 @@ class rVAE(EncoderDecoder):
         **numhidden_decoder: number of hidden units OR conv filters in decoder (Default: 128)
         **translation_prior: translation prior
         **rotation_prior: rotational prior
+        **recording: saves a learned 2d manifold at each training step
     """
     def __init__(self,
                  imstack: np.ndarray,
@@ -492,6 +504,8 @@ class rVAE(EncoderDecoder):
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
 
         self.training_cycles = training_cycles
+
+        self.recording = kwargs.get("recording", False)
 
     def step(self,
              x: torch.Tensor,
@@ -580,7 +594,18 @@ class rVAE(EncoderDecoder):
             template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
             print(template.format(e+1, self.training_cycles,
                   -elbo_epoch, -elbo_epoch_test))
+            if self.recording and self.z_dim == 2:
+                self.manifold2d(savefig=True, filename=str(e))
+        if self.recording and self.z_dim == 2:
+            self.visualize_manifold_learning("./vae_learning")
         return
+
+    @classmethod
+    def visualize_manifold_learning(cls, frames_dir, **kwargs):
+        from atomai.utils import animation_from_png
+        movie_name = kwargs.get("moviename", "manifold_learning")
+        duration = kwargs.get("frame_duration", 1)
+        animation_from_png(frames_dir, movie_name, duration, remove_dir=False)
 
 
 class VAE(EncoderDecoder):
