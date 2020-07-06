@@ -1977,3 +1977,20 @@ def threshImg(diff, threshL=0.25, threshH=0.75):
     threshIH = diff > threshH
     threshI = threshIL + threshIH
     return threshI
+
+
+def crop_zeros(imgdata):
+    """
+    Crops image border where all values are zeros
+
+    Args:
+        imgdata (numpy array): 3D numpy array (h, w, c)
+    """
+    def crop(img):
+        mask = img > 0
+        img = img[np.ix_(mask.any(1), mask.any(0))]
+        return img
+
+    imgdata_cr = [crop(imgdata[..., i]) for i in range(imgdata.shape[-1])]
+    
+    return np.array(imgdata_cr).transpose(1, 2, 0)
