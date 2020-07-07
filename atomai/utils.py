@@ -1211,13 +1211,17 @@ def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
     (usually from a neural network output)
 
     Args:
-        imgdata (numpy array): 4D stack of images (n, height, width, channel)
-        coordinates (dict): Prediction from atomnet.locator
+        imgdata (numpy array):
+            4D stack of images (n, height, width, channel).
+            It is also possible to pass a single 2D image.
+        coordinates (dict or N x 2 numpy arry): Prediction from atomnet.locator
             (can be from other source but must be in the same format)
             Each element is a :math:`N \\times 3` numpy array,
             where *N* is a number of detected atoms/defects,
             the first 2 columns are *xy* coordinates
-            and the third columns is class (starts with 0)
+            and the third columns is class (starts with 0).
+            It is also possible to pass N x 2 numpy array if the corresponding
+            imgdata is a single 2D image.
         window_size (int):
             Side of the square for subimage cropping
         coord_class (int):
@@ -1230,6 +1234,12 @@ def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
         ii) (x, y) coordinates of their centers,
         iii) frame number associated with each subimage
     """
+    if isinstance(coordinates, np.ndarray):
+        coordinates = np.concatenate((
+            coordinates, np.zeros((coordinates.shape[0], 1))), axis=-1)
+        coordinates = {0: coordinates}
+    if np.ndim(imgdata) == 2:
+        imgdata = imgdata[None, ..., None]
     subimages_all, com_all, frames_all = [], [], []
     for i, (img, coord) in enumerate(
             zip(imgdata, coordinates.values())):
