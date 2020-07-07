@@ -457,6 +457,7 @@ class EncoderDecoder:
         Args:
             **d: grid size
             **cmap: color map (Default: gnuplot)
+            **draw_grid: plot semi-transparent grid
         """
         n, m = self.im_dim
         d = kwargs.get("d", 9)
@@ -473,11 +474,13 @@ class EncoderDecoder:
 
         fig, ax = plt.subplots(figsize=(10, 10))
         ax.imshow(figure, cmap=cmap)
-        major_ticks_x = np.arange(0, d * n, n)
-        major_ticks_y = np.arange(0, d * m, m)
-        ax.set_xticks(major_ticks_x)
-        ax.set_yticks(major_ticks_y)
-        ax.grid(which='major', alpha=0.6)
+        draw_grid = kwargs.get("draw_grid")
+        if draw_grid:
+            major_ticks_x = np.arange(0, d * n, n)
+            major_ticks_y = np.arange(0, d * m, m)
+            ax.set_xticks(major_ticks_x)
+            ax.set_yticks(major_ticks_y)
+            ax.grid(which='major', alpha=0.6)
         if not kwargs.get("savefig"):
             plt.show()
         else:
