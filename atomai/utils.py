@@ -1250,9 +1250,10 @@ def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
         subimages_all.append(stack_i)
         com_all.append(com_i)
         frames_all.append(np.ones(len(com_i), int) * i)
-    subimages_all = np.concatenate(subimages_all, axis=0)
-    com_all = np.concatenate(com_all, axis=0)
-    frames_all = np.concatenate(frames_all, axis=0)
+    if len(subimages_all) > 0:
+        subimages_all = np.concatenate(subimages_all, axis=0)
+        com_all = np.concatenate(com_all, axis=0)
+        frames_all = np.concatenate(frames_all, axis=0)
     return subimages_all, com_all, frames_all
 
 

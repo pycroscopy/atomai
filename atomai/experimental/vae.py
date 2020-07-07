@@ -6,11 +6,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from atomai.core import models
+from atomai.utils import (crop_borders, extract_subimages, get_coord_grid,
+                          subimg_trajectories, transform_coordinates)
 from scipy.stats import norm
 from sklearn.model_selection import train_test_split
-
-from atomai.core import models
-from atomai.utils import subimg_trajectories, transform_coordinates
 
 
 class EncoderNet(nn.Module):
@@ -348,6 +348,73 @@ class EncoderDecoder:
             decoded_all.append(self.decode_(z_sample))
         decoded_all = np.concatenate(decoded_all, axis=0)
         return decoded_all
+
+    def encode_images(self,
+                      imgdata: np.ndarray,
+                      **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Encodes every pixel of every image in image stack
+
+        Args:
+            imgdata: 3D numpy array. Can also be a single 2D image
+            **num_batches: number of batches for for encoding pixels of a single image
+
+        Returns:
+            Cropped original image stack and encoded array (cropping is due to finite window size)
+        """
+
+        if np.ndim(imgdata) == 2:
+            imgdata = np.expand_dims(imgdata, axis=0)
+        imgdata_encoded, imgdata_ = [], []
+        for i, img in enumerate(imgdata):
+            img_, img_encoded = self.encode_image_(img, **kwargs)
+            imgdata_encoded.append(img_encoded)
+            imgdata_.append(img_)
+        return np.array(imgdata_), np.array(imgdata_encoded)
+
+    def encode_image_(self,
+                      img: np.ndarray,
+                      **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Crops and encodes a subimage around each pixel in the input image.
+        The size of subimage is determined by size of images in VAE training data.
+
+        Args:
+            img: 2D numpy array
+            **num_batches: number of batches for encoding subimages
+
+        Returns:
+            Cropped original image and encoded array (cropping is due to finite window size)
+        """
+
+        num_batches = kwargs.get("num_batches", 10)
+        inf = np.int(1e5)
+        img_to_encode = img.copy()
+        coordinates = get_coord_grid(img_to_encode, 1, return_dict=False)
+        batch_size = coordinates.shape[0] // num_batches
+        encoded_img = -inf * np.ones((*img_to_encode.shape, self.z_dim))
+        for i in range(num_batches):
+            coord_i = coordinates[i*batch_size:(i+1)*batch_size]
+            subimgs_i, com_i, _ = extract_subimages(
+                                    img_to_encode, coord_i, self.im_dim[0])
+            if len(subimgs_i) > 0:
+                z_mean, _ = self.encode(subimgs_i, num_batches=10)
+                for k, (l, m) in enumerate(com_i):
+                    encoded_img[int(l), int(m)] = z_mean[k]
+        coord_i = coordinates[(i+1)*batch_size:]
+        if len(coord_i) > 0:
+            subimgs_i, com_i, _ = extract_subimages(
+                                    img_to_encode, coord_i, self.im_dim[0])
+            if len(subimgs_i) > 0:
+                z_mean, _ = self.encode(subimgs_i, num_batches=10)
+                for k, (l, m) in enumerate(com_i):
+                    encoded_img[int(l), int(m)] = z_mean[k]
+
+        img_to_encode[encoded_img[..., 0] == -inf] = 0
+        img_to_encode = crop_borders(img_to_encode[..., None], 0)
+        encoded_img = crop_borders(encoded_img, -inf)
+
+        return img_to_encode[..., 0], encoded_img
 
     def encode_trajectories(self,
                             imgdata: np.ndarray,
