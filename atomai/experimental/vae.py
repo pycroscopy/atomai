@@ -367,6 +367,7 @@ class EncoderDecoder:
             imgdata = np.expand_dims(imgdata, axis=0)
         imgdata_encoded, imgdata_ = [], []
         for i, img in enumerate(imgdata):
+            print("\rImage {}/{}".format(i+1, imgdata.shape[0]), end="")
             img_, img_encoded = self.encode_image_(img, **kwargs)
             imgdata_encoded.append(img_encoded)
             imgdata_.append(img_)
