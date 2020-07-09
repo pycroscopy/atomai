@@ -474,7 +474,7 @@ class EncoderDecoder:
                 figure[i * n: (i + 1) * n, j * m: (j + 1) * m] = imdec
 
         fig, ax = plt.subplots(figsize=(10, 10))
-        ax.imshow(figure, cmap=cmap)
+        ax.imshow(figure, cmap=cmap, origin="lower")
         draw_grid = kwargs.get("draw_grid")
         if draw_grid:
             major_ticks_x = np.arange(0, d * n, n)
