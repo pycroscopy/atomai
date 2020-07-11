@@ -1,15 +1,16 @@
-from typing import Dict, Tuple, Type, Union, List
+import os
+from typing import Dict, List, Tuple, Type, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from atomai.core import models
+from atomai.utils import (crop_borders, extract_subimages, get_coord_grid,
+                          subimg_trajectories, transform_coordinates)
 from scipy.stats import norm
 from sklearn.model_selection import train_test_split
-
-from atomai.core import models
-from atomai.utils import transform_coordinates, subimg_trajectories
 
 
 class EncoderNet(nn.Module):
@@ -348,6 +349,74 @@ class EncoderDecoder:
         decoded_all = np.concatenate(decoded_all, axis=0)
         return decoded_all
 
+    def encode_images(self,
+                      imgdata: np.ndarray,
+                      **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Encodes every pixel of every image in image stack
+
+        Args:
+            imgdata: 3D numpy array. Can also be a single 2D image
+            **num_batches: number of batches for for encoding pixels of a single image
+
+        Returns:
+            Cropped original image stack and encoded array (cropping is due to finite window size)
+        """
+
+        if np.ndim(imgdata) == 2:
+            imgdata = np.expand_dims(imgdata, axis=0)
+        imgdata_encoded, imgdata_ = [], []
+        for i, img in enumerate(imgdata):
+            print("\rImage {}/{}".format(i+1, imgdata.shape[0]), end="")
+            img_, img_encoded = self.encode_image_(img, **kwargs)
+            imgdata_encoded.append(img_encoded)
+            imgdata_.append(img_)
+        return np.array(imgdata_), np.array(imgdata_encoded)
+
+    def encode_image_(self,
+                      img: np.ndarray,
+                      **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Crops and encodes a subimage around each pixel in the input image.
+        The size of subimage is determined by size of images in VAE training data.
+
+        Args:
+            img: 2D numpy array
+            **num_batches: number of batches for encoding subimages
+
+        Returns:
+            Cropped original image and encoded array (cropping is due to finite window size)
+        """
+
+        num_batches = kwargs.get("num_batches", 10)
+        inf = np.int(1e5)
+        img_to_encode = img.copy()
+        coordinates = get_coord_grid(img_to_encode, 1, return_dict=False)
+        batch_size = coordinates.shape[0] // num_batches
+        encoded_img = -inf * np.ones((*img_to_encode.shape, self.z_dim))
+        for i in range(num_batches):
+            coord_i = coordinates[i*batch_size:(i+1)*batch_size]
+            subimgs_i, com_i, _ = extract_subimages(
+                                    img_to_encode, coord_i, self.im_dim[0])
+            if len(subimgs_i) > 0:
+                z_mean, _ = self.encode(subimgs_i, num_batches=10)
+                for k, (l, m) in enumerate(com_i):
+                    encoded_img[int(l), int(m)] = z_mean[k]
+        coord_i = coordinates[(i+1)*batch_size:]
+        if len(coord_i) > 0:
+            subimgs_i, com_i, _ = extract_subimages(
+                                    img_to_encode, coord_i, self.im_dim[0])
+            if len(subimgs_i) > 0:
+                z_mean, _ = self.encode(subimgs_i, num_batches=10)
+                for k, (l, m) in enumerate(com_i):
+                    encoded_img[int(l), int(m)] = z_mean[k]
+
+        img_to_encode[encoded_img[..., 0] == -inf] = 0
+        img_to_encode = crop_borders(img_to_encode[..., None], 0)
+        encoded_img = crop_borders(encoded_img, -inf)
+
+        return img_to_encode[..., 0], encoded_img
+
     def encode_trajectories(self,
                             imgdata: np.ndarray,
                             coord_class_dict: Dict[int, np.ndarray],
@@ -389,6 +458,7 @@ class EncoderDecoder:
         Args:
             **d: grid size
             **cmap: color map (Default: gnuplot)
+            **draw_grid: plot semi-transparent grid
         """
         n, m = self.im_dim
         d = kwargs.get("d", 9)
@@ -403,14 +473,26 @@ class EncoderDecoder:
                 imdec = self.decode(z_sample)
                 figure[i * n: (i + 1) * n, j * m: (j + 1) * m] = imdec
 
-        _, ax = plt.subplots(figsize=(10, 10))
-        ax.imshow(figure, cmap=cmap)
-        major_ticks_x = np.arange(0, d * n, n)
-        major_ticks_y = np.arange(0, d * m, m)
-        ax.set_xticks(major_ticks_x)
-        ax.set_yticks(major_ticks_y)
-        ax.grid(which='major', alpha=0.6)
-        plt.show()
+        fig, ax = plt.subplots(figsize=(10, 10))
+        ax.imshow(figure, cmap=cmap, origin="lower")
+        draw_grid = kwargs.get("draw_grid")
+        if draw_grid:
+            major_ticks_x = np.arange(0, d * n, n)
+            major_ticks_y = np.arange(0, d * m, m)
+            ax.set_xticks(major_ticks_x)
+            ax.set_yticks(major_ticks_y)
+            ax.grid(which='major', alpha=0.6)
+        if not kwargs.get("savefig"):
+            plt.show()
+        else:
+            savedir = kwargs.get("savedir", './vae_learning/')
+            fname = kwargs.get("filename", "manifold_2d")
+            if not os.path.exists(savedir):
+                os.makedirs(savedir)
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            fig.savefig(os.path.join(savedir, '{}.png'.format(fname)))
+            plt.close(fig)
 
 
 class rVAE(EncoderDecoder):
@@ -433,6 +515,7 @@ class rVAE(EncoderDecoder):
         **numhidden_decoder: number of hidden units OR conv filters in decoder (Default: 128)
         **translation_prior: translation prior
         **rotation_prior: rotational prior
+        **recording: saves a learned 2d manifold at each training step
     """
     def __init__(self,
                  imstack: np.ndarray,
@@ -492,6 +575,8 @@ class rVAE(EncoderDecoder):
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
 
         self.training_cycles = training_cycles
+
+        self.recording = kwargs.get("recording", False)
 
     def step(self,
              x: torch.Tensor,
@@ -580,7 +665,18 @@ class rVAE(EncoderDecoder):
             template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
             print(template.format(e+1, self.training_cycles,
                   -elbo_epoch, -elbo_epoch_test))
+            if self.recording and self.z_dim == 5:
+                self.manifold2d(savefig=True, filename=str(e))
+        if self.recording and self.z_dim == 5:
+            self.visualize_manifold_learning("./vae_learning")
         return
+
+    @classmethod
+    def visualize_manifold_learning(cls, frames_dir, **kwargs):
+        from atomai.utils import animation_from_png
+        movie_name = kwargs.get("moviename", "manifold_learning")
+        duration = kwargs.get("frame_duration", 1)
+        animation_from_png(frames_dir, movie_name, duration, remove_dir=False)
 
 
 class VAE(EncoderDecoder):
@@ -721,7 +817,7 @@ class VAE(EncoderDecoder):
 
     def run(self):
         """
-        Trains rVAE model
+        Trains VAE model
         """
         for e in range(self.training_cycles):
             elbo_epoch = self.train_epoch()
