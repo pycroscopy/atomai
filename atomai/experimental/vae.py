@@ -817,7 +817,7 @@ class VAE(EncoderDecoder):
 
     def run(self):
         """
-        Trains rVAE model
+        Trains VAE model
         """
         for e in range(self.training_cycles):
             elbo_epoch = self.train_epoch()
