@@ -218,9 +218,10 @@ class ensemble_predictor:
             self.predictive_model.load_state_dict(w)
             self.predictive_model.eval()
             _, nn_output = atomnet.predictor(
-                x_new, self.predictive_model,
-                nb_classes=self.num_classes, downsampling=self.downsample_factor,
-                use_gpu=self.use_gpu, verbose=False).decode()
+                self.predictive_model,
+                nb_classes=self.num_classes,
+                downsampling=self.downsample_factor,
+                use_gpu=self.use_gpu, verbose=False).decode(x_new)
             nn_output_ensemble[i] = nn_output
         nn_output_mean = np.mean(nn_output_ensemble, axis=0)
         nn_output_var = np.var(nn_output_ensemble, axis=0)
@@ -247,6 +248,8 @@ class ensemble_predictor:
         imgdata = img_pad(imgdata, self.downsample_factor)
         num_batches = kwargs.get("num_batches", 10)
         batch_size = len(imgdata) // num_batches
+        if batch_size < 1:
+            batch_size = num_batches = 1
         img_mu_all = np.zeros((*imgdata.shape[0:3], self.num_classes))
         img_var_all = np.zeros(img_mu_all.shape)
         coord_mu_all, coord_var_all = None, None
@@ -297,7 +300,7 @@ def ensemble_locate(nn_output_ensemble: np.ndarray,
         coordinates = {}
         nn_output = nn_output_ensemble[:, i]
         for i2, img in enumerate(nn_output):
-            coord = atomnet.locator(img[None, ...], thresh).run()
+            coord = atomnet.locator(thresh).run(img[None, ...])
             coordinates[i2] = coord[0]
         _, coord_mean, coord_var = atomstat.cluster_coord(coordinates, eps)
         coord_mean_all[i] = coord_mean
