@@ -248,6 +248,8 @@ class ensemble_predictor:
         imgdata = img_pad(imgdata, self.downsample_factor)
         num_batches = kwargs.get("num_batches", 10)
         batch_size = len(imgdata) // num_batches
+        if batch_size < 1:
+            batch_size = num_batches = 1
         img_mu_all = np.zeros((*imgdata.shape[0:3], self.num_classes))
         img_var_all = np.zeros(img_mu_all.shape)
         coord_mu_all, coord_var_all = None, None
