@@ -339,8 +339,6 @@ class predictor:
     Prediction with a trained neural network
 
     Args:
-        image_data (2D or 3D numpy array):
-            Image stack or a single image (all greyscale)
         trained_model (pytorch object):
             Trained pytorch model (skeleton+weights)
         refine (bool):
@@ -373,11 +371,10 @@ class predictor:
         >>> expdata = np.load('expdata-test.npy')
         >>> # Get prediction from a trained model
         >>> # (it also returns the input to NN in case the image was resized, etc.)
-        >>> nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, trained_model).run()
+        >>> nn_input, (nn_output, coords) = atomnet.predictor(trained_model).run(expdata)
 
     """
     def __init__(self,
-                 image_data,
                  trained_model,
                  refine=False,
                  resize=None,
@@ -399,29 +396,37 @@ class predictor:
             hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
             mock_forward(model)
             self.nb_classes = [hook.output.shape for hook in hookF][-1][1]
-        downsampling = kwargs.get('downsampling', None)
-        if downsampling is None:
+        self.downsampling = kwargs.get('downsampling', None)
+        if self.downsampling is None:
             hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
             mock_forward(model)
             imsize = [hook.output.shape[-1] for hook in hookF]
-            downsampling = max(imsize) / min(imsize)
+            self.downsampling = max(imsize) / min(imsize)
         self.model = model
         if use_gpu:
             self.model.cuda()
         else:
             self.model.cpu()
-        if image_data.ndim == 2:
-            image_data = np.expand_dims(image_data, axis=0)
-        if resize is not None:
-            image_data = img_resize(image_data, resize)
-        image_data = img_pad(image_data, downsampling)
-        self.image_data = torch_format(image_data)
+
+        self.resize = resize
         self.logits = logits
         self.refine = refine
         self.d = kwargs.get("d", None)
         self.thresh = kwargs.get("thresh", .5)
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
+
+    def preprocess(self, image_data):
+        """
+        Preparares an input into a neural network
+        """
+        if image_data.ndim == 2:
+            image_data = np.expand_dims(image_data, axis=0)
+        if self.resize is not None:
+            image_data = img_resize(image_data, self.resize)
+        image_data = img_pad(image_data, self.downsampling)
+        image_data = torch_format(image_data)
+        return image_data
 
     def predict(self, images):
         """
@@ -450,37 +455,44 @@ class predictor:
         prob = prob.numpy()
         return prob
 
-    def decode(self):
+    def decode(self, image_data):
         """
         Make prediction
+
+        Args:
+            image_data (2D or 3D numpy array):
+                Image stack or a single image (all greyscale)
         """
-        if self.image_data.shape[0] < 20 and min(self.image_data.shape[2:4]) < 512:
-            decoded_imgs = self.predict(self.image_data)
+        image_data = self.preprocess(image_data)
+        # TODO: Add batch-by-batch decoding
+        if image_data.shape[0] < 20 and min(image_data.shape[2:4]) < 512:
+            decoded_imgs = self.predict(image_data)
         else:
-            n, _, w, h = self.image_data.shape
+            n, _, w, h = image_data.shape
             decoded_imgs = np.zeros((n, w, h, self.nb_classes))
             for i in range(n):
-                decoded_imgs[i, :, :, :] = self.predict(self.image_data[i:i+1])
-        images_numpy = self.image_data.permute(0, 2, 3, 1).numpy()
+                decoded_imgs[i, :, :, :] = self.predict(image_data[i:i+1])
+        images_numpy = image_data.permute(0, 2, 3, 1).numpy()
         return images_numpy, decoded_imgs
 
-    def run(self):
+    def run(self, image_data):
+        """
+        Make prediction with a trained model and calculate coordinates
+
+        Args:
+            image_data (2D or 3D numpy array):
+                Image stack or a single image (all greyscale)
+        """
         start_time = time.time()
-        images, decoded_imgs = self.decode()
-        coordinates = locator(decoded_imgs, self.thresh).run()
+        images, decoded_imgs = self.decode(image_data)
+        loc = locator(self.thresh, refine=self.refine, d=self.d)
+        coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
             print(str(decoded_imgs.shape[0])
                   + n_images_str + "decoded in approximately "
                   + str(np.around(time.time() - start_time, decimals=4))
                   + ' seconds')
-        if self.refine:
-            print('\rRefining atomic positions... ', end="")
-            coordinates_r = {}
-            for i, (img, coord) in enumerate(zip(images, coordinates.values())):
-                coordinates_r[i] = peak_refinement(img[...,0], coord, self.d)
-            print("Done")
-            return images, (decoded_imgs, coordinates_r)
         return images, (decoded_imgs, coordinates)
 
 
@@ -501,39 +513,53 @@ class locator:
     Example:
 
         >>> # Transform output of atomnet.predictor to atomic classes and coordinates
-        >>> coordinates = atomnet.locator(nn_output).run()
+        >>> coordinates = atomnet.locator(dist_edge=10, refine=False).run(nn_output)
     """
     def __init__(self,
-                 nn_output,
                  threshold=0.5,
                  dist_edge=5,
-                 dim_order='channel_last'):
+                 dim_order='channel_last',
+                 **kwargs):
 
-        if nn_output.shape[-1] == 1: # Add background class for 1-channel data
+        self.dim_order = dim_order
+        self.threshold = threshold
+        self.dist_edge = dist_edge
+        self.refine = kwargs.get("refine")
+        self.d = kwargs.get("d")
+
+    def preprocess(self, nn_output):
+        """
+        Prepares data for coordinates extraction
+        """
+        if nn_output.shape[-1] == 1:  # Add background class for 1-channel data
             nn_output_b = 1 - nn_output
             nn_output = np.concatenate(
                 (nn_output[:, :, :, None], nn_output_b[:, :, :, None]), axis=3)
-        if dim_order == 'channel_first':  # make channel dim the last dim
+        if self.dim_order == 'channel_first':  # make channel dim the last dim
             nn_output = np.transpose(nn_output, (0, 2, 3, 1))
-        elif dim_order == 'channel_last':
+        elif self.dim_order == 'channel_last':
             pass
         else:
             raise NotImplementedError(
                 'For dim_order, use "channel_first"',
                 'or "channel_last" (e.g. tensorflow)')
-        self.nn_output = nn_output
-        self.threshold = threshold
-        self.dist_edge = dist_edge
+        return nn_output
 
-    def run(self):
+    def run(self, nn_output, *args):
         """
         Extract all atomic coordinates in image
         via CoM method & store data as a dictionary
         (key: frame number)
-        """
 
+        Args:
+            nn_output (4D numpy array):
+                Output (prediction) of a neural network
+            *args: 4D input into a neural network (experimental data)
+
+        """
+        nn_output = self.preprocess(nn_output)
         d_coord = {}
-        for i, decoded_img in enumerate(self.nn_output):
+        for i, decoded_img in enumerate(nn_output):
             coordinates = np.empty((0, 2))
             category = np.empty((0, 1))
             # we assume that class 'background' is always the last one
@@ -541,25 +567,35 @@ class locator:
                 decoded_img_c = cv_thresh(
                     decoded_img[:, :, ch], self.threshold)
                 coord = find_com(decoded_img_c)
-                coord_ch = self.rem_edge_coord(coord)
+                coord_ch = self.rem_edge_coord(coord, *nn_output.shape[1:3])
                 category_ch = np.zeros((coord_ch.shape[0], 1)) + ch
                 coordinates = np.append(coordinates, coord_ch, axis=0)
                 category = np.append(category, category_ch, axis=0)
             d_coord[i] = np.concatenate((coordinates, category), axis=1)
+        if self.refine:
+            if len(args) > 0:
+                imgdata = args[0]
+            else:
+                raise AssertionError("Pass input image(s) for coordinates refinement")
+            print('\rRefining atomic positions... ', end="")
+            d_coord_r = {}
+            for i, (img, coord) in enumerate(zip(imgdata, d_coord.values())):
+                d_coord_r[i] = peak_refinement(img[..., 0], coord, self.d)
+            print("Done")
+            return d_coord_r
         return d_coord
 
-    def rem_edge_coord(self, coordinates):
+    def rem_edge_coord(self, coordinates, w, h):
         """
         Removes coordinates at the image edges
         """
 
         def coord_edges(coordinates, w, h):
-            return [coordinates[0] > w - self.dist_edge,
+            return [coordinates[0] > h - self.dist_edge,
                     coordinates[0] < self.dist_edge,
-                    coordinates[1] > h - self.dist_edge,
+                    coordinates[1] > w - self.dist_edge,
                     coordinates[1] < self.dist_edge]
 
-        w, h = self.nn_output.shape[1:3]
         coord_to_rem = [
                         idx for idx, c in enumerate(coordinates)
                         if any(coord_edges(c, w, h))

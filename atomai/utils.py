@@ -489,6 +489,10 @@ def peak_refinement(imgdata, coordinates, d=None):
         Refined array of coordinates
     """
     if d is None:
+        warnings.warn(
+            "The d-value for bounding box not found. Defaulting to 1/4 of mean atomic distance.",
+            stacklevel=2
+        )
         d = get_nn_distances_(coordinates)[0]
         d = np.concatenate((d))
         d = int(np.mean(d)*0.25)
