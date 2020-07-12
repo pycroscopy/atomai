@@ -1090,7 +1090,7 @@ def update_classes(coordinates,
         s = imlocal(nn_input, coordinates_, window_size, coord_class)
         _, _, com_frames = s.gmm(n_components, plot_results=True)
         for i in range(len(coordinates_)):
-            coordinates_[i] = com_frames[:, :3]
+            coordinates_[i] = com_frames[com_frames[:, -1] == float(i)][:, :3]
     else:
         raise NotImplementedError(
             "Choose between 'threshold', 'kmeans', and 'gmm_local' methods")

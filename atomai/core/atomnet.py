@@ -462,9 +462,10 @@ class predictor:
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
+            **num_batches: number of batches (Default: 10)
         """
         image_data = self.preprocess(image_data)
-        num_batches = kwargs.get("num_batches", 5)
+        num_batches = kwargs.get("num_batches", 10)
         batch_size = len(image_data) // num_batches
         if batch_size < 1:
             num_batches = batch_size = 1
@@ -483,16 +484,17 @@ class predictor:
         images_data = image_data.permute(0, 2, 3, 1).numpy()
         return images_data, decoded_imgs
 
-    def run(self, image_data):
+    def run(self, image_data, **kwargs):
         """
         Make prediction with a trained model and calculate coordinates
 
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
+            **num_batches: number of batches (Default: 10)
         """
         start_time = time.time()
-        images, decoded_imgs = self.decode(image_data)
+        images, decoded_imgs = self.decode(image_data, **kwargs)
         loc = locator(self.thresh, refine=self.refine, d=self.d)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
