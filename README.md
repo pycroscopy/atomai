@@ -41,7 +41,7 @@ Trained models can be used to find atoms/defects in the previously unseen (by a 
 expdata = np.load('expdata-test.npy')
 
 # Get model's "raw" prediction, atomic coordinates and classes
-nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, trained_model, refine=False).run()
+nn_input, (nn_output, coordinates) = atomnet.predictor(trained_model, refine=False).run(expdata)
 ```
 
 One can then perform statistical analysis using the information extracted by *atomnet*. For example, for a single image, one can identify domains with different ferroic distortions:
@@ -66,7 +66,7 @@ imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
 components, imgs, coords = imstack.gmm(n_components=10, plot_results=True)
 
 # Calculate GMM components and transition probabilities for different trajectories
-traj_all, trans_all, fram_all = imstack.transition_matrix(n_components=10, rmax=10)
+transitions_dict = imstack.transition_matrix(n_components=10, rmax=10)
 
 # and more
 ```
