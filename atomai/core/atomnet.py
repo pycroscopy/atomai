@@ -455,7 +455,7 @@ class predictor:
         prob = prob.numpy()
         return prob
 
-    def decode(self, image_data):
+    def decode(self, image_data, **kwargs):
         """
         Make prediction
 
@@ -464,16 +464,24 @@ class predictor:
                 Image stack or a single image (all greyscale)
         """
         image_data = self.preprocess(image_data)
-        # TODO: Add batch-by-batch decoding
-        if image_data.shape[0] < 20 and min(image_data.shape[2:4]) < 512:
-            decoded_imgs = self.predict(image_data)
-        else:
-            n, _, w, h = image_data.shape
-            decoded_imgs = np.zeros((n, w, h, self.nb_classes))
-            for i in range(n):
-                decoded_imgs[i, :, :, :] = self.predict(image_data[i:i+1])
-        images_numpy = image_data.permute(0, 2, 3, 1).numpy()
-        return images_numpy, decoded_imgs
+        num_batches = kwargs.get("num_batches", 5)
+        batch_size = len(image_data) // num_batches
+        if batch_size < 1:
+            num_batches = batch_size = 1
+        n, _, w, h = image_data.shape
+        decoded_imgs = np.zeros((n, w, h, self.nb_classes))
+        for i in range(num_batches):
+            if self.verbose:
+                print("\rBatch {}/{}".format(i+1, num_batches), end="")
+            images_i = image_data[i*batch_size:(i+1)*batch_size]
+            decoded_i = self.predict(images_i)
+            decoded_imgs[i*batch_size:(i+1)*batch_size] = decoded_i
+        images_i = image_data[(i+1)*batch_size:]
+        if len(images_i) > 0:
+            decoded_i = self.predict(images_i)
+            decoded_imgs[(i+1)*batch_size:] = decoded_i
+        images_data = image_data.permute(0, 2, 3, 1).numpy()
+        return images_data, decoded_imgs
 
     def run(self, image_data):
         """
@@ -489,7 +497,7 @@ class predictor:
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
-            print(str(decoded_imgs.shape[0])
+            print("\n" + str(decoded_imgs.shape[0])
                   + n_images_str + "decoded in approximately "
                   + str(np.around(time.time() - start_time, decimals=4))
                   + ' seconds')
@@ -577,7 +585,7 @@ class locator:
                 imgdata = args[0]
             else:
                 raise AssertionError("Pass input image(s) for coordinates refinement")
-            print('\rRefining atomic positions... ', end="")
+            print('\n\rRefining atomic positions... ', end="")
             d_coord_r = {}
             for i, (img, coord) in enumerate(zip(imgdata, d_coord.values())):
                 d_coord_r[i] = peak_refinement(img[..., 0], coord, self.d)
