@@ -139,7 +139,7 @@ class DecoderNet(nn.Module):
         self.mlp = mlp
         if not self.mlp:
             self.fc_linear = nn.Linear(
-                latent_dim, out_dim[0] * out_dim[1], bias=False)
+                latent_dim, hidden_dim * out_dim[0] * out_dim[1], bias=False)
             self.reshape_ = (hidden_dim, out_dim[0], out_dim[1])
             self.decoder = models.conv2dblock(
                 num_layers, hidden_dim, hidden_dim, lrelu_a=0.1)
