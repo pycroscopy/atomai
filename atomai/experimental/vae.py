@@ -137,19 +137,17 @@ class DecoderNet(nn.Module):
         """
         super(DecoderNet, self).__init__()
         self.mlp = mlp
-        flatten_dim = hidden_dim * out_dim[0] * out_dim[1]
-        self.fc_linear = nn.Linear(
-                latent_dim, flatten_dim, bias=False)
         if not self.mlp:
+            self.fc_linear = nn.Linear(
+                latent_dim, out_dim[0] * out_dim[1], bias=False)
             self.reshape_ = (hidden_dim, out_dim[0], out_dim[1])
             self.decoder = models.conv2dblock(
                 num_layers, hidden_dim, hidden_dim, lrelu_a=0.1)
             self.out = nn.Conv2d(hidden_dim, 1, 1, 1, 0)
         else:
-            self.fc_linear = nn.Sequential(self.fc_linear, nn.Tanh())
             decoder = []
             for i in range(num_layers):
-                hidden_dim_ = flatten_dim if i == 0 else hidden_dim
+                hidden_dim_ = latent_dim if i == 0 else hidden_dim
                 decoder.extend([nn.Linear(hidden_dim_, hidden_dim), nn.Tanh()])
             self.decoder = nn.Sequential(*decoder)
             self.out = nn.Linear(hidden_dim, out_dim[0] * out_dim[1])
@@ -159,10 +157,10 @@ class DecoderNet(nn.Module):
         """
         Forward pass
         """
-        h = self.fc_linear(z)
         if not self.mlp:
-            h = h.reshape(-1, *self.reshape_)
-        h = self.decoder(h)
+            z = self.fc_linear(z)
+            z = z.reshape(-1, *self.reshape_)
+        h = self.decoder(z)
         h = self.out(h)
         h = h.reshape(-1, *self.out_dim)
         return h.squeeze(1)
@@ -209,7 +207,7 @@ class EncoderDecoder:
         numlayers_e = kwargs.get("numlayers_encoder", 2)
         numlayers_d = kwargs.get("numlayers_decoder", 2)
         numhidden_e = kwargs.get("numhidden_encoder", 128)
-        numhidden_d = kwargs.get("numhidden_encoder", 128)
+        numhidden_d = kwargs.get("numhidden_decoder", 128)
 
         if not coord:
             self.decoder_net = DecoderNet(
