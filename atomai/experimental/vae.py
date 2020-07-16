@@ -253,6 +253,9 @@ class EncoderDecoder:
         Args:
             x_test: image array to encode
             **num_batches: number of batches (Default: 10)
+        
+        Returns:
+            Mean and SD of the encoded distribution
         """
         def inference() -> np.ndarray:
             with torch.no_grad():
@@ -290,6 +293,9 @@ class EncoderDecoder:
 
         Args:
             z_sample: point in latent space
+        
+        Returns:
+            Generated ("decoded") image(s)
         """
 
         n, m = self.im_dim
@@ -322,12 +328,14 @@ class EncoderDecoder:
                  **kwargs: Dict) -> np.ndarray:
         """
         Forward prediction with uncertainty quantification by sampling from
-        the encoded mean and std. Works ony for regular VAE
-        (without rotational / translational invariance)
+        the encoded mean and std. Works only for regular VAE (and not for rVAE)
 
         Args:
             x_new: image array to encode
             **num_samples: number of samples to generate from normal distribution
+        
+        Returns:
+            Ensemble of "decoded" images
         """
         num_samples = kwargs.get("num_samples", 32)
         if isinstance(x_new, np.ndarray):
@@ -435,6 +443,9 @@ class EncoderDecoder:
             rmax: maximum allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor in the next one
             **num_batches: number of batches for self.encode (Default: 10)
+        
+        Returns:
+            List of encoded trajectories and corresponding movie frame numbers
         """
         t = subimg_trajectories(
                 imgdata, coord_class_dict, window_size, min_length, rmax)
@@ -670,7 +681,19 @@ class rVAE(EncoderDecoder):
         return
 
     @classmethod
-    def visualize_manifold_learning(cls, frames_dir, **kwargs):
+    def visualize_manifold_learning(cls,
+                                    frames_dir: str,
+                                    **kwargs: Dict) -> None:
+        """
+        Creates and stores a video showing evolution of
+        learned 2D manifold during rVAE's training
+
+        Args:
+            frames_dir: directory with snapshots of manifold as .png files
+                        (the files should be named as "1.png", "2.png", etc.)
+            **moviename: name of the movie
+            **frame_duration: duration of each movie frame
+        """
         from atomai.utils import animation_from_png
         movie_name = kwargs.get("moviename", "manifold_learning")
         duration = kwargs.get("frame_duration", 1)
