@@ -510,7 +510,7 @@ class rVAE(EncoderDecoder):
         **numlayers_encoder: number of layers in encoder (Default: 2)
         **numlayers_decoder: number of layers in decoder (Default: 2)
         **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder: number of hidden units OR conv filters in decoder (Default: 128)
+        **numhidden_decoder: number of hidden units in decoder (Default: 128)
         **translation_prior: translation prior
         **rotation_prior: rotational prior
         **recording: saves a learned 2d manifold at each training step
