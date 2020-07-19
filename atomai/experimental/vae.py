@@ -275,6 +275,8 @@ class EncoderDecoder:
         if (x_test.ndim == len(self.im_dim) == 2 or
            x_test.ndim == len(self.im_dim) == 3):
             x_test = x_test.unsqueeze(0)
+        if len(self.im_dim) == 3:
+            x_test = x_test.permute(0, -1, 1, 2)
         if torch.cuda.is_available():
             x_test = x_test.cuda()
             self.encoder_net.cuda()
