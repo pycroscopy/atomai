@@ -41,7 +41,7 @@ class EncoderNet(nn.Module):
         if not self.mlp:
             conv2dblock = models.conv2dblock
             self.econv = conv2dblock(num_layers, c, hidden_dim, lrelu_a=0.1)
-            self.reshape_ = hidden_dim * np.product(dim)
+            self.reshape_ = hidden_dim * dim[0] * dim[1]
         else:
             edense = []
             for i in range(num_layers):
@@ -87,9 +87,12 @@ class rDecoderNet(nn.Module):
         """
         Initializes network parameters
         """
-        c = 1 if len(out_dim) == 2 else out_dim[-1]
         super(rDecoderNet, self).__init__()
-        self.reshape_ = (c, out_dim[0], out_dim[1])
+        c = 1 if len(out_dim) == 2 else out_dim[-1]
+        if c == 1:
+            self.reshape_ = (out_dim[0], out_dim[1])
+        else:
+            self.reshape_ = (c, out_dim[0], out_dim[1])
         self.fc_coord = nn.Linear(2, hidden_dim)
         self.fc_latent = nn.Linear(latent_dim, hidden_dim, bias=False)
         self.activation = nn.Tanh()
@@ -327,6 +330,8 @@ class EncoderDecoder:
             else:
                 x_decoded = self.decoder_net(z_sample)
         imdec = x_decoded.cpu().numpy()
+        if imdec.ndim == 4:
+            imdec = imdec.transpose(0, 2, 3, 1)
         return imdec
 
     def forward_(self,
@@ -478,7 +483,10 @@ class EncoderDecoder:
         """
         d = kwargs.get("d", 9)
         cmap = kwargs.get("cmap", "gnuplot")
-        figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d))
+        if len(self.im_dim) == 2:
+            figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d))
+        elif len(self.im_dim) == 3:
+            figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d, self.im_dim[-1]))
         grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
         grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
 
@@ -555,7 +563,7 @@ class rVAE(EncoderDecoder):
         np.random.seed(seed)
 
         self.im_dim = imstack.shape[1:]
-        if self.im_dim == 4:
+        if len(self.im_dim) == 3:
             imstack = imstack.transpose(0, 3, 1, 2)
         imstack_train, imstack_test = train_test_split(
             imstack, test_size=test_size, shuffle=True, random_state=seed)
@@ -749,7 +757,7 @@ class VAE(EncoderDecoder):
         np.random.seed(seed)
 
         self.im_dim = imstack.shape[1:]
-        if self.im_dim == 4:
+        if len(self.im_dim) == 3:
             imstack = imstack.transpose(0, 3, 1, 2)
         imstack_train, imstack_test = train_test_split(
             imstack, test_size=test_size, shuffle=True, random_state=seed)
