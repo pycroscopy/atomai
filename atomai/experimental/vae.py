@@ -18,7 +18,7 @@ class EncoderNet(nn.Module):
     Encoder (inference) network
 
     Args:
-        dim: tuple with image (height, width) or (height, width, channels)
+        dim: tuple with image dimensions: (height, width) or (height, width, channels)
         latent_dim: number of latent dimensions (the first three latent dimensions are angle & translations by default)
         num_layers: number of NN layers
         hidden_dim: number of neurons in each fully connnected layer (when mlp=True)
@@ -77,7 +77,7 @@ class rDecoderNet(nn.Module):
         latent_dim: number of latent dimensions associated with images content
         num_layers: number of fully connected layers
         hidden_dim: number of neurons in each fully connected layer
-        out_dim: output image dimensions (height and width)
+        out_dim: tuple with output dimensions: (height, width) or (height, width, channels)
     """
     def __init__(self,
                  latent_dim: int,
@@ -125,7 +125,7 @@ class DecoderNet(nn.Module):
         latent_dim: number of latent dimensions associated with images content
         num_layers: number of fully connected layers
         hidden_dim: number of neurons in each fully connected layer
-        out_dim: output image dimensions (height and width)
+        out_dim: tuple with image dimensions: (height, width) or (height, width, channels)
         mlp: using a simple multi-layer perceptron instead of convolutional layers (Default: False)
     """
     def __init__(self,
@@ -154,7 +154,7 @@ class DecoderNet(nn.Module):
                 decoder.extend([nn.Linear(hidden_dim_, hidden_dim), nn.Tanh()])
             self.decoder = nn.Sequential(*decoder)
             self.out = nn.Linear(hidden_dim, np.product(out_dim))
-        self.out_dim = (1, *out_dim)
+        self.out_dim = (c, out_dim[0], out_dim[1])
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         """
@@ -518,7 +518,7 @@ class rVAE(EncoderDecoder):
     by Bepler et al. in arXiv:1909.11663
 
     Args:
-        imstack: 3D stack of training images (n x w x h)
+        imstack: 3D or 4D stack of training images ( n x w x h or n x w x h x c )
         latent_dim: number of VAE latent dimensions associated with image content
         training_cycles: number of training 'epochs' (Default: 300)
         minibatch_size: size of training batch for each training epoch (Default: 200)
@@ -714,7 +714,7 @@ class VAE(EncoderDecoder):
     Implements a standard Variational Autoencoder (VAE)
 
     Args:
-        imstack: 3D stack of training images (n x w x h)
+        imstack: 3D or 4D stack of training images ( n x w x h or n x w x h x c )
         latent_dim: number of VAE latent dimensions associated with image content
         training_cycles: number of training 'epochs' (Default: 300)
         minibatch_size: size of training batch for each training epoch (Default: 200)
