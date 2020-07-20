@@ -101,7 +101,7 @@ class rDecoderNet(nn.Module):
             fc_decoder.extend([nn.Linear(hidden_dim, hidden_dim), nn.Tanh()])
         self.fc_decoder = nn.Sequential(*fc_decoder)
         self.out = nn.Linear(hidden_dim, c)
-        self.apply_softmax = True if c == 1 else False
+        self.apply_softplus = True if c == 1 else False
 
     def forward(self, x_coord: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         """
@@ -118,7 +118,7 @@ class rDecoderNet(nn.Module):
         h = self.fc_decoder(h)
         h = self.out(h)
         out = h.reshape(batch_dim, *self.reshape_)
-        if self.apply_softmax:
+        if self.apply_softplus:
             return F.softplus(out)
         return out
 
