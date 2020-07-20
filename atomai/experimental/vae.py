@@ -501,6 +501,8 @@ class EncoderDecoder:
                 imdec = self.decode(z_sample)
                 figure[i * self.im_dim[0]: (i + 1) * self.im_dim[0],
                        j * self.im_dim[1]: (j + 1) * self.im_dim[1]] = imdec
+        if figure.min() < 0:
+            figure = (figure - figure.min()) / figure.ptp()
 
         fig, ax = plt.subplots(figsize=(10, 10))
         ax.imshow(figure, cmap=cmap, origin="lower")
