@@ -60,7 +60,7 @@ class EncoderNet(nn.Module):
             x = x.reshape(-1, np.product(x.size()[1:]))
             x = self.edense(x)
         else:
-            x = x.unsqueeze(1) if x.ndim == 3 else x
+            x = x.unsqueeze(1) if x.ndim == 3 else x.permute(0, -1, 1, 2)
             x = self.econv(x)
             x = x.reshape(-1, self.reshape_)
         z_mu = self.fc11(x)
@@ -88,11 +88,14 @@ class rDecoderNet(nn.Module):
         Initializes network parameters
         """
         super(rDecoderNet, self).__init__()
-        c = 1 if len(out_dim) == 2 else out_dim[-1]
-        if c == 1:
+        if len(out_dim) == 2:
+            c = 1
             self.reshape_ = (out_dim[0], out_dim[1])
+            self.apply_softplus = True
         else:
-            self.reshape_ = (c, out_dim[0], out_dim[1])
+            c = out_dim[-1]
+            self.reshape_ = (out_dim[0], out_dim[1], c)
+            self.apply_softplus = False
         self.fc_coord = nn.Linear(2, hidden_dim)
         self.fc_latent = nn.Linear(latent_dim, hidden_dim, bias=False)
         self.activation = nn.Tanh()
@@ -101,7 +104,6 @@ class rDecoderNet(nn.Module):
             fc_decoder.extend([nn.Linear(hidden_dim, hidden_dim), nn.Tanh()])
         self.fc_decoder = nn.Sequential(*fc_decoder)
         self.out = nn.Linear(hidden_dim, c)
-        self.apply_softplus = True if c == 1 else False
 
     def forward(self, x_coord: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         """
@@ -148,8 +150,8 @@ class DecoderNet(nn.Module):
         self.mlp = mlp
         if not self.mlp:
             self.fc_linear = nn.Linear(
-                latent_dim, hidden_dim * np.product(out_dim), bias=False)
-            self.reshape_ = (hidden_dim, c, out_dim[0], out_dim[1])
+                latent_dim, hidden_dim * out_dim[0] * out_dim[1], bias=False)
+            self.reshape_ = (hidden_dim, out_dim[0], out_dim[1])
             self.decoder = models.conv2dblock(
                 num_layers, hidden_dim, hidden_dim, lrelu_a=0.1)
             self.out = nn.Conv2d(hidden_dim, c, 1, 1, 0)
@@ -174,6 +176,8 @@ class DecoderNet(nn.Module):
         h = h.reshape(-1, *self.out_dim)
         if h.size(1) == 1:
             h = h.squeeze(1)
+        else:
+            h = h.permute(0, 2, 3, 1)
         return h
 
 
@@ -278,8 +282,6 @@ class EncoderDecoder:
         if (x_test.ndim == len(self.im_dim) == 2 or
            x_test.ndim == len(self.im_dim) == 3):
             x_test = x_test.unsqueeze(0)
-        if len(self.im_dim) == 3:
-            x_test = x_test.permute(0, -1, 1, 2)
         if torch.cuda.is_available():
             x_test = x_test.cuda()
             self.encoder_net.cuda()
@@ -335,8 +337,6 @@ class EncoderDecoder:
             else:
                 x_decoded = self.decoder_net(z_sample)
         imdec = x_decoded.cpu().numpy()
-        if imdec.ndim == 4:
-            imdec = imdec.transpose(0, 2, 3, 1)
         return imdec
 
     def forward_(self,
@@ -570,8 +570,6 @@ class rVAE(EncoderDecoder):
         np.random.seed(seed)
 
         self.im_dim = imstack.shape[1:]
-        if len(self.im_dim) == 3:
-            imstack = imstack.transpose(0, 3, 1, 2)
         imstack_train, imstack_test = train_test_split(
             imstack, test_size=test_size, shuffle=True, random_state=seed)
 
@@ -764,8 +762,6 @@ class VAE(EncoderDecoder):
         np.random.seed(seed)
 
         self.im_dim = imstack.shape[1:]
-        if len(self.im_dim) == 3:
-            imstack = imstack.transpose(0, 3, 1, 2)
         imstack_train, imstack_test = train_test_split(
             imstack, test_size=test_size, shuffle=True, random_state=seed)
 
@@ -818,7 +814,7 @@ class VAE(EncoderDecoder):
         else:
             x_reconstr = self.decoder_net(z)
         reconstr_error = -0.5 * torch.sum(
-            (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
+            (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1).mean()
         kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
         kl_z = torch.sum(kl_z, 1).mean()
         return reconstr_error - kl_z
