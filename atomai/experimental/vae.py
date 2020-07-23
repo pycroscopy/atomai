@@ -544,6 +544,7 @@ class rVAE(EncoderDecoder):
         **numlayers_decoder: number of layers in decoder (Default: 2)
         **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
         **numhidden_decoder: number of hidden units in decoder (Default: 128)
+        **loss: reconstruction loss function, "ce" or "mse" (Default: "mse")
         **translation_prior: translation prior
         **rotation_prior: rotational prior
         **recording: saves a learned 2d manifold at each training step
@@ -601,6 +602,7 @@ class rVAE(EncoderDecoder):
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
         self.optim = torch.optim.Adam(params, lr=1e-4)
+        self.loss = kwargs.get("loss", "mse")
 
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
@@ -642,8 +644,14 @@ class rVAE(EncoderDecoder):
                 x_reconstr = self.decoder_net(x_coord_, z)
         else:
             x_reconstr = self.decoder_net(x_coord_, z)
-        reconstr_error = -0.5 * torch.sum(
-            (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
+        if self.loss == "mse":
+            reconstr_error = -0.5 * torch.sum(
+                (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
+        else:
+            px_size = np.product(self.im_dim)
+            rs = (self.im_dim[0] * self.im_dim[1], self.im_dim[-1])
+            reconstr_error = -F.binary_cross_entropy_with_logits(
+                x_reconstr.view(-1, *rs), x.view(-1, *rs)) * px_size
         kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
         kl_div = (kl_rot + torch.sum(kl_z, 1)).mean()
         return reconstr_error - kl_div
@@ -813,8 +821,14 @@ class VAE(EncoderDecoder):
                 x_reconstr = self.decoder_net(z)
         else:
             x_reconstr = self.decoder_net(z)
-        reconstr_error = -0.5 * torch.sum(
-            (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1).mean()
+        if self.loss == "mse":
+            reconstr_error = -0.5 * torch.sum(
+                (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1).mean()
+        else:
+            px_size = np.product(self.im_dim)
+            rs = (self.im_dim[0] * self.im_dim[1], self.im_dim[-1])
+            reconstr_error = -F.binary_cross_entropy_with_logits(
+                x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs)) * px_size
         kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
         kl_z = torch.sum(kl_z, 1).mean()
         return reconstr_error - kl_z
