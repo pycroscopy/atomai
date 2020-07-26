@@ -1090,7 +1090,7 @@ def update_classes(coordinates,
         intensities = get_intensities(coordinates_, nn_input, r)
         intensities_ = np.concatenate(intensities)
         bandwidth = cluster.estimate_bandwidth(
-            intensities[:, None], quantile=kwargs.get("q", .1))
+            intensities_[:, None], quantile=kwargs.get("q", .1))
         ms = cluster.MeanShift(bandwidth=bandwidth, bin_seeding=True)
         ms.fit(intensities_[:, None])
         for i, iarray in enumerate(intensities):
