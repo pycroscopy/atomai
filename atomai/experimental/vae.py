@@ -18,7 +18,7 @@ class EncoderNet(nn.Module):
     Encoder (inference) network
 
     Args:
-        dim: tuple with image height and width
+        dim: tuple with image dimensions: (height, width) or (height, width, channels)
         latent_dim: number of latent dimensions (the first three latent dimensions are angle & translations by default)
         num_layers: number of NN layers
         hidden_dim: number of neurons in each fully connnected layer (when mlp=True)
@@ -27,7 +27,7 @@ class EncoderNet(nn.Module):
 
     """
     def __init__(self,
-                 dim: Tuple[int, int],
+                 dim: Tuple[int],
                  latent_dim: int = 5,
                  num_layers: int = 2,
                  hidden_dim: int = 32,
@@ -36,31 +36,32 @@ class EncoderNet(nn.Module):
         Initializes network parameters
         """
         super(EncoderNet, self).__init__()
-        n, m = dim
+        c = 1 if len(dim) == 2 else dim[-1]
         self.mlp = mlp
         if not self.mlp:
             conv2dblock = models.conv2dblock
-            self.econv = conv2dblock(num_layers, 1, hidden_dim, lrelu_a=0.1)
-            self.reshape_ = hidden_dim * n * m
+            self.econv = conv2dblock(num_layers, c, hidden_dim, lrelu_a=0.1)
+            self.reshape_ = hidden_dim * dim[0] * dim[1]
         else:
             edense = []
             for i in range(num_layers):
-                input_dim = n * m if i == 0 else hidden_dim
+                input_dim = np.product(dim) if i == 0 else hidden_dim
                 edense.extend([nn.Linear(input_dim, hidden_dim), nn.Tanh()])
             self.edense = nn.Sequential(*edense)
             self.reshape_ = hidden_dim
         self.fc11 = nn.Linear(self.reshape_, latent_dim)
         self.fc12 = nn.Linear(self.reshape_, latent_dim)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass
         """
         if self.mlp:
-            x = x.reshape(-1, x.size(1) * x.size(2))
+            x = x.reshape(-1, np.product(x.size()[1:]))
             x = self.edense(x)
         else:
-            x = self.econv(x[:, None, ...])
+            x = x.unsqueeze(1) if x.ndim == 3 else x.permute(0, -1, 1, 2)
+            x = self.econv(x)
             x = x.reshape(-1, self.reshape_)
         z_mu = self.fc11(x)
         z_logstd = self.fc12(x)
@@ -76,18 +77,25 @@ class rDecoderNet(nn.Module):
         latent_dim: number of latent dimensions associated with images content
         num_layers: number of fully connected layers
         hidden_dim: number of neurons in each fully connected layer
-        out_dim: output image dimensions (height and width)
+        out_dim: tuple with output dimensions: (height, width) or (height, width, channels)
     """
     def __init__(self,
                  latent_dim: int,
                  num_layers: int,
                  hidden_dim: int,
-                 out_dim: Tuple) -> None:
+                 out_dim: Tuple[int]) -> None:
         """
         Initializes network parameters
         """
         super(rDecoderNet, self).__init__()
-        self.reshape_ = out_dim
+        if len(out_dim) == 2:
+            c = 1
+            self.reshape_ = (out_dim[0], out_dim[1])
+            self.apply_softplus = True
+        else:
+            c = out_dim[-1]
+            self.reshape_ = (out_dim[0], out_dim[1], c)
+            self.apply_softplus = False
         self.fc_coord = nn.Linear(2, hidden_dim)
         self.fc_latent = nn.Linear(latent_dim, hidden_dim, bias=False)
         self.activation = nn.Tanh()
@@ -95,7 +103,7 @@ class rDecoderNet(nn.Module):
         for i in range(num_layers):
             fc_decoder.extend([nn.Linear(hidden_dim, hidden_dim), nn.Tanh()])
         self.fc_decoder = nn.Sequential(*fc_decoder)
-        self.out = nn.Linear(hidden_dim, 1)
+        self.out = nn.Linear(hidden_dim, c)
 
     def forward(self, x_coord: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         """
@@ -112,7 +120,9 @@ class rDecoderNet(nn.Module):
         h = self.fc_decoder(h)
         h = self.out(h)
         out = h.reshape(batch_dim, *self.reshape_)
-        return F.softplus(out)
+        if self.apply_softplus:
+            return F.softplus(out)
+        return out
 
 
 class DecoderNet(nn.Module):
@@ -123,19 +133,20 @@ class DecoderNet(nn.Module):
         latent_dim: number of latent dimensions associated with images content
         num_layers: number of fully connected layers
         hidden_dim: number of neurons in each fully connected layer
-        out_dim: output image dimensions (height and width)
+        out_dim: tuple with image dimensions: (height, width) or (height, width, channels)
         mlp: using a simple multi-layer perceptron instead of convolutional layers (Default: False)
     """
     def __init__(self,
                  latent_dim: int,
                  num_layers: int,
                  hidden_dim: int,
-                 out_dim: Tuple[int, int],
+                 out_dim: Tuple[int],
                  mlp: bool = False,) -> None:
         """
         Initializes network parameters
         """
         super(DecoderNet, self).__init__()
+        c = 1 if len(out_dim) == 2 else out_dim[-1]
         self.mlp = mlp
         if not self.mlp:
             self.fc_linear = nn.Linear(
@@ -143,15 +154,15 @@ class DecoderNet(nn.Module):
             self.reshape_ = (hidden_dim, out_dim[0], out_dim[1])
             self.decoder = models.conv2dblock(
                 num_layers, hidden_dim, hidden_dim, lrelu_a=0.1)
-            self.out = nn.Conv2d(hidden_dim, 1, 1, 1, 0)
+            self.out = nn.Conv2d(hidden_dim, c, 1, 1, 0)
         else:
             decoder = []
             for i in range(num_layers):
                 hidden_dim_ = latent_dim if i == 0 else hidden_dim
                 decoder.extend([nn.Linear(hidden_dim_, hidden_dim), nn.Tanh()])
             self.decoder = nn.Sequential(*decoder)
-            self.out = nn.Linear(hidden_dim, out_dim[0] * out_dim[1])
-        self.out_dim = (1, *out_dim)
+            self.out = nn.Linear(hidden_dim, np.product(out_dim))
+        self.out_dim = (c, out_dim[0], out_dim[1])
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         """
@@ -163,7 +174,11 @@ class DecoderNet(nn.Module):
         h = self.decoder(z)
         h = self.out(h)
         h = h.reshape(-1, *self.out_dim)
-        return h.squeeze(1)
+        if h.size(1) == 1:
+            h = h.squeeze(1)
+        else:
+            h = h.permute(0, 2, 3, 1)
+        return h
 
 
 class EncoderDecoder:
@@ -182,7 +197,7 @@ class EncoderDecoder:
         **numhidden_decoder: number of hidden units OR conv filters in decoder (Default: 128)
     """
     def __init__(self,
-                 im_dim: Tuple[int, int],
+                 im_dim: Tuple[int],
                  latent_dim: int,
                  coord: bool = True,
                  seed: int = 0,
@@ -253,6 +268,9 @@ class EncoderDecoder:
         Args:
             x_test: image array to encode
             **num_batches: number of batches (Default: 10)
+        
+        Returns:
+            Mean and SD of the encoded distribution
         """
         def inference() -> np.ndarray:
             with torch.no_grad():
@@ -261,7 +279,9 @@ class EncoderDecoder:
 
         if isinstance(x_test, np.ndarray):
             x_test = torch.from_numpy(x_test).float()
-        x_test = x_test.unsqueeze(0) if x_test.ndim == 2 else x_test
+        if (x_test.ndim == len(self.im_dim) == 2 or
+           x_test.ndim == len(self.im_dim) == 3):
+            x_test = x_test.unsqueeze(0)
         if torch.cuda.is_available():
             x_test = x_test.cuda()
             self.encoder_net.cuda()
@@ -290,16 +310,18 @@ class EncoderDecoder:
 
         Args:
             z_sample: point in latent space
+        
+        Returns:
+            Generated ("decoded") image(s)
         """
 
-        n, m = self.im_dim
         if isinstance(z_sample, np.ndarray):
             z_sample = torch.from_numpy(z_sample).float()
         if len(z_sample.size()) == 1:
             z_sample = z_sample[None, ...]
         if self.coord:
-            xx = torch.linspace(-1, 1, n)
-            yy = torch.linspace(1, -1, m)
+            xx = torch.linspace(-1, 1, self.im_dim[0])
+            yy = torch.linspace(1, -1, self.im_dim[1])
             x0, x1 = torch.meshgrid(xx, yy)
             x_coord = torch.stack([x0.T.flatten(), x1.T.flatten()], axis=1)
             x_coord = x_coord.expand(z_sample.size(0), *x_coord.size())
@@ -322,12 +344,14 @@ class EncoderDecoder:
                  **kwargs: Dict) -> np.ndarray:
         """
         Forward prediction with uncertainty quantification by sampling from
-        the encoded mean and std. Works ony for regular VAE
-        (without rotational / translational invariance)
+        the encoded mean and std. Works only for regular VAE (and not for rVAE)
 
         Args:
             x_new: image array to encode
             **num_samples: number of samples to generate from normal distribution
+        
+        Returns:
+            Ensemble of "decoded" images
         """
         num_samples = kwargs.get("num_samples", 32)
         if isinstance(x_new, np.ndarray):
@@ -361,7 +385,8 @@ class EncoderDecoder:
             Cropped original image stack and encoded array (cropping is due to finite window size)
         """
 
-        if np.ndim(imgdata) == 2:
+        if (imgdata.ndim == len(self.im_dim) == 2 or
+           imgdata.ndim == len(self.im_dim) == 3):
             imgdata = np.expand_dims(imgdata, axis=0)
         imgdata_encoded, imgdata_ = [], []
         for i, img in enumerate(imgdata):
@@ -435,6 +460,9 @@ class EncoderDecoder:
             rmax: maximum allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor in the next one
             **num_batches: number of batches for self.encode (Default: 10)
+        
+        Returns:
+            List of encoded trajectories and corresponding movie frame numbers
         """
         t = subimg_trajectories(
                 imgdata, coord_class_dict, window_size, min_length, rmax)
@@ -458,10 +486,12 @@ class EncoderDecoder:
             **cmap: color map (Default: gnuplot)
             **draw_grid: plot semi-transparent grid
         """
-        n, m = self.im_dim
         d = kwargs.get("d", 9)
         cmap = kwargs.get("cmap", "gnuplot")
-        figure = np.zeros((n * d, m * d))
+        if len(self.im_dim) == 2:
+            figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d))
+        elif len(self.im_dim) == 3:
+            figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d, self.im_dim[-1]))
         grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
         grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
 
@@ -469,14 +499,17 @@ class EncoderDecoder:
             for j, xi in enumerate(grid_y):
                 z_sample = np.array([[xi, yi]])
                 imdec = self.decode(z_sample)
-                figure[i * n: (i + 1) * n, j * m: (j + 1) * m] = imdec
+                figure[i * self.im_dim[0]: (i + 1) * self.im_dim[0],
+                       j * self.im_dim[1]: (j + 1) * self.im_dim[1]] = imdec
+        if figure.min() < 0:
+            figure = (figure - figure.min()) / figure.ptp()
 
         fig, ax = plt.subplots(figsize=(10, 10))
         ax.imshow(figure, cmap=cmap, origin="lower")
         draw_grid = kwargs.get("draw_grid")
         if draw_grid:
-            major_ticks_x = np.arange(0, d * n, n)
-            major_ticks_y = np.arange(0, d * m, m)
+            major_ticks_x = np.arange(0, d * self.im_dim[0], self.im_dim[0])
+            major_ticks_y = np.arange(0, d * self.im_dim[1], self.im_dim[1])
             ax.set_xticks(major_ticks_x)
             ax.set_yticks(major_ticks_y)
             ax.grid(which='major', alpha=0.6)
@@ -500,7 +533,7 @@ class rVAE(EncoderDecoder):
     by Bepler et al. in arXiv:1909.11663
 
     Args:
-        imstack: 3D stack of training images (n x w x h)
+        imstack: 3D or 4D stack of training images ( n x w x h or n x w x h x c )
         latent_dim: number of VAE latent dimensions associated with image content
         training_cycles: number of training 'epochs' (Default: 300)
         minibatch_size: size of training batch for each training epoch (Default: 200)
@@ -510,7 +543,8 @@ class rVAE(EncoderDecoder):
         **numlayers_encoder: number of layers in encoder (Default: 2)
         **numlayers_decoder: number of layers in decoder (Default: 2)
         **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder: number of hidden units OR conv filters in decoder (Default: 128)
+        **numhidden_decoder: number of hidden units in decoder (Default: 128)
+        **loss: reconstruction loss function, "ce" or "mse" (Default: "mse")
         **translation_prior: translation prior
         **rotation_prior: rotational prior
         **recording: saves a learned 2d manifold at each training step
@@ -523,7 +557,7 @@ class rVAE(EncoderDecoder):
                  test_size: float = 0.15,
                  seed: int = 0,
                  **kwargs: Dict) -> None:
-        dim = imstack.shape[1:3]
+        dim = imstack.shape[1:]
         coord = True
         super(rVAE, self).__init__(dim, latent_dim, coord, seed, **kwargs)
 
@@ -536,13 +570,13 @@ class rVAE(EncoderDecoder):
             torch.backends.cudnn.benchmark = False
         np.random.seed(seed)
 
+        self.im_dim = imstack.shape[1:]
         imstack_train, imstack_test = train_test_split(
             imstack, test_size=test_size, shuffle=True, random_state=seed)
 
         X_train = torch.from_numpy(imstack_train).float()
         X_test = torch.from_numpy(imstack_test).float()
 
-        self.im_dim = imstack.shape[1:3]
         xx = torch.linspace(-1, 1, self.im_dim[0])
         yy = torch.linspace(1, -1, self.im_dim[1])
         x0, x1 = torch.meshgrid(xx, yy)
@@ -568,6 +602,7 @@ class rVAE(EncoderDecoder):
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
         self.optim = torch.optim.Adam(params, lr=1e-4)
+        self.loss = kwargs.get("loss", "mse")
 
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
@@ -609,8 +644,14 @@ class rVAE(EncoderDecoder):
                 x_reconstr = self.decoder_net(x_coord_, z)
         else:
             x_reconstr = self.decoder_net(x_coord_, z)
-        reconstr_error = -0.5 * torch.sum(
-            (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
+        if self.loss == "mse":
+            reconstr_error = -0.5 * torch.sum(
+                (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
+        else:
+            px_size = np.product(self.im_dim)
+            rs = (self.im_dim[0] * self.im_dim[1], self.im_dim[-1])
+            reconstr_error = -F.binary_cross_entropy_with_logits(
+                x_reconstr.view(-1, *rs), x.view(-1, *rs)) * px_size
         kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
         kl_div = (kl_rot + torch.sum(kl_z, 1)).mean()
         return reconstr_error - kl_div
@@ -670,7 +711,19 @@ class rVAE(EncoderDecoder):
         return
 
     @classmethod
-    def visualize_manifold_learning(cls, frames_dir, **kwargs):
+    def visualize_manifold_learning(cls,
+                                    frames_dir: str,
+                                    **kwargs: Dict) -> None:
+        """
+        Creates and stores a video showing evolution of
+        learned 2D manifold during rVAE's training
+
+        Args:
+            frames_dir: directory with snapshots of manifold as .png files
+                        (the files should be named as "1.png", "2.png", etc.)
+            **moviename: name of the movie
+            **frame_duration: duration of each movie frame
+        """
         from atomai.utils import animation_from_png
         movie_name = kwargs.get("moviename", "manifold_learning")
         duration = kwargs.get("frame_duration", 1)
@@ -682,7 +735,7 @@ class VAE(EncoderDecoder):
     Implements a standard Variational Autoencoder (VAE)
 
     Args:
-        imstack: 3D stack of training images (n x w x h)
+        imstack: 3D or 4D stack of training images ( n x w x h or n x w x h x c )
         latent_dim: number of VAE latent dimensions associated with image content
         training_cycles: number of training 'epochs' (Default: 300)
         minibatch_size: size of training batch for each training epoch (Default: 200)
@@ -703,7 +756,7 @@ class VAE(EncoderDecoder):
                  test_size: float = 0.15,
                  seed: int = 0,
                  **kwargs: Dict) -> None:
-        dim = imstack.shape[1:3]
+        dim = imstack.shape[1:]
         coord = False
         super(VAE, self).__init__(dim, latent_dim, coord, seed, **kwargs)
 
@@ -716,13 +769,12 @@ class VAE(EncoderDecoder):
             torch.backends.cudnn.benchmark = False
         np.random.seed(seed)
 
+        self.im_dim = imstack.shape[1:]
         imstack_train, imstack_test = train_test_split(
             imstack, test_size=test_size, shuffle=True, random_state=seed)
 
         X_train = torch.from_numpy(imstack_train).float()
         X_test = torch.from_numpy(imstack_test).float()
-
-        self.im_dim = imstack.shape[1:3]
 
         if torch.cuda.is_available():
             X_train = X_train.cuda()
@@ -769,8 +821,14 @@ class VAE(EncoderDecoder):
                 x_reconstr = self.decoder_net(z)
         else:
             x_reconstr = self.decoder_net(z)
-        reconstr_error = -0.5 * torch.sum(
-            (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
+        if self.loss == "mse":
+            reconstr_error = -0.5 * torch.sum(
+                (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1).mean()
+        else:
+            px_size = np.product(self.im_dim)
+            rs = (self.im_dim[0] * self.im_dim[1], self.im_dim[-1])
+            reconstr_error = -F.binary_cross_entropy_with_logits(
+                x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs)) * px_size
         kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
         kl_z = torch.sum(kl_z, 1).mean()
         return reconstr_error - kl_z

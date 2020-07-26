@@ -265,7 +265,7 @@ class trainer:
         """
         self.net.train()
         self.optimizer.zero_grad()
-        prob = self.net.forward(img)
+        prob = self.net(img)
         loss = self.criterion(prob, lbl)
         loss.backward()
         self.optimizer.step()
@@ -277,7 +277,7 @@ class trainer:
         """
         self.net.eval()
         with torch.no_grad():
-            prob = self.net.forward(img)
+            prob = self.net(img)
             loss = self.criterion(prob, lbl)
         return loss.item()
 
@@ -437,7 +437,7 @@ class predictor:
             images = images.cuda()
         self.model.eval()
         with torch.no_grad():
-            prob = self.model.forward(images)
+            prob = self.model(images)
         if self.logits:
             if self.nb_classes > 1:
                 prob = F.softmax(prob, dim=1)
