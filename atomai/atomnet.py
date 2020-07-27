@@ -15,11 +15,11 @@ import warnings
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Type, Union
 
-import atomai.core.losses_metrics as losses_metrics_
+import atomai.losses_metrics as losses_metrics_
 import numpy as np
 import torch
 import torch.nn.functional as F
-from atomai.core.models import dilnet, dilUnet
+from atomai.models import dilnet, dilUnet
 from atomai.utils import (Hook, average_weights, cluster_coord, cv_thresh,
                           datatransform, find_com, gpu_usage_map, img_pad,
                           img_resize, mock_forward, peak_refinement,
