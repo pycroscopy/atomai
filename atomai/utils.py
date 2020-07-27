@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore", module="scipy.optimize")
 
 
 def load_weights(model: Type[torch.nn.Module],
-                 weights_path: str) -> Type[torch.nn.module]:
+                 weights_path: str) -> Type[torch.nn.Module]:
     """
     Loads weights saved as pytorch state dictionary into a model skeleton
 
