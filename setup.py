@@ -1,9 +1,9 @@
 __author__ = "Maxim Ziatdinov"
-__copyright__ = "Copyright Maxim Ziatdinov (2019)"
+__copyright__ = "Copyright Maxim Ziatdinov (2020)"
 __maintainer__ = "Maxim Ziatdinov"
 __email__ = "maxim.ziatdinov@ai4microcopy.com"
 
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         author='Maxim Ziatdinov',
         author_email='maxim.ziatdinov@ai4microcopy.com',
         license='MIT license',
-        packages=find_packages(include=['atomai', 'atomai.*']),
+        packages=['atomai'],
         zip_safe=False,
         install_requires=[
             'torch>=1.0.0',
