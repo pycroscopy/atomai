@@ -1,3 +1,12 @@
+"""
+vae.py
+===========
+
+Module for analysis of "building blocks" with variational autoencoders
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+"""
+
 import os
 from typing import Dict, List, Tuple, Type, Union
 

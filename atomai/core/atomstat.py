@@ -7,6 +7,8 @@ Module for statistical analysis of local image descriptors
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+from typing import Tuple, List, Dict, Union
+
 import os
 import copy
 import warnings
@@ -74,10 +76,11 @@ class imlocal:
         >>> traj_all, trans_all, fram_all = imstack.transition_matrix(n_components=10, rmax=10)
     """
     def __init__(self,
-                 network_output,
-                 coord_class_dict_all,
-                 crop_size,
-                 coord_class):
+                 network_output: np.ndarray,
+                 coord_class_dict_all: Dict[int, np.ndarray],
+                 crop_size: int,
+                 coord_class: int,
+                 window_size: int = None) -> None:
         """
         Initializes parameters and collects a stack of subimages
         for the statistical analysis of local descriptors
@@ -87,31 +90,37 @@ class imlocal:
         self.coord_all = coord_class_dict_all
         self.coord_class = np.float(coord_class)
         self.r = crop_size
+        if window_size is not None:
+            self.r = window_size
+        else:
+            warnings.warn("Use window_size instead of crop_size to specify size of subimages",
+                          DeprecationWarning)
         (self.imgstack,
          self.imgstack_com,
          self.imgstack_frames) = self.extract_subimages_()
         self.d0, self.d1, self.d2, self.d3 = self.imgstack.shape
 
-    def extract_subimages_(self):
+    def extract_subimages_(self) -> Tuple[np.ndarray]:
         """
         Extracts subimages centered at certain atom class/type
         in the neural network output
 
         Returns:
             3-element tuple containing
-            i) stack of subimages,
-            ii) (x, y) coordinates of their centers,
-            iii) frame number associated with each subimage
+
+            - stack of subimages
+            - (x, y) coordinates of their centers
+            - frame number associated with each subimage
         """
         imgstack, imgstack_com, imgstack_frames = extract_subimages(
             self.network_output, self.coord_all, self.r, self.coord_class)
         return imgstack, imgstack_com, imgstack_frames
 
     def gmm(self,
-            n_components,
-            covariance='diag',
-            random_state=1,
-            plot_results=False):
+            n_components: int,
+            covariance: str = 'diag',
+            random_state: int = 1,
+            plot_results: bool = False) -> Tuple[np.ndarray, List]:
         """
         Applies Gaussian mixture model to image stack.
 
@@ -126,13 +135,11 @@ class imlocal:
                 Plotting gmm components
 
         Returns:
-            3-element tuple containing
-            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
-            containing averaged images for each GMM class
-            (the 1st dimension correspond to individual mixture components),
-            ii) List where each element contains 4D images belonging to each GMM class,
-            iii) 2D numpy array (*N* x 4) with *xy* coordinates of the center of mass,
-            labels and a frame number for each subimage
+            3-element tuple containing:
+
+            - 4D numpy array with GMM "centroids" (averaged images for each class)
+            - List where each element contains 4D images belonging to each GMM class
+            - 2D numpy array with *xy* coordinates, label and corresponding frame number for each subimage
         """
         clf = mixture.GaussianMixture(
             n_components=n_components,
@@ -174,9 +181,9 @@ class imlocal:
         return cla, cl_all, com_frames
 
     def pca(self,
-            n_components,
-            random_state=1,
-            plot_results=False):
+            n_components: int,
+            random_state: int = 1,
+            plot_results: bool = False) -> Tuple[np.ndarray]:
         """
         Computes PCA eigenvectors for a stack of subimages.
 
@@ -190,12 +197,10 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
-            with computed (and reshaped) principal axes for stack of subimages,
-            ii) 2D numpy array (*N* x *n_components*) with projection of X_vec
-            on the first principal components,
-            iii) 2D numpy array (*N* x 3) with center-of-mass coordinates
-            and the corresponding frame number for each subimage
+
+            - 4D numpy array with computed and reshaped principal axes
+            - 2D numpy with projection of X_vec (vector with flattened subimages) on the first principal components
+            - 2D numpy array with center-of-mass coordinates and corresponding frame number for each subimage
         """
         pca = decomposition.PCA(
             n_components=n_components,
@@ -213,9 +218,9 @@ class imlocal:
         return components, X_vec_t, com_frames
 
     def ica(self,
-            n_components,
-            random_state=1,
-            plot_results=False):
+            n_components: int,
+            random_state: int = 1,
+            plot_results: bool = False):
         """
         Computes ICA independent souces for a stack of subimages.
 
@@ -229,13 +234,10 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
-            with computed (and reshaped) independent sources
-            for stack of subimages,
-            ii) 2D numpy array (*N* x *n_components*) numpy array with
-            recovered sources from X_vec,
-            iii) 2D numpy aray (*N* x 3) with center-of-mass coordinates
-            and the corresponding frame number for each subimage
+
+            - 4D numpy array with computed and reshaped independent sources
+            - 2D numpy array with recovered sources from X_vec (vector with flattned subimages)
+            - 2D numpy aray with center-of-mass coordinates and corresponding frame number for each subimage
         """
         ica = decomposition.FastICA(
             n_components=n_components,
@@ -253,10 +255,10 @@ class imlocal:
         return components, X_vec_t, com_frames
 
     def nmf(self,
-            n_components,
-            random_state=1,
-            plot_results=False,
-            **kwargs):
+            n_components: int,
+            random_state: int = 1,
+            plot_results: bool = False,
+            **kwargs: int) -> Tuple[np.ndarray]:
         """
         Applies NMF to source separation from a stack of subimages
 
@@ -272,12 +274,10 @@ class imlocal:
 
         Returns:
             3-element tuple containing
-            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
-            with computed (and reshaped) sources for stack of subimages,
-            ii) 2D numpy array (*N* x *n_components*)  with
-            transformed data X_vec according to the trained NMF model,
-            iii) 2D numpy array(*N* x 3) with center-of-mass coordinates
-            and the corresponding frame number for each subimage
+
+            - 4D numpy array with computed and reshaped sources
+            - 2D numpy array with transformed data according to the trained NMF model,
+            - 2D numpy aray with center-of-mass coordinates and corresponding frame number for each subimage
         """
 
         max_iter = kwargs.get('max_iterations', 1000)
@@ -298,11 +298,11 @@ class imlocal:
         return components, X_vec_t, com_frames
 
     def pca_gmm(self,
-                n_components_gmm,
-                n_components_pca,
-                plot_results=False,
-                covariance_type='diag',
-                random_state=1):
+                n_components_gmm: int,
+                n_components_pca: int,
+                plot_results: bool = False,
+                covariance_type: str = 'diag',
+                random_state: int = 1) -> Tuple[np.ndarray, List]:
         """
         Performs PCA decomposition on GMM-unmixed classes. Can be used when
         GMM allows separating different symmetries
@@ -323,14 +323,11 @@ class imlocal:
 
         Returns:
             4-element tuple containing
-            i) 4D numpy array (*n_components_gmm* x *height* x *width* x *channels*)
-            containing averaged images for each gmm class,
-            ii) List of 4D numpy arrays with PCA components
-            (*n_components_pca* x *height* x *width* x *channels*),
-            iii) List of PCA-transformed data,
-            iv) 2D numpy array (*N* x 4) with *xy* coordinates of the center of mass
-            for each subimage from the stack used for GMM, GMM-assigned label
-            for every subimage and a frame number for each label
+
+            - 4D numpy array with GMM "centroids" (averaged images for each GMM class)
+            - List of 4D numpy arrays with PCA components
+            - List with PCA-transformed data
+            - 2D numpy array with *xy* coordinates, GMM-assigned labels, and corresponding frame numbers
         """
         gmm_components, gmm_imgs, com_class_frames = self.gmm(
             n_components_gmm, covariance_type, random_state, plot_results)
@@ -353,7 +350,7 @@ class imlocal:
                     pca_components, X_vec_t, plot_loading_maps=False)
         return gmm_components, pca_components_all, X_vec_t_all, com_class_frames
 
-    def pca_scree_plot(self, plot_results=True):
+    def pca_scree_plot(self, plot_results: bool = True) -> np.ndarray:
         """
         Computes and plots PCA 'scree plot'
         (explained variance ratio vs number of components)
@@ -374,10 +371,10 @@ class imlocal:
         return explained_var
 
     def pca_gmm_scree_plot(self,
-                           n_components_gmm,
-                           covariance_type='diag',
-                           random_state=1,
-                           plot_results=True):
+                           n_components_gmm: int,
+                           covariance_type: str = 'diag',
+                           random_state: int = 1,
+                           plot_results: bool = True) -> List[np.ndarray]:
         """
         Computes PCA scree plot for each GMM class
 
@@ -392,7 +389,7 @@ class imlocal:
                 Plotting GMM components and PCA scree plot
 
         Returns:
-            List of PCA explained variance
+            List with PCA explained variances for each GMM component
         """
         _, gmm_imgs, _ = self.gmm(
             n_components_gmm, covariance_type, random_state, plot_results)
@@ -414,10 +411,10 @@ class imlocal:
         return explained_var_all
 
     def imblock_pca(self,
-                    n_components,
-                    random_state=1,
-                    plot_results=False,
-                    **kwargs):
+                    n_components: int,
+                    random_state: int = 1,
+                    plot_results: bool = False,
+                    **kwargs: int) -> Tuple[np.ndarray]:
         """
         Computes PCA eigenvectors and their loading maps
         for a stack of subimages. Intended to be used for
@@ -435,11 +432,11 @@ class imlocal:
                 Controls marker size for loading maps plot
 
         Returns:
-            2-element tuple containing
-            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
-            with computed (and reshaped) principal axes
-            for stack of subimages and ii) 2D numpy array (*N* x *n_components*)
-            with projection of X_vec on the first principal components
+            3-element tuple containing
+
+            - 4D numpy array with computed (and reshaped) principal axes
+            - 2D numpy array with projection of X_vec (vector with flattened subimages) on the first principal components
+            - 2D numpy array with coordinates of each subimage
         """
 
         m_s = kwargs.get('marker_size')
@@ -455,10 +452,10 @@ class imlocal:
         return components, X_vec_t, com_frames[:, :2]
 
     def imblock_ica(self,
-                    n_components,
-                    random_state=1,
-                    plot_results=False,
-                    **kwargs):
+                    n_components: int,
+                    random_state: int = 1,
+                    plot_results: bool = False,
+                    **kwargs: int) -> Tuple[np.ndarray]:
         """
         Computes ICA independent souces and their loading maps
         for a stack of subimages. Intended to be used for
@@ -476,11 +473,11 @@ class imlocal:
                 controls marker size for loading maps plot
 
         Returns:
-            2-element tuple containing
-            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
-            with computed (and reshaped) independent sources
-            for stack of subimages and ii) 2D numpy array (*N* x *n_components*)
-            with recovered sources from X_vec
+            3-element tuple containing
+
+            - 4D numpy array with computed (and reshaped) independent sources
+            - 2D numpy array with recovered sources from X_vec (vector with flattened subimages)
+            - 2D numpy array with coordinates of each subimage
         """
 
         m_s = kwargs.get('marker_size')
@@ -496,10 +493,10 @@ class imlocal:
         return components, X_vec_t, com_frames[:, :2]
 
     def imblock_nmf(self,
-                    n_components,
-                    random_state=1,
-                    plot_results=False,
-                    **kwargs):
+                    n_components: int,
+                    random_state: int = 1,
+                    plot_results: bool = False,
+                    **kwargs: int) -> Tuple[np.ndarray]:
         """
         Applies NMF to source separation.
         Computes sources and their loading maps
@@ -517,14 +514,14 @@ class imlocal:
             **max_iterations (int):
                 Maximum number of iterations before timing out
             **marker_size (int):
-                Controls marker size for loading maps plot
+                Controls marker's size for loading maps plots
 
         Returns:
-            2-element tuple containing
-            i) 4D numpy array (*n_components* x *height* x *width* x *channels*)
-            with computed (and reshaped) sources
-            for stack of subimages and ii) 2D numpy array (*N* x *n_components*)
-            with transformed data X_vec according to the trained NMF model
+            3-element tuple containing
+
+            - 4D numpy array with computed (and reshaped) sources
+            - 2D numpy array with transformed X_vec (vector with flattened subimages) according to the trained NMF model
+            - 2D numpy array with coordinates of each subimage
         """
 
         m_s = kwargs.get('marker_size')
@@ -541,12 +538,12 @@ class imlocal:
 
     @classmethod
     def plot_decomposition_results(cls,
-                                   components,
-                                   X_vec_t,
-                                   image_hw=None,
-                                   xy_centers=None,
-                                   plot_loading_maps=True,
-                                   **kwargs):
+                                   components: np.ndarray,
+                                   X_vec_t: np.ndarray,
+                                   image_hw: Tuple = None,
+                                   xy_centers: np.ndarray = None,
+                                   plot_loading_maps: bool = True,
+                                   **kwargs: int) -> None:
         """
         Plots decomposition "eigenvectors". Plots loading maps
 
@@ -567,7 +564,7 @@ class imlocal:
             plot_loading_maps (bool):
                 Plots loading maps for each "eigenvector"
             **marker_size (int):
-                Controls marker size for loading maps plot
+                Controls marker's size for loading maps plots
         """
         nc = components.shape[0]
         rows = int(np.ceil(float(nc)/5))
@@ -605,7 +602,10 @@ class imlocal:
             plt.show()
 
     @classmethod
-    def get_trajectory(cls, coord_class_dict, start_coord, rmax):
+    def get_trajectory(cls,
+                       coord_class_dict: Dict[int, np.ndarray],
+                       start_coord: np.ndarray,
+                       rmax: int) -> Tuple[np.ndarray]:
         """
         Extracts a trajectory of a single defect/atom from image stack
 
@@ -623,8 +623,9 @@ class imlocal:
 
         Returns:
             2-element tuple containing
-            i) Numpy array of defect/atom coordinates form a single trajectory
-            and ii) frames corresponding to this trajectory
+
+            - Numpy array of defect/atom coordinates form a single trajectory
+            - Frames corresponding to this trajectory
         """
         flow = np.empty((0, 3))
         frames = []
@@ -639,10 +640,10 @@ class imlocal:
         return flow, np.array(frames)
 
     def get_all_trajectories(self,
-                             min_length=0,
-                             run_gmm=False,
-                             rmax=10,
-                             **kwargs):
+                             min_length: int = 0,
+                             run_gmm: bool = False,
+                             rmax: int = 10,
+                             **kwargs: Union[int, str]) -> Dict:
         """
         Extracts trajectories for the detected defects
         starting from the first frame. Applies (optionally)
@@ -667,9 +668,10 @@ class imlocal:
 
         Returns:
             Python dictionary containing
-            i) list of numpy arrays with defects/atoms trajectories ("trajectories"),
-            ii) list of frames corresponding to the extracted trajectories ("frames"),
-            iii) gmm components when run_gmm=True ("gmm_components")
+
+            - list of numpy arrays with defects/atoms trajectories ("trajectories")
+            - list of frames corresponding to the extracted trajectories ("frames")
+            - GMM components when run_gmm=True ("gmm_components")
         """
         if run_gmm:
             n_components = kwargs.get("n_components", 5)
@@ -701,7 +703,7 @@ class imlocal:
         return return_dict
 
     @classmethod
-    def renumerate_classes(cls, classes):
+    def renumerate_classes(cls, classes: np.ndarray) -> np.ndarray:
         """
         Helper functions for renumerating Gaussian mixture model
         classes for Markov transition analysis
@@ -712,12 +714,12 @@ class imlocal:
         return np.array(classes_renum, dtype=np.int64)
 
     def transition_matrix(self,
-                          n_components,
-                          covariance='diag',
-                          random_state=1,
-                          rmax=10,
-                          min_length=0,
-                          sum_all_transitions=False):
+                          n_components: int,
+                          covariance: str = 'diag',
+                          random_state: int = 1,
+                          rmax: int = 10,
+                          min_length: int = 0,
+                          sum_all_transitions: bool = False) -> Dict:
         """
         Applies Gaussian mixture model to a stack of
         local descriptors (subimages). Extracts trajectories for
@@ -741,10 +743,11 @@ class imlocal:
 
         Returns:
             Pyhton dictionary containing
-            i) list of defects/atoms trajectories ("trajectories"),
-            ii) list of transition matrices for each trajectory ("transitions"),
-            iii) list of frames corresponding to the extracted trajectories ("frames"),
-            iv) GMM components as images ("gmm_components")
+
+            - List of defects/atoms trajectories ("trajectories")
+            - List of transition matrices for each trajectory ("transitions")
+            - List of frames corresponding to the extracted trajectories ("frames")
+            - GMM components as images ("gmm_components")
         """
         dict_to_return = self.get_all_trajectories(
             min_length, run_gmm=True, n_components=n_components, rmax=rmax,
@@ -761,7 +764,7 @@ class imlocal:
         return dict_to_return
 
 
-def calculate_transition_matrix(trace):
+def calculate_transition_matrix(trace: Union[List, np.ndarray]) -> np.ndarray:
     """
     Calculates Markov transition matrix
 
@@ -784,7 +787,8 @@ def calculate_transition_matrix(trace):
     return M
 
 
-def sum_transitions(trans_dict, msize, plot_results=False, **kwargs):
+def sum_transitions(trans_dict: Dict, msize: int,
+                    plot_results: bool = False, **kwargs: int) -> np.ndarray:
     """
     Sums and normalizes transitions associated with individual trajectories
 
@@ -799,7 +803,7 @@ def sum_transitions(trans_dict, msize, plot_results=False, **kwargs):
             plot transition matrix and GMM components
             associated with highest transition frequencies
         **transitions_to_plot (int):
-            number of transitions (associated with largerst prob values) to plot
+            number of transitions (associated with largest prob values) to plot
 
     Returns:
         Full transition matrix as 2D numpy array
@@ -818,12 +822,12 @@ def sum_transitions(trans_dict, msize, plot_results=False, **kwargs):
     return transmat_all
 
 
-def plot_lattice_bonds(distances,
-                       atom_pairs,
-                       distance_ideal=None,
-                       frame=0,
-                       display_results=True,
-                       **kwargs):
+def plot_lattice_bonds(distances: np.ndarray,
+                       atom_pairs: np.ndarray,
+                       distance_ideal: float = None,
+                       frame: int = 0,
+                       display_results: bool = True,
+                       **kwargs: Union[str, int]) -> None:
     """
     Plots a map of lattice bonds
 
@@ -882,12 +886,12 @@ def plot_lattice_bonds(distances,
     fig.savefig(os.path.join(savedir, 'frame_{}'.format(frame)))
 
 
-def map_bonds(coordinates,
-              nn=2,
-              upper_bound=None,
-              distance_ideal=None,
-              plot_results=True,
-              **kwargs):
+def map_bonds(coordinates: Dict[int, np.ndarray],
+              nn: int = 2,
+              upper_bound: float = None,
+              distance_ideal: float = None,
+              plot_results: bool = True,
+              **kwargs: Union[str, int]) -> np.ndarray:
     """
     Generates plots with lattice bonds
     (color-coded according to the variation in their length)
@@ -925,7 +929,8 @@ def map_bonds(coordinates,
     return np.concatenate((distances_all))
 
 
-def cluster_coord(coord_class_dict, eps, min_samples=10):
+def cluster_coord(coord_class_dict: Dict[int, np.ndarray], eps: float,
+                  min_samples: int = 10) -> Tuple[np.ndarray]:
     """
     Collapses coordinates from an image stack onto xy plane and
     performs clustering in the xy space. Works for non-overlapping
@@ -948,9 +953,10 @@ def cluster_coord(coord_class_dict, eps, min_samples=10):
 
     Returns:
         3-element tuple containing
-        i) coordinates of points in each identified cluster,
-        ii) center of the mass for each cluster,
-        iii) variance of points in each cluster
+
+        - coordinates of points in each identified cluster
+        - center of the mass for each cluster
+        - variance of points in each cluster
     """
     coordinates_all = np.empty((0, 3))
     for k in range(len(coord_class_dict)):
@@ -969,7 +975,9 @@ def cluster_coord(coord_class_dict, eps, min_samples=10):
             np.array(clusters_var))
 
 
-def find_coord_clusters(coord_class_dict_1, coord_class_dict_2, rmax):
+def find_coord_clusters(coord_class_dict_1: Dict[int, np.ndarray],
+                        coord_class_dict_2: Dict[int, np.ndarray],
+                        rmax: int) -> Tuple[np.ndarray, List]:
     """
     Takes a single array of xy coordinates (usually associated
     with a single image) and for each coordinate finds
@@ -997,9 +1005,10 @@ def find_coord_clusters(coord_class_dict_1, coord_class_dict_2, rmax):
 
     Returns:
         3-element tuple containing
-        i) coordinates of points in each identified cluster,
-        ii) center of the mass for each cluster,
-        iii) standard deviation of points in each cluster
+
+        - coordinates of points in each identified cluster
+        - center of the mass for each cluster
+        - standard deviation of points in each cluster
     """
     coordinates_all = np.empty((0, 3))
     for k in range(len(coord_class_dict_2)):
@@ -1019,10 +1028,10 @@ def find_coord_clusters(coord_class_dict_1, coord_class_dict_2, rmax):
     return (np.array(clusters_mean), np.array(clusters_std), clusters)
 
 
-def update_classes(coordinates,
-                   nn_input,
-                   method='threshold',
-                   **kwargs):
+def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
+                   nn_input: np.ndarray,
+                   method: str = 'threshold',
+                   **kwargs: float) -> Dict[int, np.ndarray]:
     """
     Updates atomic/defect classes based on the calculated intensities
     at each predicted position
@@ -1097,7 +1106,8 @@ def update_classes(coordinates,
     return coordinates_
 
 
-def update_positions(coordinates, nn_input, d=None):
+def update_positions(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
+                     nn_input: np.ndarray, d: int = None) -> Dict[int, np.ndarray]:
     """
     Updates atomic/defect coordinates based on
     peak refinement procedure at each predicted position

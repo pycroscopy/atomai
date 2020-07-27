@@ -8,6 +8,8 @@ and making predictions with trained models
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+from typing import Union, Tuple, List, Dict, Type
+
 import os
 import time
 import warnings
@@ -128,15 +130,15 @@ class trainer:
     >>> trained_model = netr.run()
     """
     def __init__(self,
-                 images_all,
-                 labels_all,
-                 images_test_all,
-                 labels_test_all,
-                 training_cycles,
-                 model_type='dilUnet',
-                 seed=1,
-                 batch_seed=None,
-                 **kwargs):
+                 images_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                 labels_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                 images_test_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                 labels_test_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                 training_cycles: int,
+                 model_type: str = 'dilUnet',
+                 seed: int = 1,
+                 batch_seed: int = None,
+                 **kwargs: Union[int, List, str, bool]) -> None:
         if seed:
             torch.manual_seed(seed)
             if torch.cuda.is_available():
@@ -229,9 +231,9 @@ class trainer:
         if "with_dilation" in locals():
             self.meta_state_dict["with_dilation"] = with_dilation
 
-    def dataloader(self, batch_num, mode='train'):
+    def dataloader(self, batch_num: int, mode: str = 'train') -> Tuple[torch.Tensor]:
         """
-        Generates a batch of training/test images
+        Generates 2 batches images (training and test)
         """
         # Generate batch of training images with corresponding ground truth
         if mode == 'test':
@@ -257,7 +259,7 @@ class trainer:
             images, labels = images.cuda(), labels.cuda()
         return images, labels
 
-    def train_step(self, img, lbl):
+    def train_step(self, img: torch.Tensor, lbl: torch.Tensor) -> float:
         """
         Propagates image(s) through a network to get model's prediction
         and compares predicted value with ground truth; then performs
@@ -271,7 +273,7 @@ class trainer:
         self.optimizer.step()
         return loss.item()
 
-    def test_step(self, img, lbl):
+    def test_step(self, img: torch.Tensor, lbl: torch.Tensor) -> float:
         """
         Forward path for test data with deactivated autograd engine
         """
@@ -281,7 +283,7 @@ class trainer:
             loss = self.criterion(prob, lbl)
         return loss.item()
 
-    def run(self):
+    def run(self) -> None:
         """
         Trains a neural network for *N* epochs by passing a single pair of
         training images and labels and a single pair of test images
@@ -375,13 +377,13 @@ class predictor:
 
     """
     def __init__(self,
-                 trained_model,
-                 refine=False,
-                 resize=None,
-                 use_gpu=False,
-                 logits=True,
-                 seed=1,
-                 **kwargs):
+                 trained_model: Type[torch.nn.Module],
+                 refine: bool = False,
+                 resize: Union[Tuple, List] = None,
+                 use_gpu: bool = False,
+                 logits: bool = True,
+                 seed: int = 1,
+                 **kwargs: Union[int, float, bool]) -> None:
         if seed:
             torch.manual_seed(seed)
             np.random.seed(seed)
@@ -416,9 +418,9 @@ class predictor:
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
-    def preprocess(self, image_data):
+    def preprocess(self, image_data: np.ndarray) -> torch.Tensor:
         """
-        Preparares an input into a neural network
+        Prepares an input for a neural network
         """
         if image_data.ndim == 2:
             image_data = np.expand_dims(image_data, axis=0)
@@ -428,7 +430,7 @@ class predictor:
         image_data = torch_format(image_data)
         return image_data
 
-    def predict(self, images):
+    def predict(self, images: torch.Tensor) -> np.ndarray:
         """
         Returns 'probability' of each pixel
         in image(s) belonging to an atom/defect
@@ -455,7 +457,9 @@ class predictor:
         prob = prob.numpy()
         return prob
 
-    def decode(self, image_data, **kwargs):
+    def decode(self,
+               image_data: np.ndarray,
+               **kwargs: int) -> Tuple[np.ndarray]:
         """
         Make prediction
 
@@ -484,7 +488,9 @@ class predictor:
         images_data = image_data.permute(0, 2, 3, 1).numpy()
         return images_data, decoded_imgs
 
-    def run(self, image_data, **kwargs):
+    def run(self,
+            image_data: np.ndarray,
+            **kwargs: int) -> Tuple[np.ndarray, Tuple[np.ndarray]]:
         """
         Make prediction with a trained model and calculate coordinates
 
@@ -526,10 +532,10 @@ class locator:
         >>> coordinates = atomnet.locator(dist_edge=10, refine=False).run(nn_output)
     """
     def __init__(self,
-                 threshold=0.5,
-                 dist_edge=5,
-                 dim_order='channel_last',
-                 **kwargs):
+                 threshold: float = 0.5,
+                 dist_edge: int = 5,
+                 dim_order: str = 'channel_last',
+                 **kwargs: Union[bool, float]) -> None:
 
         self.dim_order = dim_order
         self.threshold = threshold
@@ -537,7 +543,7 @@ class locator:
         self.refine = kwargs.get("refine")
         self.d = kwargs.get("d")
 
-    def preprocess(self, nn_output):
+    def preprocess(self, nn_output: np.ndarray) -> np.ndarray:
         """
         Prepares data for coordinates extraction
         """
@@ -555,7 +561,7 @@ class locator:
                 'or "channel_last" (e.g. tensorflow)')
         return nn_output
 
-    def run(self, nn_output, *args):
+    def run(self, nn_output: np.ndarray, *args: np.ndarray) -> Dict[int, np.ndarray]:
         """
         Extract all atomic coordinates in image
         via CoM method & store data as a dictionary
@@ -595,7 +601,7 @@ class locator:
             return d_coord_r
         return d_coord
 
-    def rem_edge_coord(self, coordinates, w, h):
+    def rem_edge_coord(self, coordinates: np.ndarray, w: int, h: int) -> np.ndarray:
         """
         Removes coordinates at the image edges
         """

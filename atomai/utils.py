@@ -7,6 +7,8 @@ Utility functions
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+from typing import Union, Tuple, Type, List, Dict, Optional, Callable
+
 import copy
 import subprocess
 import warnings
@@ -31,7 +33,8 @@ warnings.filterwarnings("ignore", module="scipy.optimize")
 #####################
 
 
-def load_weights(model, weights_path):
+def load_weights(model: Type[torch.nn.Module],
+                 weights_path: str) -> Type[torch.nn.module]:
     """
     Loads weights saved as pytorch state dictionary into a model skeleton
 
@@ -64,7 +67,7 @@ def load_weights(model, weights_path):
     return model.eval()
 
 
-def average_weights(ensemble):
+def average_weights(ensemble: Dict[int, Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
     """
     Averages weights of all models in the ensemble
 
@@ -93,7 +96,7 @@ def average_weights(ensemble):
 #######################
 
 
-def gpu_usage_map(cuda_device):
+def gpu_usage_map(cuda_device: int) -> int:
     """
     Get the current GPU memory usage
     Adapted with changes from
@@ -113,11 +116,11 @@ def gpu_usage_map(cuda_device):
 # Image preprocessing #
 #####################
 
-def preprocess_training_data(images_all,
-                             labels_all,
-                             images_test_all,
-                             labels_test_all,
-                             batch_size):
+def preprocess_training_data(images_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                             labels_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                             images_test_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                             labels_test_all: Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]],
+                             batch_size: int) -> Tuple[List[np.ndarray]]:
     """
     Preprocess training and test data
 
@@ -235,7 +238,7 @@ def preprocess_training_data(images_all,
             num_classes)
 
 
-def torch_format(image_data):
+def torch_format(image_data: np.ndarray) -> torch.Tensor:
     """
     Reshapes, normalizes and converts image data
     to pytorch format for model training and prediction
@@ -250,7 +253,8 @@ def torch_format(image_data):
     return image_data
 
 
-def img_resize(image_data, rs, round_=False):
+def img_resize(image_data: np.ndarray, rs: Tuple[int],
+               round_: bool = False) -> np.ndarray:
     """
     Resizes a stack of images
 
@@ -275,7 +279,8 @@ def img_resize(image_data, rs, round_=False):
     return image_data_r
 
 
-def cv_resize(img, rs, round_=False):
+def cv_resize(img: np.ndarray, rs: Tuple[int],
+              round_: bool = False) -> np.ndarray:
     """
     Wrapper for open-cv resize function
 
@@ -296,7 +301,8 @@ def cv_resize(img, rs, round_=False):
     return img_rs
 
 
-def cv_resize_stack(imgdata, rs, round_=False):
+def cv_resize_stack(imgdata: np.ndarray, rs: Union[int, Tuple[int]],
+                    round_: bool = False) -> np.ndarray:
     """
     Resizes a 3D stack of images
 
@@ -316,7 +322,7 @@ def cv_resize_stack(imgdata, rs, round_=False):
     return imgdata_rs
 
 
-def img_pad(image_data, pooling):
+def img_pad(image_data: np.ndarray, pooling: int) -> np.ndarray:
     """
     Pads the image if its size (w, h)
     is not divisible by :math:`2^n`, where *n* is a number
@@ -347,7 +353,7 @@ def img_pad(image_data, pooling):
 ######################
 
 
-def find_com(image_data):
+def find_com(image_data: np.ndarray) -> np.ndarray:
     """
     Find atoms via center of mass methods
 
@@ -363,7 +369,8 @@ def find_com(image_data):
     return coordinates
 
 
-def get_nn_distances_(coordinates, nn=2, upper_bound=None):
+def get_nn_distances_(coordinates: np.ndarray, nn: int = 2,
+                      upper_bound: Optional[float] = None) -> Tuple[np.ndarray]:
     """
     Calculates nearest-neighbor distances for a single image
 
@@ -392,7 +399,9 @@ def get_nn_distances_(coordinates, nn=2, upper_bound=None):
     return d[:, 1:], coordinates[nn]
 
 
-def transform_coordinates(coord, phi, coord_dx):
+def transform_coordinates(coord: Union[np.ndarray, torch.Tensor],
+                          phi: float, coord_dx: Union[np.ndarray, torch.Tensor]
+                          ) -> torch.Tensor:
     """
     Pytorch-based 2D rotation of coordinates followed by translation.
     Operates on batches.
@@ -418,7 +427,9 @@ def transform_coordinates(coord, phi, coord_dx):
     return coord + coord_dx
 
 
-def get_nn_distances(coordinates, nn=2, upper_bound=None):
+def get_nn_distances(coordinates: Dict[, int, np.ndarray],
+                     nn: int = 2, upper_bound: Optional[float] = None
+                     ) -> Tuple[List[np.ndarray]]:
     """
     Calculates nearest-neighbor distances for a stack of images
 
@@ -447,7 +458,9 @@ def get_nn_distances(coordinates, nn=2, upper_bound=None):
     return distances_all, atom_pairs_all
 
 
-def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
+def gaussian_2d(xy: Tuple[np.ndarray], amp: float, xo: float, yo: float,
+                sigma_x: float, sigma_y: float, theta: float, offset: float
+                ) -> np.ndarray:
     """
     Models 2D Gaussian
 
@@ -460,6 +473,9 @@ def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
         sigma_y (float): peak height (y-projection)
         theta (float): parameter of 2D Gaussian
         offset (float): parameter of 2D Gaussian
+
+    Returns:
+        Flattened numpy array
     """
     x, y = xy
     a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
@@ -469,7 +485,8 @@ def gaussian_2d(xy, amp, xo, yo, sigma_x, sigma_y, theta, offset):
     return g.flatten()
 
 
-def peak_refinement(imgdata, coordinates, d=None):
+def peak_refinement(imgdata: np.ndarray, coordinates: np.ndarray,
+                    d: Optional[int] = None) -> np.ndarray:
     """
     Performs a refinement of atomic postitions by fitting
     2d Gaussian where the neural network predictions serve
@@ -485,6 +502,7 @@ def peak_refinement(imgdata, coordinates, d=None):
             Half-side of a square around the identified atom for peak fitting
             If d is not specified, it is set to 1/4 of average nearest neighbor
             distance in the lattice.
+
     Returns:
         Refined array of coordinates
     """
@@ -522,7 +540,7 @@ def peak_refinement(imgdata, coordinates, d=None):
     return xyc_all
 
 
-def get_intensities_(coordinates, img):
+def get_intensities_(coordinates: np.ndarray, img: np.ndarray) -> np.ndarray:
     """
     Calculates intensities in a 3x3 square around each predicted position
     for a single image
@@ -537,7 +555,8 @@ def get_intensities_(coordinates, img):
     return intensities_all
 
 
-def get_intensities(coordinates_all, nn_input):
+def get_intensities(coordinates_all: Dict[int, np.ndarray],
+                    nn_input: np.ndarray) -> List[np.ndarray]:
     """
     Calculates intensities in a 3x3 square around each predicted position
     for a stack of images
@@ -548,15 +567,15 @@ def get_intensities(coordinates_all, nn_input):
     return intensities_all
 
 
-def compare_coordinates(coordinates1,
-                        coordinates2,
-                        d_max,
-                        plot_results=False,
-                        **kwargs):
+def compare_coordinates(coordinates1: np.ndarray,
+                        coordinates2: np.ndarray,
+                        d_max: float,
+                        plot_results: bool = False,
+                        **kwargs: Union[int, np.ndarray]) -> Tuple[np.ndarray]:
     """
     Finds difference between predicted ('coordinates1')
     and "true" ('coordinates2') coordinates using scipy.spatialcKDTree method.
-    Use 'd_max' to set maximum search radius. If plotting, pass figure size
+    Use 'd_max' to set maximum search radius. For plotting, pass figure size
     and experimental image using keyword arguments 'fsize' and 'expdata'.
     """
     coordinates1_ = np.empty((0, 3))
@@ -586,8 +605,8 @@ def compare_coordinates(coordinates1,
     return coordinates1_, coordinates2_, np.array(delta_r)
 
 
-def cv_thresh(imgdata,
-              threshold=.5):
+def cv_thresh(imgdata: np.ndarray,
+              threshold: float = .5):
     """
     Wrapper for opencv binary threshold method.
     Returns thresholded image.
@@ -599,10 +618,10 @@ def cv_thresh(imgdata,
     return thresh
 
 
-def filter_cells_(imgdata,
-                  im_thresh=.5,
-                  blob_thresh=150,
-                  filter_='below'):
+def filter_cells_(imgdata: np.ndarray,
+                  im_thresh: float = .5,
+                  blob_thresh: int = 150,
+                  filter_: str = 'below') -> np.ndarray:
     """
     Filters out blobs above/below cetrain size
     in the thresholded neural network output
@@ -619,7 +638,7 @@ def filter_cells_(imgdata,
     return label_img
 
 
-def get_contours(imgdata):
+def get_contours(imgdata: np.ndarray) -> List[np.ndarray]:
     """
     Extracts object contours from image data
     (image data must be binary thresholded)
@@ -630,10 +649,10 @@ def get_contours(imgdata):
     return contours
 
 
-def filter_cells(imgdata,
-                 im_thresh=0.5,
-                 blob_thresh=50,
-                 filter_='below'):
+def filter_cells(imgdata: np.ndarray,
+                 im_thresh: float = 0.5,
+                 blob_thresh: int = 50,
+                 filter_: str = 'below') -> np.ndarray:
     """
     Filters blobs above/below certain size
     for each image in the stack.
@@ -660,7 +679,8 @@ def filter_cells(imgdata,
     return filtered_stack
 
 
-def get_blob_params(nn_output, im_thresh, blob_thresh, filter_='below'):
+def get_blob_params(nn_output: np.ndarray, im_thresh: float,
+                    blob_thresh: int, filter_: str = 'below') -> Dict:
     """
     Extracts position and angle of particles in each movie frame
 
@@ -723,15 +743,24 @@ class subimg_trajectories:
             Max allowed distance (projected on xy plane) between defect
             in one frame and the position of its nearest neighbor in the next one
     """
-    def __init__(self, imgdata, coord_class_dict, window_size, min_length=0, rmax=10):
+    def __init__(self,
+                 imgdata: np.ndarray,
+                 coord_class_dict: Dict[int, np.ndarray],
+                 window_size: int,
+                 min_length: int = 0,
+                 rmax: int = 10) -> None:
         self.imgdata = imgdata
         self.coord_class_dict = coord_class_dict
         self.r = window_size
         self.min_length = min_length
         self.rmax = rmax
 
-    def get_trajectory(self, img, start_coord):
-
+    def get_trajectory(self, img: np.ndarray,
+                       start_coord: np.ndarray
+                       ) -> Tuple[np.ndarray]:
+        """
+        Extracts a single trajectory
+        """
         def crop_(img_, c_):
             cx = int(np.around(c_[0]))
             cy = int(np.around(c_[1]))
@@ -752,7 +781,10 @@ class subimg_trajectories:
                     c0 = c[index][:2]
         return np.array(flow), np.array(frames), np.array(img_cr_all)
 
-    def get_all_trajectories(self):
+    def get_all_trajectories(self) -> Tuple[List[np.ndarray]]:
+        """
+        Extracts all trajectories
+        """
         trajectories_all, frames_all = [], []
         subimgs_all = []
         for ck in self.coord_class_dict[list(self.coord_class_dict.keys())[0]][:,:2]:
@@ -776,24 +808,26 @@ class Hook():
         understanding-pytorch-hooks/notebook
 
     Args:
-        module (torch module): single layer or sequential block)
+        module (torch module): single layer or sequential block
         backward (bool): replace forward_hook with backward_hook
     """
-    def __init__(self, module, backward=False):
+    def __init__(self, module: Type[torch.nn.Module], backward: bool = False) -> None:
         if backward is False:
             self.hook = module.register_forward_hook(self.hook_fn)
         else:
             self.hook = module.register_backward_hook(self.hook_fn)
 
-    def hook_fn(self, module, input_, output_):
+    def hook_fn(self, module: Type[torch.nn.Module],
+                input_: Tuple[torch.Tensor], output_: torch.Tensor) -> None:
         self.input = input_
         self.output = output_
 
-    def close(self):
+    def close(self) -> None:
         self.hook.remove()
 
 
-def mock_forward(model, dims=(1, 64, 64)):
+def mock_forward(model: Type[torch.nn.Module],
+                 dims: Tuple[int] = (1, 64, 64)) -> torch.Tensor:
     """
     Passes a dummy variable throuh a network
     """
@@ -804,7 +838,7 @@ def mock_forward(model, dims=(1, 64, 64)):
     return out
 
 
-def nb_filters_classes(weights_path):
+def nb_filters_classes(weights_path: str) -> Tuple[int]:
     """
     Inferes the number of filters and the number of classes
     used in trained AtomAI models from the loaded weights.
@@ -825,7 +859,8 @@ def nb_filters_classes(weights_path):
 # Visualization #
 #####################
 
-def plot_losses(train_loss, test_loss):
+def plot_losses(train_loss: Union[List[float], np.ndarray],
+                test_loss: Union[List[float], np.ndarray]) -> None:
     """
     Plots train and test losses
     """
@@ -839,7 +874,7 @@ def plot_losses(train_loss, test_loss):
     plt.show()
 
 
-def plot_coord(img, coord, fsize=6):
+def plot_coord(img: np.ndarray, coord: np.ndarray, fsize: int = 6) -> None:
     """
     Plots coordinates (colored according to atom class)
     """
@@ -850,7 +885,8 @@ def plot_coord(img, coord, fsize=6):
     plt.show()
 
 
-def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
+def draw_boxes(imgdata: np.ndarray, defcoord: np.ndarray,
+               bbox: int = 16, fsize: int = 6) -> None:
     """
     Draws boxes cetered around the extracted dedects
     """
@@ -867,7 +903,8 @@ def draw_boxes(imgdata, defcoord, bbox=16, fsize=6):
     plt.show()
 
 
-def plot_trajectories(traj, frames, **kwargs):
+def plot_trajectories(traj: np.ndarray, frames: np.ndarray,
+                      **kwargs: Union[int, str]) -> None:
     """
     Plots individual trajectory (as position (radius) vector)
 
@@ -915,17 +952,19 @@ def plot_trajectories(traj, frames, **kwargs):
     plt.show()
 
 
-def plot_transitions(matrix,
-                     states=None,
-                     gmm_components=None,
-                     plot_values=False,
-                     **kwargs):
+def plot_transitions(matrix: np.ndarray,
+                     states: Optional[np.ndarray] = None,
+                     gmm_components: Optional[np.ndarray] = None,
+                     plot_values: bool = False,
+                     **kwargs: Union[bool, int, str]) -> None:
     """
     Plots transition matrix and (optionally) most frequent/probable transitions
 
     Args:
         m (2D numpy array):
             Transition matrix
+        states (numpy array):
+            Array with states (e.g. [2, 5, 7])
         gmm_components (4D numpy array):
             GMM components (optional)
         plot_values (bool):
@@ -986,7 +1025,9 @@ def plot_transitions(matrix,
     return
 
 
-def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
+def plot_trajectories_transitions(trans_dict: Dict, k: int,
+                                  plot_values: bool = False,
+                                  **kwargs: Union[bool, int, str]) -> None:
     """
     Plots trajectory witht he associated transitions.
 
@@ -1015,8 +1056,9 @@ def plot_trajectories_transitions(trans_dict, k, plot_values=False, **kwargs):
     return
 
 
-def animation_from_png(png_dir, moviename='anim', duration=1,
-                       savedir='./', remove_dir=True):
+def animation_from_png(png_dir: str, moviename: str = 'anim',
+                       duration: int = 1, savedir: str = './',
+                       remove_dir: bool = True) -> None:
     """
     Create animation from saved png files
     """
@@ -1037,7 +1079,9 @@ def animation_from_png(png_dir, moviename='anim', duration=1,
 # Training data preparation #
 #############################
 
-def get_imgstack(imgdata, coord, r):
+def get_imgstack(imgdata: np.ndarray,
+                 coord: np.ndarray,
+                 r: int) -> Tuple[np.ndarray]:
     """
     Extracts subimages centered at specified coordinates
     for a single image
@@ -1053,8 +1097,9 @@ def get_imgstack(imgdata, coord, r):
 
     Returns:
         2-element tuple containing
-        i) Stack of subimages and
-        ii) (x, y) coordinates of their centers
+
+        - Stack of subimages
+        - (x, y) coordinates of their centers
     """
     img_cr_all = []
     com = []
@@ -1079,14 +1124,16 @@ def get_imgstack(imgdata, coord, r):
     return img_cr_all, com
 
 
-def imcrop_randpx(img, window_size, num_images, random_state=0):
+def imcrop_randpx(img:np.ndarray, window_size: int, num_images: int,
+                  random_state: int = 0) -> Tuple[np.ndarray]:
     """
     Extracts subimages at random pixels
 
     Returns:
         2-element tuple containing
-        i) Stack of subimages and
-        ii) (x, y) coordinates of their centers
+
+        - Stack of subimages
+        - (x, y) coordinates of their centers
     """
     list_xy = []
     com_x, com_y = [], []
@@ -1108,14 +1155,17 @@ def imcrop_randpx(img, window_size, num_images, random_state=0):
     return subimages, com
 
 
-def imcrop_randcoord(img, coord, window_size, num_images, random_state=0):
+def imcrop_randcoord(img: np.ndarray, coord: np.ndarray,
+                     window_size: int, num_images: int,
+                     random_state: int = 0) -> Tuple[np.ndarray]:
     """
     Extracts subimages at random coordinates
 
     Returns:
         2-element tuple containing
-        i) Stack of subimages and
-        ii) (x, y) coordinates of their centers
+
+        - Stack of subimages
+        - (x, y) coordinates of their centers
     """
     list_idx, com_xy = [], []
     n = 0
@@ -1130,8 +1180,9 @@ def imcrop_randcoord(img, coord, window_size, num_images, random_state=0):
     return subimages, com
 
 
-def extract_random_subimages(imgdata, window_size, num_images,
-                             coordinates=None, **kwargs):
+def extract_random_subimages(imgdata: np.ndarray, window_size: int, num_images: int, 
+                             coordinates: Optional[Dict[int, np.ndarray]] = None,
+                             **kwargs: int) -> Tuple[np.ndarray]:
     """
     Extracts randomly subimages centered at certain atom class/type
     (usually from a neural network output) or just at random pixels
@@ -1154,10 +1205,10 @@ def extract_random_subimages(imgdata, window_size, num_images,
 
     Returns:
         3-element tuple containing
-        i) stack of subimages,
-        ii) (x, y) coordinates of their centers,
-        iii) frame number associated with each subimage
 
+        - stack of subimages
+        - (x, y) coordinates of their centers
+        - frame number associated with each subimage
     """
     if coordinates:
         coord_class = kwargs.get("coord_class", 0)
@@ -1188,28 +1239,9 @@ def extract_random_subimages(imgdata, window_size, num_images,
     return subimages_all, com_all, frames_all
 
 
-def remove_edge_coord(coordinates, dim, dist_edge):
-    """
-    Removes coordinates at the image edges
-    """
-
-    def coord_edges(coordinates, h, w):
-        return [coordinates[0] > w - dist_edge,
-                coordinates[0] < dist_edge,
-                coordinates[1] > h - dist_edge,
-                coordinates[1] < dist_edge]
-
-    h, w = dim
-    coord_to_rem = [
-                    idx for idx, c in enumerate(coordinates)
-                    if any(coord_edges(c, h, w))
-                    ]
-    coord_to_rem = np.array(coord_to_rem, dtype=int)
-    coordinates = np.delete(coordinates, coord_to_rem, axis=0)
-    return coordinates
-
-
-def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
+def extract_subimages(imgdata: np.ndarray,
+                      coordinates: Union[Dict[int, np.ndarray], np.ndarray],
+                      window_size: int, coord_class: int = 0) -> Tuple[np.ndarray]:
     """
     Extracts subimages centered at certain atom class/type
     (usually from a neural network output)
@@ -1234,9 +1266,10 @@ def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
 
     Returns:
         3-element tuple containing
-        i) stack of subimages,
-        ii) (x, y) coordinates of their centers,
-        iii) frame number associated with each subimage
+
+        - stack of subimages,
+        - (x, y) coordinates of their centers,
+        - frame number associated with each subimage
     """
     if isinstance(coordinates, np.ndarray):
         coordinates = np.concatenate((
@@ -1261,9 +1294,33 @@ def extract_subimages(imgdata, coordinates, window_size, coord_class=0):
     return subimages_all, com_all, frames_all
 
 
-def combine_classes(coord_class_dict, classes_to_combine, renumerate=True):
+def remove_edge_coord(coordinates: np.ndarray, dim: Tuple,
+                      dist_edge: int) -> np.ndarray:
     """
-    Combines classes in a dictionary from atomnet.locator or atomnet.predictor output
+    Removes coordinates at the image edges
+    """
+
+    def coord_edges(coordinates, h, w):
+        return [coordinates[0] > w - dist_edge,
+                coordinates[0] < dist_edge,
+                coordinates[1] > h - dist_edge,
+                coordinates[1] < dist_edge]
+
+    h, w = dim
+    coord_to_rem = [
+                    idx for idx, c in enumerate(coordinates)
+                    if any(coord_edges(c, h, w))
+                    ]
+    coord_to_rem = np.array(coord_to_rem, dtype=int)
+    coordinates = np.delete(coordinates, coord_to_rem, axis=0)
+    return coordinates
+
+
+def combine_classes(coord_class_dict: Dict[int, np.ndarray],
+                    classes_to_combine: List[int],
+                    renumerate: bool = True) -> Dict[int, np.ndarray]:
+    """
+    Combines classes in a dictionary from atomnet.locator or atomnet.predictor outputs
     """
     coord_class_dict_ = copy.deepcopy(coord_class_dict)
     for i in range(len(coord_class_dict_)):
@@ -1274,7 +1331,8 @@ def combine_classes(coord_class_dict, classes_to_combine, renumerate=True):
     return coord_class_dict_
 
 
-def combine_classes_(classes_all, classes_to_combine):
+def combine_classes_(classes_all: np.ndarray,
+                     classes_to_combine: List[int]) -> np.ndarray:
     """
     Given a list of classes to combine substitutes listed classes
     with a minimum value from the list
@@ -1286,7 +1344,8 @@ def combine_classes_(classes_all, classes_to_combine):
     return classes_all
 
 
-def renumerate_classes_(classes, start_from_1=True):
+def renumerate_classes_(classes: np.ndarray,
+                        start_from_1: bool = True) -> np.ndarray:
     """
     Renumerate classes such that they are ordered starting from 1 or 0
     with an increment of 1
@@ -1300,7 +1359,8 @@ def renumerate_classes_(classes, start_from_1=True):
     return classes_renum
 
 
-def renumerate_classes(coord_class_dict, start_from_1=True):
+def renumerate_classes(coord_class_dict: Dict[int, np.ndarray],
+                       start_from_1: bool = True) -> Dict[int, np.ndarray]:
     """
     Renumerate classes in a dictionary from atomnet.locator or atomnet.predictor output
     such that they are ordered starting from 1 or 0 with an increment of 1
@@ -1317,13 +1377,14 @@ class MakeAtom:
     Creates an image of atom modelled as
     2D Gaussian and a corresponding mask
     """
-    def __init__(self, sc=5, r_mask=3, intensity=1, theta=0, offset=0):
+    def __init__(self, sc: int = 5, r_mask: int = 3,
+                 intensity: int = 1, theta: int = 0, offset: int = 0):
         """
         Args:
-            sc (float): scale parameter, which determines Gaussian width
-            r_mask (float): radius of mask corresponding to atom
-            theta (float): parameter of 2D gaussian function
-            offset (float): parameter of 2D gaussian function
+            sc (int): scale parameter, which determines Gaussian width
+            r_mask (int): radius of mask corresponding to atom
+            theta (int): parameter of 2D gaussian function
+            offset (int): parameter of 2D gaussian function
         """
         if sc % 2 == 0:
             sc += 1
@@ -1337,7 +1398,7 @@ class MakeAtom:
         self.offset = offset
         self.r_mask = r_mask
 
-    def atom2dgaussian(self):
+    def atom2dgaussian(self) -> np.ndarray:
         """
         Models atom as 2d Gaussian
         """
@@ -1352,7 +1413,7 @@ class MakeAtom:
             c*((self.y-self.yo)**2)))
         return g
 
-    def circularmask(self, image, radius):
+    def circularmask(self, image: np.ndarray, radius: int) -> np.ndarray:
         """
         Returns a mask with specified radius
         """
@@ -1363,7 +1424,7 @@ class MakeAtom:
         image[~mask] = 0
         return image
 
-    def gen_atom_mask(self):
+    def gen_atom_mask(self) -> Tuple[np.ndarray]:
         """
         Creates a mask for specific type of atom
         """
@@ -1378,7 +1439,9 @@ class MakeAtom:
         return atom, mask
 
 
-def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
+def create_lattice_mask(lattice: np.ndarray, xy_atoms: np.ndarray,
+                        *args: Callable[[int, int], Tuple[np.ndarray, np.ndarray]],
+                        **kwargs: int) -> np.ndarray:
     """
     Given experimental image and *xy* atomic coordinates
     creates ground truth image. Currently works only for the case
@@ -1428,7 +1491,10 @@ def create_lattice_mask(lattice, xy_atoms, *args, **kwargs):
     return lattice_mask
 
 
-def create_multiclass_lattice_mask(imgdata, coord_class_dict, *args, **kwargs):
+def create_multiclass_lattice_mask(imgdata: np.ndarray,
+                                   coord_class_dict: Union[Dict[int, np.ndarray], np.ndarray],
+                                   *args: Callable[[int, int], Tuple[np.ndarray, np.ndarray]],
+                                   **kwargs: int) -> Union[List[np.ndarray], np.ndarray]:
     """
     Given a stack of experimental images and dictionary with atomic coordinates and classes
     creates a ground truth image. Notice that it will round fractional pixels.
@@ -1469,7 +1535,9 @@ def create_multiclass_lattice_mask(imgdata, coord_class_dict, *args, **kwargs):
     return masks
 
 
-def create_multiclass_lattice_mask_(lattice, xyz_atoms, *args, **kwargs):
+def create_multiclass_lattice_mask_(lattice: np.ndarray, xyz_atoms: np.ndarray,
+                                    *args: Callable[[int, int], Tuple[np.ndarray, np.ndarray]],
+                                    **kwargs: int) -> np.ndarray:
     """
     Given experimental image and *xyz* atomic coordinates
     creates ground truth image. Notice that it will round fractional pixels.
@@ -1521,7 +1589,7 @@ def create_multiclass_lattice_mask_(lattice, xyz_atoms, *args, **kwargs):
     return lattice_mask
 
 
-def create_atom_mask_pair(sc=5, r_mask=5, intensity=1):
+def create_atom_mask_pair(sc: int = 5, r_mask: int = 5, intensity: int = 1):
     """
     Helper function for creating atom-label pair
     """
@@ -1530,7 +1598,9 @@ def create_atom_mask_pair(sc=5, r_mask=5, intensity=1):
     return atom, mask
 
 
-def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches, **kwargs):
+def extract_patches_(lattice_im: np.ndarray, lattice_mask: np.ndarray,
+                     patch_size: int, num_patches: int, **kwargs: int
+                     ) -> Tuple[np.ndarray]:
     """
     Extracts subimages of the selected size from the 'mother" image and mask
     """
@@ -1544,7 +1614,9 @@ def extract_patches_(lattice_im, lattice_mask, patch_size, num_patches, **kwargs
     return images, labels
 
 
-def extract_patches(images, masks, patch_size, num_patches, **kwargs):
+def extract_patches(images: np.ndarray, masks: np.ndarray,
+                    patch_size: int, num_patches: int, **kwargs: int
+                    ) -> Tuple[np.ndarray]:
     """
     Takes batch of images and batch of corresponding masks as an input
     and for each image-mask pair it extracts stack of subimages (patches)
@@ -1605,12 +1677,12 @@ class datatransform:
             [downscale factor (default: 2), upscale factor (default:1.5)]
     """
     def __init__(self,
-                 n_channels,
-                 dim_order_in='channel_last',
-                 dim_order_out='channel_first',
-                 squeeze_channels=False,
-                 seed=None,
-                 **kwargs):
+                 n_channels: int,
+                 dim_order_in: str = 'channel_last',
+                 dim_order_out: str = 'channel_first',
+                 squeeze_channels: bool = False,
+                 seed: Optional[int] = None,
+                 **kwargs: bool):
 
         self.ch = n_channels
         self.dim_order_in = dim_order_in
@@ -1645,7 +1717,9 @@ class datatransform:
         if seed is not None:
             np.random.seed(seed)
 
-    def apply_gauss(self, X_batch, y_batch):
+    def apply_gauss(self,
+                    X_batch: np.ndarray,
+                    y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Random application of gaussian noise to each training inage in a stack
         """
@@ -1658,7 +1732,9 @@ class datatransform:
             X_batch_noisy[i] = img_
         return X_batch_noisy, y_batch
 
-    def apply_jitter(self, X_batch, y_batch):
+    def apply_jitter(self,
+                     X_batch: np.ndarray,
+                     y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Random application of jitter noise to each training image in a stack
         """
@@ -1671,7 +1747,9 @@ class datatransform:
             X_batch_noisy[i] = img_
         return X_batch_noisy, y_batch
 
-    def apply_poisson(self, X_batch, y_batch):
+    def apply_poisson(self,
+                      X_batch: np.ndarray,
+                      y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Random application of poisson noise to each training inage in a stack
         """
@@ -1688,7 +1766,9 @@ class datatransform:
             X_batch_noisy[i] = img
         return X_batch_noisy, y_batch
 
-    def apply_sp(self, X_batch, y_batch):
+    def apply_sp(self,
+                 X_batch: np.ndarray,
+                 y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Random application of salt & pepper noise to each training inage in a stack
         """
@@ -1701,7 +1781,9 @@ class datatransform:
             X_batch_noisy[i] = img
         return X_batch_noisy, y_batch
 
-    def apply_blur(self, X_batch, y_batch):
+    def apply_blur(self,
+                   X_batch: np.ndarray,
+                   y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Random blurring of each training image in a stack
         """
@@ -1713,7 +1795,9 @@ class datatransform:
             X_batch_noisy[i] = img
         return X_batch_noisy, y_batch
 
-    def apply_contrast(self, X_batch, y_batch):
+    def apply_contrast(self,
+                       X_batch: np.ndarray,
+                       y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Randomly change level of contrast of each training image on a stack
         """
@@ -1725,7 +1809,9 @@ class datatransform:
             X_batch_noisy[i] = img
         return X_batch_noisy, y_batch
 
-    def apply_zoom(self, X_batch, y_batch):
+    def apply_zoom(self,
+                   X_batch: np.ndarray,
+                   y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Zoom-in achieved by cropping image and then resizing
         to the original size. The zooming window is a square.
@@ -1755,7 +1841,9 @@ class datatransform:
             y_batch_z[i] = gt
         return X_batch_z, y_batch_z
 
-    def apply_background(self, X_batch, y_batch):
+    def apply_background(self,
+                         X_batch: np.ndarray,
+                         y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Emulates thickness variation in STEM or height variation in STM
         """
@@ -1775,7 +1863,9 @@ class datatransform:
             X_batch_b[i] = img
         return X_batch_b, y_batch
 
-    def apply_rotation(self, X_batch, y_batch):
+    def apply_rotation(self,
+                       X_batch: np.ndarray,
+                       y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Flips and rotates training images and correponding ground truth images
         """
@@ -1799,7 +1889,9 @@ class datatransform:
             y_batch_r[i] = gt
         return X_batch_r, y_batch_r
 
-    def apply_imresize(self, X_batch, y_batch):
+    def apply_imresize(self,
+                       X_batch: np.ndarray,
+                       y_batch: np.ndarray) -> Tuple[np.ndarray]:
         """
         Resizes training images and corresponding ground truth images
         """
@@ -1828,7 +1920,7 @@ class datatransform:
             y_batch_r[i] = gt
         return X_batch_r, y_batch_r
 
-    def run(self, images, masks):
+    def run(self, images: np.ndarray, masks: np.ndarray) -> Tuple[np.ndarray]:
         """
         Applies a sequence of augmentation procedures
         to images and (except for noise) ground truth
@@ -1875,7 +1967,9 @@ class datatransform:
 
 
     @classmethod
-    def squeeze_data(cls, images, labels):
+    def squeeze_data(cls,
+                     images: np.ndarray,
+                     labels: np.ndarray) -> Tuple[np.ndarray]:
         """
         Squeezes channels in each training image and
         filters out image-label pairs where some pixels have multiple values.
@@ -1903,7 +1997,7 @@ class datatransform:
         return np.concatenate(images_valid), np.concatenate(labels_valid)
 
 
-def squeeze_channels_(y_train):
+def squeeze_channels_(y_train: np.ndarray) -> np.ndarray:
     """
     Squeezes multiple channel into a single channel for a batch of labels.
     Assumes 'channel first ordering'
@@ -1914,7 +2008,7 @@ def squeeze_channels_(y_train):
     return y_train_
 
 
-def squeeze_data_(images, labels):
+def squeeze_data_(images: np.ndarray, labels: np.ndarray) -> Tuple[np.ndarray]:
     """
     Squeezes channels in each training image and
     filters out image-label pairs where some pixels have multiple values.
@@ -1934,7 +2028,7 @@ def squeeze_data_(images, labels):
     return np.concatenate(images_valid), np.concatenate(labels_valid)
 
 
-def unsqueeze_channels(labels, n_channels):
+def unsqueeze_channels(labels: np.ndarray, n_channels: int) -> np.ndarray:
     """
     Separates pixels with different values into different channels
     """
@@ -1949,7 +2043,7 @@ def unsqueeze_channels(labels, n_channels):
     return lbl_all.transpose([0, -1, 1, 2])
 
 
-def FFTmask(imgsrc, maskratio=10):
+def FFTmask(imgsrc: np.ndarray, maskratio: int = 10) -> Tuple[np.ndarray]:
     """
     Takes a square real space image and filter out a disk with radius equal to:
     1/maskratio * image size.
@@ -1969,7 +2063,7 @@ def FFTmask(imgsrc, maskratio=10):
     return F2, F3
 
 
-def FFTsub(imgsrc, imgfft):
+def FFTsub(imgsrc: np.ndarray, imgfft: np.ndarray) -> np.ndarray:
     """
     Takes real space image and filtred FFT.
     Reconstructs real space image and subtracts it from the original.
@@ -1983,7 +2077,9 @@ def FFTsub(imgsrc, imgfft):
     return diff
 
 
-def threshImg(diff, threshL=0.25, threshH=0.75):
+def threshImg(diff: np.ndarray,
+              threshL: float = 0.25,
+              threshH: float = 0.75) -> np.ndarray:
     """
     Takes in difference image, low and high thresold values,
     and outputs a map of all defects.
@@ -1994,7 +2090,7 @@ def threshImg(diff, threshL=0.25, threshH=0.75):
     return threshI
 
 
-def crop_borders(imgdata, thresh=0):
+def crop_borders(imgdata: np.ndarray, thresh: float = 0) -> np.ndarray:
     """
     Crops image border where all values are zeros
 
@@ -2014,7 +2110,9 @@ def crop_borders(imgdata, thresh=0):
     return np.array(imgdata_cr).transpose(1, 2, 0)
 
 
-def get_coord_grid(imgdata, step, return_dict=True):
+def get_coord_grid(imgdata: np.ndarray, step: int,
+                   return_dict: bool = True
+                   ) -> Union[np.ndarray, Dict[int, np.ndarray]]:
     """
     Generate a square coordinate grid for every image in a stack. Returns coordinates
     in a dictionary format (same format as generated by atomnet.predictor)

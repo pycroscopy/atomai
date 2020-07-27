@@ -6,6 +6,7 @@ Deep learning models and various custom NN blocks
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
+from typing import List, Type
 
 import torch
 import torch.nn as nn
@@ -40,13 +41,13 @@ class dilUnet(nn.Module):
             (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
-                 nb_classes=1,
-                 nb_filters=16,
-                 use_dropout=False,
-                 batch_norm=True,
-                 upsampling_mode="bilinear",
-                 with_dilation=True,
-                 **kwargs):
+                 nb_classes: int = 1,
+                 nb_filters: int = 16,
+                 use_dropout: bool = False,
+                 batch_norm: bool = True,
+                 upsampling_mode: str = "bilinear",
+                 with_dilation: bool = True,
+                 **kwargs: List[int]) -> None:
         """
         Initializes model parameters
         """
@@ -106,7 +107,7 @@ class dilUnet(nn.Module):
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Defines a forward pass
         """
@@ -159,12 +160,12 @@ class dilnet(nn.Module):
     """
 
     def __init__(self,
-                 nb_classes=1,
-                 nb_filters=25,
-                 use_dropout=False,
-                 batch_norm=True,
-                 upsampling_mode="bilinear",
-                 **kwargs):
+                 nb_classes: int = 1,
+                 nb_filters: int = 25,
+                 use_dropout: bool = False,
+                 batch_norm: bool = True,
+                 upsampling_mode: str = "bilinear",
+                 **kwargs: List[int]) -> None:
         """
         Initializes model parameters
         """
@@ -203,7 +204,7 @@ class dilnet(nn.Module):
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Defines a forward pass
         """
@@ -244,9 +245,11 @@ class conv2dblock(nn.Module):
         dropout_ (float):
             Dropout value for each layer in the block
     """
-    def __init__(self, nb_layers, input_channels, output_channels,
-                 kernel_size=3, stride=1, padding=1, use_batchnorm=False,
-                 lrelu_a=0.01, dropout_=0):
+    def __init__(self, nb_layers: int, input_channels: int,
+                 output_channels: int, kernel_size: int = 3,
+                 stride: int = 1, padding: int = 1,
+                 use_batchnorm: bool = False, lrelu_a: float = 0.01,
+                 dropout_: float = 0) -> None:
         """
         Initializes module parameters
         """
@@ -266,7 +269,7 @@ class conv2dblock(nn.Module):
                 block.append(nn.BatchNorm2d(output_channels))
         self.block = nn.Sequential(*block)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Defines a forward pass
         """
@@ -291,10 +294,10 @@ class upsample_block(nn.Module):
             Upsampling mode. Select between "bilinear" and "nearest"
     """
     def __init__(self,
-                 input_channels,
-                 output_channels,
-                 scale_factor=2,
-                 mode="bilinear"):
+                 input_channels: int,
+                 output_channels: int,
+                 scale_factor: int = 2,
+                 mode: str = "bilinear") -> None:
         """
         Initializes module parameters
         """
@@ -308,7 +311,7 @@ class upsample_block(nn.Module):
             input_channels, output_channels,
             kernel_size=1, stride=1, padding=0)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Defines a forward pass
         """
@@ -348,10 +351,10 @@ class dilated_block(nn.Module):
             Dropout value for each layer in the block
 
     """
-    def __init__(self, input_channels, output_channels,
-                 dilation_values, padding_values,
-                 kernel_size=3, stride=1, lrelu_a=0.01,
-                 use_batchnorm=False, dropout_=0):
+    def __init__(self, input_channels: int, output_channels: int,
+                 dilation_values: List[int], padding_values: List[int],
+                 kernel_size: int = 3, stride: int = 1, lrelu_a: float = 0.01,
+                 use_batchnorm: bool = False, dropout_: float = 0) -> None:
         """
         Initializes module parameters
         """
@@ -373,7 +376,7 @@ class dilated_block(nn.Module):
                 atrous_module.append(nn.BatchNorm2d(output_channels))
         self.atrous_module = nn.Sequential(*atrous_module)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Defines a forward pass
         """
@@ -384,7 +387,7 @@ class dilated_block(nn.Module):
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
 
 
-def load_model(meta_state_dict):
+def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
     """
     Loads trained AtomAI models
 
@@ -427,4 +430,3 @@ def load_model(meta_state_dict):
         )
     model.load_state_dict(checkpoint)
     return model.eval()
-

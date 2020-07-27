@@ -26,7 +26,8 @@ class focal_loss(torch.nn.Module):
             indicates if the sigmoid operation was applied
             at the end of a neural network's forward path.
     """
-    def __init__(self, alpha=0.5, gamma=2, with_logits=True):
+    def __init__(self, alpha: int = 0.5,
+                 gamma: int = 2, with_logits: bool = True) -> None:
         """
         Parameter initialization
         """
@@ -35,7 +36,7 @@ class focal_loss(torch.nn.Module):
         self.gamma = gamma
         self.logits = with_logits
 
-    def forward(self, images, labels):
+    def forward(self, images: torch.Tensor, labels: torch.Tensor):
         """
         Calculates loss
         """
@@ -53,14 +54,14 @@ class dice_loss(torch.nn.Module):
     Computes the Sørensen–Dice loss.
     Adapted with changes from https://github.com/kevinzakka/pytorch-goodies
     """
-    def __init__(self, eps=1e-7):
+    def __init__(self, eps: float = 1e-7):
         super(dice_loss, self).__init__()
         """
         Parameter initialization
         """
         self.eps = eps
 
-    def forward(self, logits, labels):
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """
         Calculate loss
         """
@@ -85,4 +86,3 @@ class dice_loss(torch.nn.Module):
         cardinality = torch.sum(probas + true_1_hot, dims)
         dice_loss = (2. * intersection / (cardinality + self.eps)).mean()
         return (1 - dice_loss)
-
