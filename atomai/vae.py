@@ -15,7 +15,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from atomai import models
+from atomai import fcnn
 from atomai.utils import (crop_borders, extract_subimages, get_coord_grid,
                           subimg_trajectories, transform_coordinates)
 from scipy.stats import norm
@@ -54,7 +54,7 @@ class EncoderNet(nn.Module):
         c = 1 if len(dim) == 2 else dim[-1]
         self.mlp = mlp
         if not self.mlp:
-            conv2dblock = models.conv2dblock
+            conv2dblock = fcnn.conv2dblock
             self.econv = conv2dblock(num_layers, c, hidden_dim, lrelu_a=0.1)
             self.reshape_ = hidden_dim * dim[0] * dim[1]
         else:
@@ -176,7 +176,7 @@ class DecoderNet(nn.Module):
             self.fc_linear = nn.Linear(
                 latent_dim, hidden_dim * out_dim[0] * out_dim[1], bias=False)
             self.reshape_ = (hidden_dim, out_dim[0], out_dim[1])
-            self.decoder = models.conv2dblock(
+            self.decoder = fcnn.conv2dblock(
                 num_layers, hidden_dim, hidden_dim, lrelu_a=0.1)
             self.out = nn.Conv2d(hidden_dim, c, 1, 1, 0)
         else:
