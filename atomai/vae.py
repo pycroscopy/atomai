@@ -268,6 +268,18 @@ class EncoderDecoder:
 
         self.coord = coord
 
+        self.metadict = {
+            "im_dim": self.im_dim,
+            "latent_dim": self.z_dim,
+            "conv_encoder": not mlp_e,
+            "numlayers_e": numlayers_e,
+            "numlayers_d": numlayers_d,
+            "numhidden_e": numhidden_e,
+            "numhidden_d": numhidden_d,
+        }
+        if not coord:
+            self.metadict["conv_decoder"] = not mlp_d
+
     def load_weights(self, filepath: str) -> None:
         """
         Loads saved weights
@@ -287,10 +299,22 @@ class EncoderDecoder:
         try:
             savepath = args[0]
         except IndexError:
-            savepath = "./rVAE"
+            savepath = "./VAE"
         torch.save({"encoder": self.encoder_net.state_dict(),
                     "decoder": self.decoder_net.state_dict()},
                      savepath + ".tar")
+
+    def save_model(self, *args: List[str]) -> None:
+        """
+        Saves trained weights and the key model parameters
+        """
+        try:
+            savepath = args[0]
+        except IndexError:
+            savepath = "./VAE_metadict"
+        self.metadict["encoder"] = self.encoder_net.state_dict()
+        self.metadict["decoder"] = self.decoder_net.state_dict()
+        torch.save(self.metadict, savepath + ".tar")
 
     def encode(self,
                x_test: Union[np.ndarray, torch.Tensor],
