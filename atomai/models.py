@@ -6,7 +6,7 @@ Deep learning models and various custom NN blocks
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
-from typing import List, Type, Tuple
+from typing import List, Type, Tuple, Dict
 
 import torch
 import torch.nn as nn
