@@ -270,7 +270,8 @@ class EncoderDecoder:
 
         self.metadict = {
             "im_dim": self.im_dim,
-            "latent_dim": self.z_dim,
+            "latent_dim": latent_dim,
+            "coord": coord,
             "conv_encoder": not mlp_e,
             "numlayers_e": numlayers_e,
             "numlayers_d": numlayers_d,
@@ -982,3 +983,33 @@ class VAE(EncoderDecoder):
             print(template.format(e+1, self.training_cycles,
                   -elbo_epoch, -elbo_epoch_test))
         return
+
+
+def load_vaemodel(meta_dict: str) -> Type[EncoderDecoder]:
+    """
+    Loads trained AtomAI's VAE model
+
+    Args:
+        meta_state_dict (str):
+            filepath to dictionary with trained weights and key information
+            about model's structure
+
+    Returns:
+        VAE module
+    """
+    torch.manual_seed(0)
+    if torch.cuda.device_count() > 0:
+        meta_dict = torch.load(meta_dict)
+    else:
+        meta_dict = torch.load(meta_dict, map_location='cpu')
+    im_dim = meta_dict.pop("im_dim")
+    latent_dim = meta_dict.pop("latent_dim")
+    coord = meta_dict.pop("coord")
+    encoder_weights = meta_dict.pop("encoder")
+    decoder_weights = meta_dict.pop("decoder")
+    m = EncoderDecoder(im_dim, latent_dim, coord, **meta_dict)
+    m.encoder_net.load_state_dict(encoder_weights)
+    m.encoder_net.eval()
+    m.decoder_net.load_state_dict(decoder_weights)
+    m.decoder_net.eval()
+    return m
