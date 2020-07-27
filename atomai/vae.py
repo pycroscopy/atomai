@@ -2,7 +2,7 @@
 vae.py
 ===========
 
-Module for analysis of "building blocks" with variational autoencoders
+Module for the building blocks analysis with variational autoencoders
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
@@ -27,12 +27,18 @@ class EncoderNet(nn.Module):
     Encoder (inference) network
 
     Args:
-        dim: tuple with image dimensions: (height, width) or (height, width, channels)
-        latent_dim: number of latent dimensions (the first three latent dimensions are angle & translations by default)
-        num_layers: number of NN layers
-        hidden_dim: number of neurons in each fully connnected layer (when mlp=True)
+        dim (tuple):
+            image dimensions: (height, width) or (height, width, channels)
+        latent_dim (int):
+            number of latent dimensions
+            (the first 3 latent dimensions are angle & translations by default)
+        num_layers (int):
+            number of NN layers
+        hidden_dim (int):
+            number of neurons in each fully connnected layer (when mlp=True)
             or number of filters in each convolutional layer (when mlp=False, default)
-        mlp: using a simple multi-layer perceptron instead of convolutional layers (Default: False)
+        mlp (bool):
+            using a simple multi-layer perceptron instead of convolutional layers (Default: False)
 
     """
     def __init__(self,
@@ -83,10 +89,14 @@ class rDecoderNet(nn.Module):
     (based on https://arxiv.org/abs/1909.11663)
 
     Args:
-        latent_dim: number of latent dimensions associated with images content
-        num_layers: number of fully connected layers
-        hidden_dim: number of neurons in each fully connected layer
-        out_dim: tuple with output dimensions: (height, width) or (height, width, channels)
+        latent_dim (int):
+            number of latent dimensions associated with images content
+        num_layers (int):
+            number of fully connected layers
+        hidden_dim (int):
+            number of neurons in each fully connected layer
+        out_dim (tuple):
+            output dimensions: (height, width) or (height, width, channels)
     """
     def __init__(self,
                  latent_dim: int,
@@ -139,11 +149,16 @@ class DecoderNet(nn.Module):
     Decoder network
 
     Args:
-        latent_dim: number of latent dimensions associated with images content
-        num_layers: number of fully connected layers
-        hidden_dim: number of neurons in each fully connected layer
-        out_dim: tuple with image dimensions: (height, width) or (height, width, channels)
-        mlp: using a simple multi-layer perceptron instead of convolutional layers (Default: False)
+        latent_dim (int):
+            number of latent dimensions associated with images content
+        num_layers (int):
+            number of fully connected layers
+        hidden_dim (int):
+            number of neurons in each fully connected layer
+        out_dim (tuple):
+            image dimensions: (height, width) or (height, width, channels)
+        mlp (bool):
+            using a simple multi-layer perceptron instead of convolutional layers (Default: False)
     """
     def __init__(self,
                  latent_dim: int,
@@ -195,22 +210,31 @@ class EncoderDecoder:
     General class for Encoder-Decoder type of deep latent variable models
 
     Args:
-        im_dim: xy planar dimensions (height, width) of input images
-        latent_dim: latent dimension in deep latent variable model
-        seed: seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder: use convolutional layers in encoder
-        **conv_decoder: use convolutional layers in encoder (doesn't apply to spatial decoder)
-        **numlayers_encoder: number of layers in encoder (Default: 2)
-        **numlayers_decoder: number of layers in decoder (Default: 2)
-        **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder: number of hidden units OR conv filters in decoder (Default: 128)
+        im_dim (tuple):
+            (height, width) or (height, width, channel) of input images
+        latent_dim (int):
+            latent dimension in deep latent variable model
+        seed (int):
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **conv_decoder (bool):
+            use convolutional layers in decoder (doesn't apply to  rVAE)
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units OR conv filters in decoder (Default: 128)
     """
     def __init__(self,
                  im_dim: Tuple[int],
                  latent_dim: int,
                  coord: bool = True,
                  seed: int = 0,
-                 **kwargs: Dict) -> None:
+                 **kwargs: Union[int, bool]) -> None:
 
         if torch.cuda.is_available:
             torch.cuda.empty_cache()
@@ -270,14 +294,16 @@ class EncoderDecoder:
 
     def encode(self,
                x_test: Union[np.ndarray, torch.Tensor],
-               **kwargs: Dict) -> Tuple[np.ndarray]:
+               **kwargs: int) -> Tuple[np.ndarray]:
         """
         Encodes input image data using a trained VAE's encoder
 
         Args:
-            x_test: image array to encode
-            **num_batches: number of batches (Default: 10)
-        
+            x_test (numpy array or torch tensor):
+                image array to encode
+            **num_batches (int):
+                number of batches (Default: 10)
+
         Returns:
             Mean and SD of the encoded distribution
         """
@@ -318,8 +344,9 @@ class EncoderDecoder:
         via the learned generative model
 
         Args:
-            z_sample: point in latent space
-        
+            z_sample (numpy array or torch tensor):
+                point(s) in latent space
+
         Returns:
             Generated ("decoded") image(s)
         """
@@ -350,15 +377,17 @@ class EncoderDecoder:
 
     def forward_(self,
                  x_new: Union[np.ndarray, torch.Tensor],
-                 **kwargs: Dict) -> np.ndarray:
+                 **kwargs: int) -> np.ndarray:
         """
         Forward prediction with uncertainty quantification by sampling from
         the encoded mean and std. Works only for regular VAE (and not for rVAE)
 
         Args:
-            x_new: image array to encode
-            **num_samples: number of samples to generate from normal distribution
-        
+            x_new (numpy array or torch tensor):
+                image array to encode
+            **num_samples (int):
+                number of samples to generate from normal distribution
+
         Returns:
             Ensemble of "decoded" images
         """
@@ -382,13 +411,15 @@ class EncoderDecoder:
 
     def encode_images(self,
                       imgdata: np.ndarray,
-                      **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
+                      **kwargs: int) -> Tuple[np.ndarray, np.ndarray]:
         """
         Encodes every pixel of every image in image stack
 
         Args:
-            imgdata: 3D numpy array. Can also be a single 2D image
-            **num_batches: number of batches for for encoding pixels of a single image
+            imgdata (numpy array):
+                3D numpy array. Can also be a single 2D image
+            **num_batches (int):
+                number of batches for for encoding pixels of a single image
 
         Returns:
             Cropped original image stack and encoded array (cropping is due to finite window size)
@@ -407,14 +438,16 @@ class EncoderDecoder:
 
     def encode_image_(self,
                       img: np.ndarray,
-                      **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
+                      **kwargs: int) -> Tuple[np.ndarray, np.ndarray]:
         """
         Crops and encodes a subimage around each pixel in the input image.
         The size of subimage is determined by size of images in VAE training data.
 
         Args:
-            img: 2D numpy array
-            **num_batches: number of batches for encoding subimages
+            img (numpy array):
+                2D numpy array
+            **num_batches (int):
+                number of batches for encoding subimages
 
         Returns:
             Cropped original image and encoded array (cropping is due to finite window size)
@@ -455,21 +488,27 @@ class EncoderDecoder:
                             window_size: int,
                             min_length: int,
                             rmax: int,
-                            **kwargs: Dict
+                            **kwargs: int
                             ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         Calculates trajectories and latent variable value
         for each point in a trajectory.
 
         Args:
-            imgdata: NN output (preferable) or raw data
-            coord_class_dict: atomic/defect/particle coordinates
-            window_size: size of subimages to crop
-            min_length: minimum length of trajectory to be included
-            rmax: maximum allowed distance (projected on xy plane) between defect
+            imgdata (np.array):
+                NN output (preferable) or raw data
+            coord_class_dict (dict):
+                atomic/defect/particle coordinates
+            window_size (int):
+                size of subimages to crop
+            min_length (int):
+                minimum length of trajectory to be included
+            rmax (int):
+                maximum allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor in the next one
-            **num_batches: number of batches for self.encode (Default: 10)
-        
+            **num_batches (int):
+                number of batches for self.encode (Default: 10)
+
         Returns:
             List of encoded trajectories and corresponding movie frame numbers
         """
@@ -484,16 +523,16 @@ class EncoderDecoder:
             trajectories_enc_all.append(traj_enc)
         return trajectories_enc_all, frames
 
-    def manifold2d(self, **kwargs: Dict) -> None:
+    def manifold2d(self, **kwargs: Union[int, str, bool]) -> None:
         """
         Performs mapping from latent space to data space allowing the learned
         manifold to be visualized. This works only for 2d latent variable
         (not counting angle & translation dimensions)
 
         Args:
-            **d: grid size
-            **cmap: color map (Default: gnuplot)
-            **draw_grid: plot semi-transparent grid
+            **d (int): grid size
+            **cmap (str): color map (Default: gnuplot)
+            **draw_grid (bool): plot semi-transparent grid
         """
         d = kwargs.get("d", 9)
         cmap = kwargs.get("cmap", "gnuplot")
@@ -542,21 +581,36 @@ class rVAE(EncoderDecoder):
     by Bepler et al. in arXiv:1909.11663
 
     Args:
-        imstack: 3D or 4D stack of training images ( n x w x h or n x w x h x c )
-        latent_dim: number of VAE latent dimensions associated with image content
-        training_cycles: number of training 'epochs' (Default: 300)
-        minibatch_size: size of training batch for each training epoch (Default: 200)
-        test_size: proportion of the dataset for model evaluation (Default: 0.15)
-        seed: seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder: use convolutional layers in encoder
-        **numlayers_encoder: number of layers in encoder (Default: 2)
-        **numlayers_decoder: number of layers in decoder (Default: 2)
-        **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder: number of hidden units in decoder (Default: 128)
-        **loss: reconstruction loss function, "ce" or "mse" (Default: "mse")
-        **translation_prior: translation prior
-        **rotation_prior: rotational prior
-        **recording: saves a learned 2d manifold at each training step
+        imstack (np.ndarray):
+            3D or 4D stack of training images ( n x w x h or n x w x h x c )
+        latent_dim (int):
+            number of VAE latent dimensions associated with image content
+        training_cycles (int):
+            number of training 'epochs' (Default: 300)
+        minibatch_size (int):
+            size of training batch for each training epoch (Default: 200)
+        test_size (float):
+            proportion of the dataset for model evaluation (Default: 0.15)
+        seed(int):
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units in decoder (Default: 128)
+        **loss (str):
+            reconstruction loss function, "ce" or "mse" (Default: "mse")
+        **translation_prior (float):
+            translation prior
+        **rotation_prior (float):
+            rotational prior
+        **recording (bool):
+            saves a learned 2d manifold at each training step
     """
     def __init__(self,
                  imstack: np.ndarray,
@@ -565,7 +619,7 @@ class rVAE(EncoderDecoder):
                  minibatch_size: int = 200,
                  test_size: float = 0.15,
                  seed: int = 0,
-                 **kwargs: Dict) -> None:
+                 **kwargs: Union[int, float, bool, str]) -> None:
         dim = imstack.shape[1:]
         coord = True
         super(rVAE, self).__init__(dim, latent_dim, coord, seed, **kwargs)
@@ -722,16 +776,17 @@ class rVAE(EncoderDecoder):
     @classmethod
     def visualize_manifold_learning(cls,
                                     frames_dir: str,
-                                    **kwargs: Dict) -> None:
+                                    **kwargs: Union[str, int]) -> None:
         """
         Creates and stores a video showing evolution of
         learned 2D manifold during rVAE's training
 
         Args:
-            frames_dir: directory with snapshots of manifold as .png files
-                        (the files should be named as "1.png", "2.png", etc.)
-            **moviename: name of the movie
-            **frame_duration: duration of each movie frame
+            frames_dir (str):
+                directory with snapshots of manifold as .png files
+                (the files should be named as "1.png", "2.png", etc.)
+            **moviename (str): name of the movie
+            **frame_duration (int): duration of each movie frame
         """
         from atomai.utils import animation_from_png
         movie_name = kwargs.get("moviename", "manifold_learning")
@@ -744,18 +799,30 @@ class VAE(EncoderDecoder):
     Implements a standard Variational Autoencoder (VAE)
 
     Args:
-        imstack: 3D or 4D stack of training images ( n x w x h or n x w x h x c )
-        latent_dim: number of VAE latent dimensions associated with image content
-        training_cycles: number of training 'epochs' (Default: 300)
-        minibatch_size: size of training batch for each training epoch (Default: 200)
-        test_size: proportion of the dataset for model evaluation (Default: 0.15)
-        seed: seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder: use convolutional layers in encoder
-        **conv_decoder: use convolutional layers in decoder
-        **numlayers_encoder: number of layers in encoder (Default: 2)
-        **numlayers_decoder: number of layers in decoder (Default: 2)
-        **numhidden_encoder: number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder: number of hidden units OR conv filters in decoder (Default: 128)
+        imstack (numpy array):
+            3D or 4D stack of training images ( n x w x h or n x w x h x c )
+        latent_dim (int):
+            number of VAE latent dimensions associated with image content
+        training_cycles (int):
+            number of training 'epochs' (Default: 300)
+        minibatch_size (int):
+            size of training batch for each training epoch (Default: 200)
+        test_size (float):
+            proportion of the dataset for model evaluation (Default: 0.15)
+        seed (int):
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **conv_decoder (bool):
+            use convolutional layers in decoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units OR conv filters in decoder (Default: 128)
     """
     def __init__(self,
                  imstack: np.ndarray,
@@ -764,7 +831,7 @@ class VAE(EncoderDecoder):
                  minibatch_size: int = 200,
                  test_size: float = 0.15,
                  seed: int = 0,
-                 **kwargs: Dict) -> None:
+                 **kwargs: Union[int, bool]) -> None:
         dim = imstack.shape[1:]
         coord = False
         super(VAE, self).__init__(dim, latent_dim, coord, seed, **kwargs)
