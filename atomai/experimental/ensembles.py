@@ -3,10 +3,11 @@ from collections import OrderedDict
 from typing import Dict, Tuple, Type, Union
 
 import numpy as np
-from sklearn.model_selection import train_test_split
 import torch
-from atomai.core import atomnet, atomstat, models
-from atomai.utils import average_weights, Hook, mock_forward, img_pad
+from atomai.core import atomnet, models
+from atomai.utils import (Hook, average_weights, cluster_coord, img_pad,
+                          mock_forward)
+from sklearn.model_selection import train_test_split
 
 
 class ensemble_trainer:
@@ -302,7 +303,7 @@ def ensemble_locate(nn_output_ensemble: np.ndarray,
         for i2, img in enumerate(nn_output):
             coord = atomnet.locator(thresh).run(img[None, ...])
             coordinates[i2] = coord[0]
-        _, coord_mean, coord_var = atomstat.cluster_coord(coordinates, eps)
+        _, coord_mean, coord_var = cluster_coord(coordinates, eps)
         coord_mean_all[i] = coord_mean
         coord_var_all[i] = coord_var
     return coord_mean_all, coord_var_all
