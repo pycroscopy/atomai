@@ -18,7 +18,7 @@ before_install:
     - pip install -U pip
 
 install:
-    pip install .
+    pip install git+https://github.com/ziatdinovmax/atomai.git@dev --upgrade
 
 script:
     - pytest
