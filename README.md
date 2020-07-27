@@ -14,7 +14,7 @@ AtomAI is a simple Python package for machine learning-based analysis of experim
 
 ## How to use it
 
-AtomAI has two main core modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which also takes  a single line of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which also takes  a single line of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
 
 Here is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
 
@@ -44,6 +44,18 @@ expdata = np.load('expdata-test.npy')
 nn_input, (nn_output, coordinates) = atomnet.predictor(trained_model, refine=False).run(expdata)
 ```
 
+One can also train an ensemble of models instead of just a single model. The average ensemble prediction is generally more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel. In the example below, we also "augmnent" our data on-the-fly by applying various image transforations (e.g. adding Gaussian noise, changing contrast, zooming-in, etc.).
+
+```python
+trainer = ensembles.ensemble_trainer(X_train, y_train, n_models=12,
+                                     rotation=True, zoom=True, contrast=True, 
+                                     gauss=True, blur=True, background=True, 
+                                     loss='ce', batch_size=16, training_cycles_base=1000,
+                                     training_cycles_ensemble=100, filename='ensemble')
+
+basemodel, ensemble, ensemble_aver = trainer.run()
+```
+
 One can then perform statistical analysis using the information extracted by *atomnet*. For example, for a single image, one can identify domains with different ferroic distortions:
 
 ```python
@@ -69,6 +81,18 @@ components, imgs, coords = imstack.gmm(n_components=10, plot_results=True)
 transitions_dict = imstack.transition_matrix(n_components=10, rmax=10)
 
 # and more
+```
+
+In addition, one can use variational autoencoders (VAEs) in AtomAI to find the most effective reduced representation for the system. The VAEs can be applied to both raw data and NN output, but typically works better with the latter.
+```python
+# Get stack of subimages from a movie
+from atomai import atomstat, utils
+imstack, com, frames = utils.extract_subimages(decoded_imgs, coords, window_size=32)
+# Initialize and train rotationally-invariant VAE
+rvae = atomstat.rVAE(imstack, latent_dim=2, training_cycles=200)
+rave.run()
+# Visualize the learned manifold
+rvae.manifold2d()
 ```
 
 ## Quickstart: AtomAI in the Cloud
