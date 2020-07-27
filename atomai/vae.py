@@ -895,6 +895,7 @@ class VAE(EncoderDecoder):
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
         self.optim = torch.optim.Adam(params, lr=1e-4)
+        self.loss = kwargs.get("loss", "mse")
 
         self.training_cycles = training_cycles
 
