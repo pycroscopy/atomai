@@ -7,7 +7,7 @@ Module for statistical analysis of local image descriptors
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Type
 
 import os
 import copy
@@ -20,6 +20,7 @@ from matplotlib import cm
 from scipy import spatial
 from sklearn import cluster, decomposition, mixture
 
+from atomai.vae import VAE, rVAE, EncoderDecoder
 from atomai.utils import (get_intensities, get_nn_distances, peak_refinement,
                           plot_transitions, extract_subimages)
 
@@ -820,6 +821,97 @@ def sum_transitions(trans_dict: Dict, msize: int,
             gmm_components=trans_dict["gmm_components"],
             **kwargs)
     return transmat_all
+
+
+def rvae(imstack: np.ndarray,
+         latent_dim: int = 2,
+         training_cycles: int = 300,
+         minibatch_size: int = 200,
+         test_size: float = 0.15,
+         seed: int = 0,
+         **kwargs: Union[int, bool]) -> Type[EncoderDecoder]:
+    """
+    Initializes rotationally invariant variational autoencoder (rVAE)
+    
+    Args:
+        imstack (np.ndarray):
+            3D or 4D stack of training images ( n x w x h or n x w x h x c )
+        latent_dim (int):
+            number of VAE latent dimensions associated with image content
+        training_cycles (int):
+            number of training 'epochs' (Default: 300)
+        minibatch_size (int):
+            size of training batch for each training epoch (Default: 200)
+        test_size (float):
+            proportion of the dataset for model evaluation (Default: 0.15)
+        seed(int):
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units in decoder (Default: 128)
+        **loss (str):
+            reconstruction loss function, "ce" or "mse" (Default: "mse")
+        **translation_prior (float):
+            translation prior
+        **rotation_prior (float):
+            rotational prior
+        **recording (bool):
+            saves a learned 2d manifold at each training step
+    """
+
+    rvae_ = rVAE(
+        imstack, latent_dim, training_cycles,
+        minibatch_size, test_size, seed, **kwargs)
+    return rvae_
+
+
+def vae(imstack: np.ndarray,
+        latent_dim: int = 2,
+        training_cycles: int = 300,
+        minibatch_size: int = 200,
+        test_size: float = 0.15,
+        seed: int = 0,
+        **kwargs: Union[int, bool]) -> Type[EncoderDecoder]:
+    """
+    Initializes a standard Variational Autoencoder (VAE)
+
+    Args:
+        imstack (numpy array):
+            3D or 4D stack of training images ( n x w x h or n x w x h x c )
+        latent_dim (int):
+            number of VAE latent dimensions associated with image content
+        training_cycles (int):
+            number of training 'epochs' (Default: 300)
+        minibatch_size (int):
+            size of training batch for each training epoch (Default: 200)
+        test_size (float):
+            proportion of the dataset for model evaluation (Default: 0.15)
+        seed (int):
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **conv_decoder (bool):
+            use convolutional layers in decoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units OR conv filters in decoder (Default: 128)
+    """
+    vae_ = VAE(
+        imstack, latent_dim, training_cycles,
+        minibatch_size, test_size, seed, **kwargs)
+    return vae_
 
 
 def plot_lattice_bonds(distances: np.ndarray,
