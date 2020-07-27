@@ -15,7 +15,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from atomai.core import models
+from atomai import models
 from atomai.utils import (crop_borders, extract_subimages, get_coord_grid,
                           subimg_trajectories, transform_coordinates)
 from scipy.stats import norm

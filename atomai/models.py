@@ -405,16 +405,13 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
         meta_dict = torch.load(meta_state_dict)
     else:
         meta_dict = torch.load(meta_state_dict, map_location='cpu')
-    model_type = meta_dict['model_type']
-    batchnorm = meta_dict['batchnorm']
-    dropout = meta_dict['dropout']
-    upsampling = meta_dict['upsampling']
-    nb_filters = meta_dict['nb_filters']
-    nb_classes = meta_dict['nb_classes']
-    checkpoint = meta_dict['weights']
-    layers = meta_dict["layers"]
     if "with_dilation" in meta_dict.keys():
-        with_dilation = meta_dict["with_dilation"]
+        (model_type, batchnorm, dropout, upsampling,
+         nb_filters, layers, nb_classes, checkpoint,
+         with_dilation) = meta_dict.values()
+    else:
+        (model_type, batchnorm, dropout, upsampling,
+         nb_filters, layers, nb_classes, checkpoint) = meta_dict.values()
     if model_type == 'dilUnet':
         model = dilUnet(
             nb_classes, nb_filters, dropout,
@@ -430,3 +427,45 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
         )
     model.load_state_dict(checkpoint)
     return model.eval()
+
+
+def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[str, torch.Tensor]]]:
+    """
+    Loads trained ensemble models
+
+    Args:
+        meta_state_dict (str):
+            filepath to dictionary with trained weights and key information
+            about model's structure
+
+    Returns:
+        Model skeleton (initialized) and dictionary with weights of all the models
+    """
+    torch.manual_seed(0)
+    if torch.cuda.device_count() > 0:
+        meta_dict = torch.load(meta_state_dict)
+    else:
+        meta_dict = torch.load(meta_state_dict, map_location='cpu')
+    if "with_dilation" in meta_dict.keys():
+        (model_type, batchnorm, dropout, upsampling,
+         nb_filters, layers, nb_classes, checkpoint,
+         with_dilation) = meta_dict.values()
+    else:
+        (model_type, batchnorm, dropout, upsampling,
+         nb_filters, layers, nb_classes, checkpoint) = meta_dict.values()
+    if model_type == 'dilUnet':
+        model = dilUnet(
+            nb_classes, nb_filters, dropout,
+            batchnorm, upsampling, with_dilation,
+            layers=layers)
+    elif model_type == 'dilnet':
+        model = dilnet(
+            nb_classes, nb_filters, dropout,
+            batchnorm, upsampling, layers=layers)
+    else:
+        raise NotImplementedError(
+            "The network must be either 'dilUnet' or 'dilnet'"
+        )
+    model.load_state_dict(checkpoint[0])
+    return model.eval(), checkpoint
+

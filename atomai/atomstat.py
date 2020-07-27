@@ -93,8 +93,8 @@ class imlocal:
         if window_size is not None:
             self.r = window_size
         else:
-            warnings.warn("Use window_size instead of crop_size to specify size of subimages",
-                          DeprecationWarning)
+            warnings.warn("The crop_size argument is deprecated. Use window_size to specify size of subimages",
+                          UserWarning)
         (self.imgstack,
          self.imgstack_com,
          self.imgstack_frames) = self.extract_subimages_()
