@@ -985,7 +985,7 @@ class VAE(EncoderDecoder):
         return
 
 
-def load_vaemodel(meta_dict: str) -> Type[EncoderDecoder]:
+def load_vae_model(meta_dict: str) -> Type[EncoderDecoder]:
     """
     Loads trained AtomAI's VAE model
 
