@@ -22,6 +22,7 @@ import torch
 from scipy import fftpack, ndimage, optimize, spatial, stats
 from skimage import exposure
 from skimage.util import random_noise
+from sklearn import cluster
 from sklearn.feature_extraction.image import extract_patches_2d
 from sklearn.preprocessing import OneHotEncoder
 
@@ -540,26 +541,31 @@ def peak_refinement(imgdata: np.ndarray, coordinates: np.ndarray,
     return xyc_all
 
 
-def get_intensities_(coordinates: np.ndarray, img: np.ndarray) -> np.ndarray:
+def get_intensities_(coordinates, img, r=3):
     """
     Calculates intensities in a 3x3 square around each predicted position
-    for a single image
+    for a single image. The size of the square can be adjusted using `r` arg
     """
     intensities_all = []
     for c in coordinates:
         cx = int(np.around(c[0]))
         cy = int(np.around(c[1]))
-        intensity = np.mean(img[cx-1:cx+2, cy-1:cy+2])
+        if r % 2 != 0:
+            img_cr = np.copy(
+                img[cx-r//2:cx+r//2+1, cy-r//2:cy+r//2+1])
+        else:
+            img_cr = np.copy(
+                img[cx-r//2:cx+r//2, cy-r//2:cy+r//2])
+        intensity = np.mean(img_cr)
         intensities_all.append(intensity)
     intensities_all = np.array(intensities_all)
     return intensities_all
 
 
-def get_intensities(coordinates_all: Dict[int, np.ndarray],
-                    nn_input: np.ndarray) -> List[np.ndarray]:
+def get_intensities(coordinates_all, nn_input, r=3):
     """
     Calculates intensities in a 3x3 square around each predicted position
-    for a stack of images
+    for a stack of images. The size of the square can be adjusted using `r` arg
     """
     intensities_all = []
     for k, coord in coordinates_all.items():
@@ -1223,7 +1229,7 @@ def get_imgstack(imgdata: np.ndarray,
     return img_cr_all, com
 
 
-def imcrop_randpx(img:np.ndarray, window_size: int, num_images: int,
+def imcrop_randpx(img: np.ndarray, window_size: int, num_images: int,
                   random_state: int = 0) -> Tuple[np.ndarray]:
     """
     Extracts subimages at random pixels
@@ -1279,7 +1285,7 @@ def imcrop_randcoord(img: np.ndarray, coord: np.ndarray,
     return subimages, com
 
 
-def extract_random_subimages(imgdata: np.ndarray, window_size: int, num_images: int, 
+def extract_random_subimages(imgdata: np.ndarray, window_size: int, num_images: int,
                              coordinates: Optional[Dict[int, np.ndarray]] = None,
                              **kwargs: int) -> Tuple[np.ndarray]:
     """
@@ -2064,7 +2070,6 @@ class datatransform:
         images = (images - images.min()) / images.ptp()
         return images, masks
 
-
     @classmethod
     def squeeze_data(cls,
                      images: np.ndarray,
@@ -2136,7 +2141,7 @@ def unsqueeze_channels(labels: np.ndarray, n_channels: int) -> np.ndarray:
     n, h, w = labels.shape
     lbl_all = np.zeros((n, h, w, n_channels))
     for i, lbl in enumerate(labels):
-        lbl = np.array(OneHotEncoder().fit_transform(lbl.reshape(-1,1)).todense())
+        lbl = np.array(OneHotEncoder().fit_transform(lbl.reshape(-1, 1)).todense())
         lbl = lbl.reshape(h, w, n_channels)
         lbl_all[i] = lbl
     return lbl_all.transpose([0, -1, 1, 2])

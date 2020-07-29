@@ -1053,7 +1053,8 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
         nn_input = nn_input[None, ..., None]
     coordinates_ = copy.deepcopy(coordinates)
     if method == 'threshold':
-        intensities = get_intensities(coordinates_, nn_input)
+        r = kwargs.get("window_size", 3)
+        intensities = get_intensities(coordinates_, nn_input, 3)
         intensities_ = np.concatenate(intensities)
         thresh = kwargs.get('thresh')
         if thresh is None:
@@ -1071,7 +1072,8 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
         plt.title('Intensities (arb. units)')
         plt.show()
     elif method == 'kmeans':
-        intensities = get_intensities(coordinates_, nn_input)
+        r = kwargs.get("window_size", 3)
+        intensities = get_intensities(coordinates_, nn_input, r)
         intensities_ = np.concatenate(intensities)
         n_components = kwargs.get('n_components')
         if n_components is None:
@@ -1081,6 +1083,16 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
             n_clusters=n_components, random_state=42).fit(intensities_[:, None])
         for i, iarray in enumerate(intensities):
             coordinates_[i][:, -1] = kmeans.predict(iarray[:, None])
+    elif method == "meanshift":
+        r = kwargs.get("window_size", 3)
+        intensities = get_intensities(coordinates_, nn_input, r)
+        intensities_ = np.concatenate(intensities)
+        bandwidth = cluster.estimate_bandwidth(
+            intensities_[:, None], quantile=kwargs.get("q", .25))
+        ms = cluster.MeanShift(bandwidth=bandwidth, bin_seeding=True)
+        ms.fit(intensities_[:, None])
+        for i, iarray in enumerate(intensities):
+            coordinates_[i][:, -1] = ms.predict(iarray[:, None])
     elif method == "gmm_local":
         n_components = kwargs.get('n_components')
         window_size = kwargs.get("window_size")
@@ -1095,36 +1107,5 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
             coordinates_[i] = com_frames[com_frames[:, -1] == float(i)][:, :3]
     else:
         raise NotImplementedError(
-            "Choose between 'threshold', 'kmeans', and 'gmm_local' methods")
+            "Choose between 'threshold', 'kmeans', 'meanshift' and 'gmm_local' methods")
     return coordinates_
-
-
-def update_positions(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
-                     nn_input: np.ndarray, d: int = None) -> Dict[int, np.ndarray]:
-    """
-    Updates atomic/defect coordinates based on
-    peak refinement procedure at each predicted position
-
-    Args:
-        coordinates (dict or ndarray):
-            Dictionary with coordinates (output of atomnet.predictor).
-            Can be also a single N x 3 ndarray.
-        nn_input (numpy array):
-            Image(s) served as an input to neural network
-        d (int):
-            Half of the side of the square box where the fitting is performed;
-            defaults to 1/4 of mean nearest neighbor distance in the system
-
-    Returns:
-        Updated coordinates
-    """
-    if isinstance(coordinates, np.ndarray):
-        coordinates = {0: coordinates}
-    if np.ndim(nn_input) == 2:
-        nn_input = nn_input[None, ..., None]
-    print('\rRefining atomic positions... ', end="")
-    coordinates_r = {}
-    for i, (img, coord) in enumerate(zip(nn_input, coordinates.values())):
-        coordinates_r[i] = peak_refinement(img[..., 0], coord, d)
-    print("Done")
-    return coordinates_r
