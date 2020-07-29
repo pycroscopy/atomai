@@ -634,6 +634,8 @@ class rVAE(EncoderDecoder):
             translation prior
         **rotation_prior (float):
             rotational prior
+        **savename (str):
+            file name/path for saving model at the end of training
         **recording (bool):
             saves a learned 2d manifold at each training step
     """
@@ -697,6 +699,7 @@ class rVAE(EncoderDecoder):
 
         self.training_cycles = training_cycles
 
+        self.savename = kwargs.get("savename", "./rVAE_metadict")
         self.recording = kwargs.get("recording", False)
 
     def step(self,
@@ -794,6 +797,7 @@ class rVAE(EncoderDecoder):
                   -elbo_epoch, -elbo_epoch_test))
             if self.recording and self.z_dim == 5:
                 self.manifold2d(savefig=True, filename=str(e))
+        self.save_model(self.savename)
         if self.recording and self.z_dim == 5:
             self.visualize_manifold_learning("./vae_learning")
         return
