@@ -16,8 +16,20 @@ AtomAI is a simple Python package for machine learning-based analysis of experim
 
 AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which also takes  a single line of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
 
+### Quickstart: AtomAI in the Cloud
+
+The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
+
+1) [Train a deep fully convolutional neural network for atom finding](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+
+2) [Multivariate statistical analysis of distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+
+3) [Variational autoenocders for analysis of structural transformations](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+
+4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+
 ### Model training
-Here is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
+Below is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
 
 ```python
 from atomai import atomnet
@@ -36,7 +48,7 @@ trained_model = atomnet.trainer(
     training_cycles=500).run()   
 ```
 
-One can also train an ensemble of models instead of just a single model. The average ensemble prediction is generally more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel. In the example below, we also "augmnent" our data on-the-fly by applying various image transforations (e.g. adding Gaussian noise, changing contrast, zooming-in, etc.).
+One can also train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel. Note that in the example below, we "augmnent" our data on-the-fly by applying various image transformations (e.g. adding Gaussian noise, changing contrast, rotating and zooming). The sequence of these transformations is different for every model in the ensemble ensuring a unique "training trajectory" for each model.
 
 ```python
 # Initialize ensemble trainer
@@ -51,31 +63,32 @@ basemodel, ensemble, ensemble_aver = trainer.run()
 
 ### Prediction with trained model(s)
 
-Trained models can be used to find atoms/defects in the previously unseen (by a model) experimental data:
+Trained models are be used to find atoms/particles/defects in the previously unseen (by a model) experimental data:
 
 ```python
-# Here you load new experimental data (as 2D or 3D numpy array)
+# Here we load new experimental data (as 2D or 3D numpy array)
 expdata = np.load('expdata-test.npy')
 
 # Get model's "raw" prediction, atomic coordinates and classes
-nn_input, (nn_output, coordinates) = atomnet.predictor(trained_model, refine=False).run(expdata)
+nn_input, (nn_output, coord_class) = atomnet.predictor(trained_model, refine=False).run(expdata)
 
-# Get ensemble prediction
-(img_mu, img_var), (coord_mu, coord_var) = atomnet.ensemble_predictor(basemodel, ensemble).run(expdata)
+# Get ensemble prediction (mean and variance for "raw" prediction and coordinates)
+epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
+(img_mu, img_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
 
 ### Statistical analysis
 
-The information extracted by *atomnet* can be further used for statistical analysis of raw and "decoded" data. For example, for a single image, one can identify domains with different ferroic distortions:
+The information extracted by *atomnet* can be further used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved imageimage of ferroelectric material, one can identify domains with different ferroic distortions:
 
 ```python
 from atomai import atomstat
 
 # Get local descriptors
-imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
+imstack = atomstat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
 
 # Compute distortion "eigenvectors" with associated loading maps and plot results:
-nmf_results = imstack.imblock_nmf(n_components=4, plot_results=True)
+pca_results = imstack.imblock_pca(n_components=4, plot_results=True)
 ```
 
 For movies, one can extract trajectories of individual defects and calculate the transition probabilities between different classes:
@@ -94,7 +107,7 @@ transitions_dict = imstack.transition_matrix(n_components=10, rmax=10)
 ```
 ### Variational autoencoders
 
-In addition, one can use [variational autoencoders (VAEs)](https://arxiv.org/abs/1906.02691) in AtomAI to find the most effective reduced representation for the system. The VAEs can be applied to both raw data and NN output, but typically works better with the latter.
+In addition to multivariate statistical analysis, one can also use [variational autoencoders (VAEs)](https://arxiv.org/abs/1906.02691) in AtomAI to find in the unsupervised fashion the most effective reduced representation of system's local descriptors. The VAEs can be applied to both raw data and NN output, but typically work better with the latter.
 ```python
 from atomai import atomstat, utils
 
@@ -108,20 +121,6 @@ rave.run()
 # Visualize the learned manifold
 rvae.manifold2d()
 ```
-
-## Quickstart: AtomAI in the Cloud
-
-The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
-
-1) [Use AtomAI to train a deep NN for atom finding](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
-
-2) [Analyze distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
-
-3) Analyze trajectories of atomic defects in atomic movie - TBA
-
-4) [Prepare training data from experimental image with atomic coordinates (beta)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
-
-5) [Atom finding using deep ensembles for uncertainty quantification (advanced)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_deep_ensembles.ipynb)
 
 ## Installation
 First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, install AtomAI via
