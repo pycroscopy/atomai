@@ -852,6 +852,8 @@ class VAE(EncoderDecoder):
             number of hidden units OR conv filters in encoder (Default: 128)
         **numhidden_decoder (int):
             number of hidden units OR conv filters in decoder (Default: 128)
+        **savename (str):
+            file name/path for saving model at the end of training
     """
     def __init__(self,
                  imstack: np.ndarray,
@@ -902,6 +904,8 @@ class VAE(EncoderDecoder):
         self.loss = kwargs.get("loss", "mse")
 
         self.training_cycles = training_cycles
+
+        self.savename = kwargs.get("savename", "./VAE_metadict")
 
     def step(self,
              x: torch.Tensor,
@@ -987,6 +991,7 @@ class VAE(EncoderDecoder):
             template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
             print(template.format(e+1, self.training_cycles,
                   -elbo_epoch, -elbo_epoch_test))
+        self.save_model(self.savename)
         return
 
 
