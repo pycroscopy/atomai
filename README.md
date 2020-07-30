@@ -26,7 +26,7 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 
 2) [Multivariate statistical analysis of distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
 
-3) [Variational autoenocders for analysis of structural transformations](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+3) [Variational autoencoders for analysis of structural transformations](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
 
 4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
