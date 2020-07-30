@@ -1,15 +1,22 @@
 Model Training and Prediction
 =============================
 
-Model training
----------------
+Single model training
+---------------------
 .. autoclass:: atomai.atomnet.trainer
     :members:
     :undoc-members:
     :member-order: bysource
 
-Predictions
------------
+Deep ensemble training
+----------------------
+.. autoclass:: atomai.atomnet.ensemble_trainer
+    :members:
+    :undoc-members:
+    :member-order: bysource
+
+Single model prediction
+-----------------------
 .. autoclass:: atomai.atomnet.predictor
     :members:
     :undoc-members:
@@ -19,3 +26,12 @@ Predictions
     :members:
     :undoc-members:
     :member-order: bysource
+
+Deep ensemble prediction
+------------------------
+.. autoclass:: atomai.atomnet.ensemble_predictor
+    :members:
+    :undoc-members:
+    :member-order: bysource
+
+.. autofunction:: atomai.atomnet.ensemble_locate

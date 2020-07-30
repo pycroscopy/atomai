@@ -7,11 +7,11 @@ Welcome to AtomAI's documentation!
 ==================================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 3
    :caption: Notes
 
-   ReadMe <readme_link>
-   License <license_link>
+   README.rst
+   LICENSE.rst
 
 .. toctree::
    :maxdepth: 3
@@ -19,6 +19,7 @@ Welcome to AtomAI's documentation!
 
    atomnet
    atomstat
-   models
+   fcnn
+   vae
    utils
    losses_metrics

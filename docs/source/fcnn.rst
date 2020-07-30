@@ -4,13 +4,13 @@ Fully convolutional neural networks
 
 Models
 -------------
-.. autoclass:: atomai.models.dilUnet
+.. autoclass:: atomai.fcnn.dilUnet
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-.. autoclass:: atomai.models.dilnet
+.. autoclass:: atomai.fcnn.dilnet
     :members:
     :undoc-members:
     :member-order: bysource
@@ -18,19 +18,19 @@ Models
 
 Neural network blocks
 ----------------------
-.. autoclass:: atomai.models.conv2dblock
+.. autoclass:: atomai.fcnn.conv2dblock
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-.. autoclass:: atomai.models.dilated_block
+.. autoclass:: atomai.fcnn.dilated_block
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-.. autoclass:: atomai.models.upsample_block
+.. autoclass:: atomai.fcnn.upsample_block
     :members:
     :undoc-members:
     :member-order: bysource
@@ -38,4 +38,5 @@ Neural network blocks
 
 Load trained models
 --------------------
-.. autofunction:: atomai.models.load_model
+.. autofunction:: atomai.fcnn.load_model
+.. autofunction:: atomai.fcnn.load_ensemble

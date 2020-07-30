@@ -23,7 +23,9 @@ copyright = '2020, Maxim Ziatdinov'
 author = 'Maxim Ziatdinov'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+module_dir = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(module_dir, '../../atomai/__version__.py')) as f:
+    release = f.read().split("'")[1]
 
 
 # -- General configuration ---------------------------------------------------
@@ -37,7 +39,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
-    'm2r'
+    'sphinx_autodoc_typehints',
+    'recommonmark'
 ]
 
 napoleon_use_ivar = True
