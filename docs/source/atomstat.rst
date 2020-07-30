@@ -7,6 +7,9 @@ Analysis of local subimages
     :members:
     :undoc-members:
     :member-order: bysource
+    
+.. autofunction:: atomai.atomstat.rvae
+.. autofunction:: atomai.atomstat.vae
 
 Transitions
 ------------
