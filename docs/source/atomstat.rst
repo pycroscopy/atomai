@@ -1,7 +1,7 @@
-Local descriptors analysis
-==========================
+Multivariate analysis
+======================
 
-Analysis of local sub-images
+Analysis of local subimages
 ----------------------------
 .. autoclass:: atomai.atomstat.imlocal
     :members:
