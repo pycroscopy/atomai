@@ -1570,9 +1570,9 @@ def create_lattice_mask(lattice: np.ndarray, xy_atoms: np.ndarray,
             >>>     _, mask = cv2.threshold(atom, thresh, 1, cv2.THRESH_BINARY)
             >>>     return atom, mask
 
-        **scale: int
+        **scale (int):
             Controls the atom size (width of 2D Gaussian)
-        **rmask: int
+        **rmask (int):
             Controls the atomic mask size
     Returns:
         2D numpy array with ground truth data
@@ -1618,9 +1618,9 @@ def create_multiclass_lattice_mask(imgdata: np.ndarray,
             corresponding mask for each atomic coordinate. It must have
             three parameters, 'scale', 'rmask', and 'intensity' that control
             size and intensity of simulated atom and corresponding atomic mask
-        **scale: int
+        **scale (int):
             Controls the atom size (width of 2D Gaussian)
-        **rmask: int
+        **rmask (int):
             Controls the atomic mask size
 
     Returns:
