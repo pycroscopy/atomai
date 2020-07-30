@@ -95,7 +95,7 @@ For movies, one can extract trajectories of individual defects and calculate the
 
 ```python
 # Get local descriptors (such as subimages centered around impurities)
-imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
+imstack = atomstat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
 
 # Calculate Gaussian mixture model (GMM) components
 components, imgs, coords = imstack.gmm(n_components=10, plot_results=True)
@@ -116,7 +116,7 @@ imstack, com, frames = utils.extract_subimages(decoded_imgs, coords, window_size
 
 # Initialize and train rotationally-invariant VAE
 rvae = atomstat.rVAE(imstack, latent_dim=2, training_cycles=200)
-rave.run()
+rvae.run()
 
 # Visualize the learned manifold
 rvae.manifold2d()
