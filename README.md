@@ -76,8 +76,10 @@ nn_input, (nn_output, coord_class) = atomnet.predictor(trained_model, refine=Fal
 
 # Get ensemble prediction (mean and variance for "raw" prediction and coordinates)
 epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
-(img_mu, img_var), (coord_mu, coord_var) = epredictor.run(expdata)
+(out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
+
+(Note: The deep ensemble-based prediction of atomic coordinates mean and variance uses DBSCAN method to arrange predictions from different ensemble models into clusters and the result is sensitive to the value of *eps* passed as ```**kwargs``` (default is 0.5). Sometimes it is better to simply run atomnet.locator (thresholding followed by finding blob centers) on the mean "raw" prediction (out_mu) of the ensemble)
 
 ### Statistical analysis
 
