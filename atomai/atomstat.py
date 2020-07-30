@@ -79,8 +79,8 @@ class imlocal:
     def __init__(self,
                  network_output: np.ndarray,
                  coord_class_dict_all: Dict[int, np.ndarray],
-                 crop_size: int,
-                 coord_class: int,
+                 crop_size: int = None,
+                 coord_class: int = 0,
                  window_size: int = None) -> None:
         """
         Initializes parameters and collects a stack of subimages
