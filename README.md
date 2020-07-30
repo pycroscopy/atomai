@@ -83,7 +83,7 @@ epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinat
 
 ### Statistical analysis
 
-The information extracted by *atomnet* can be further used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved imageimage of ferroelectric material, one can identify domains with different ferroic distortions:
+The information extracted by *atomnet* can be further used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved image of ferroelectric material, one can identify domains with different ferroic distortions:
 
 ```python
 from atomai import atomstat
