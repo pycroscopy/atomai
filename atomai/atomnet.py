@@ -627,7 +627,7 @@ class ensemble_trainer:
     """
     Trains multiple deep learning models, each with its own unique trajectory
 
-     Args:
+    Args:
         X_train (numpy array): Training images
         y_train (numpy array): Training labels (aka ground truth aka masks)
         X_test (numpy array): Test images

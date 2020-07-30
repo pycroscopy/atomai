@@ -1044,8 +1044,8 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
         **n_components (int):
             Number of components for k-means clustering
 
-        Returns:
-            Updated coordinates
+    Returns:
+        Updated coordinates
     """
     if isinstance(coordinates, np.ndarray):
         coordinates = {0: coordinates}
