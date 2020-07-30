@@ -1,5 +1,0 @@
-------------
-License File
-------------
-
-.. mdinclude:: ../../LICENSE
