@@ -54,7 +54,7 @@ One can also train an ensemble of models instead of just a single model. The ave
 
 ```python
 # Initialize ensemble trainer
-trainer = ensembles.ensemble_trainer(X_train, y_train, n_models=12,
+trainer = atomnet.ensemble_trainer(X_train, y_train, n_models=12,
                                      rotation=True, zoom=True, contrast=True, 
                                      gauss=True, blur=True, background=True, 
                                      loss='ce', batch_size=16, training_cycles_base=1000,
