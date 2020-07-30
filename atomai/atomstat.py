@@ -136,7 +136,7 @@ class imlocal:
                 Plotting gmm components
 
         Returns:
-            3-element tuple containing:
+            3-element tuple containing
 
             - 4D numpy array with GMM "centroids" (averaged images for each class)
             - List where each element contains 4D images belonging to each GMM class
@@ -221,7 +221,7 @@ class imlocal:
     def ica(self,
             n_components: int,
             random_state: int = 1,
-            plot_results: bool = False):
+            plot_results: bool = False) -> Tuple[np.ndarray]:
         """
         Computes ICA independent souces for a stack of subimages.
 

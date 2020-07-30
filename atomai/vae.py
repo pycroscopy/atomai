@@ -943,7 +943,7 @@ class VAE(EncoderDecoder):
         kl_z = torch.sum(kl_z, 1).mean()
         return reconstr_error - kl_z
 
-    def train_epoch(self):
+    def train_epoch(self) -> None:
         """
         Trains a single epoch
         """
@@ -964,7 +964,7 @@ class VAE(EncoderDecoder):
             elbo_epoch += delta / c
         return elbo_epoch
 
-    def evaluate_model(self):
+    def evaluate_model(self) -> None:
         """
         Evaluates model on test data
         """
@@ -981,7 +981,7 @@ class VAE(EncoderDecoder):
             elbo_epoch_test += delta / c
         return elbo_epoch_test
 
-    def run(self):
+    def run(self) -> None:
         """
         Trains VAE model
         """

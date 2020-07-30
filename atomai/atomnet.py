@@ -899,7 +899,7 @@ class ensemble_predictor:
 
 
 def ensemble_locate(nn_output_ensemble: np.ndarray,
-                    **kwargs: Dict) -> Tuple[Tuple[np.ndarray, np.ndarray]]:
+                    **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
     """
     Finds coordinates for each ensemble predictions
     (basically, an atomnet.locator for ensembles)
