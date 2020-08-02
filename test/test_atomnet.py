@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import torch
-from atomai import atomnet, fcnn
+from atomai import atomnet, nets
 from atomai.utils import load_weights
 import pytest
 from numpy.testing import assert_allclose, assert_equal
