@@ -1924,6 +1924,7 @@ class datatransform:
         n, h, w = X_batch.shape[0:3]
         shortdim = min([w, h])
         zoom_values = np.arange(int(shortdim // self.zoom), shortdim + 8, 8)
+        zoom_values = zoom_values[zoom_values <= shortdim]
         X_batch_z = np.zeros((n, shortdim, shortdim))
         y_batch_z = np.zeros((n, shortdim, shortdim, self.ch))
         for i, (img, gt) in enumerate(zip(X_batch, y_batch)):
