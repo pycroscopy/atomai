@@ -1,12 +1,15 @@
-Local descriptors analysis
-==========================
+Multivariate analysis
+======================
 
-Analysis of local sub-images
+Analysis of local subimages
 ----------------------------
 .. autoclass:: atomai.atomstat.imlocal
     :members:
     :undoc-members:
     :member-order: bysource
+    
+.. autofunction:: atomai.atomstat.rvae
+.. autofunction:: atomai.atomstat.vae
 
 Transitions
 ------------

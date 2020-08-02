@@ -54,11 +54,11 @@ One can also train an ensemble of models instead of just a single model. The ave
 
 ```python
 # Initialize ensemble trainer
-trainer = ensembles.ensemble_trainer(X_train, y_train, n_models=12,
-                                     rotation=True, zoom=True, contrast=True, 
-                                     gauss=True, blur=True, background=True, 
-                                     loss='ce', batch_size=16, training_cycles_base=1000,
-                                     training_cycles_ensemble=100, filename='ensemble')
+trainer = atomnet.ensemble_trainer(X_train, y_train, n_models=12,
+                                   rotation=True, zoom=True, contrast=True, 
+                                   gauss=True, blur=True, background=True, 
+                                   loss='ce', batch_size=16, training_cycles_base=1000,
+                                   training_cycles_ensemble=100, filename='ensemble')
 # train deep ensemble of models
 basemodel, ensemble, ensemble_aver = trainer.run()
 ```
@@ -76,12 +76,14 @@ nn_input, (nn_output, coord_class) = atomnet.predictor(trained_model, refine=Fal
 
 # Get ensemble prediction (mean and variance for "raw" prediction and coordinates)
 epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
-(img_mu, img_var), (coord_mu, coord_var) = epredictor.run(expdata)
+(out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
+
+(Note: The deep ensemble-based prediction of atomic coordinates mean and variance uses DBSCAN method to arrange predictions from different ensemble models into clusters and the result is sensitive to the value of *eps* passed as ```**kwargs``` (default is 0.5). Sometimes it is better to simply run atomnet.locator (thresholding followed by finding blob centers) on the mean "raw" prediction (out_mu) of the ensemble)
 
 ### Statistical analysis
 
-The information extracted by *atomnet* can be further used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved imageimage of ferroelectric material, one can identify domains with different ferroic distortions:
+The information extracted by *atomnet* can be further used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved image of ferroelectric material, one can identify domains with different ferroic distortions:
 
 ```python
 from atomai import atomstat
