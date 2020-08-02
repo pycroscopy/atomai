@@ -19,7 +19,7 @@ Welcome to AtomAI's documentation!
 
    atomnet
    atomstat
-   fcnn
    vae
+   nets
    utils
    losses_metrics
