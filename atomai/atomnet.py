@@ -19,7 +19,7 @@ import atomai.losses_metrics as losses_metrics_
 import numpy as np
 import torch
 import torch.nn.functional as F
-from atomai.fcnn import dilnet, dilUnet
+from atomai.nets import dilnet, dilUnet
 from atomai.utils import (Hook, average_weights, cluster_coord, cv_thresh,
                           datatransform, find_com, gpu_usage_map, img_pad,
                           img_resize, mock_forward, peak_refinement,
