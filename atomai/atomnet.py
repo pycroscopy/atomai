@@ -72,10 +72,10 @@ class trainer:
         training_cycles (int):
             Number of training 'epochs' (1 epoch == 1 batch)
         model_type (str):
-            Type of model to train ('dilUnet' or 'dilnet'). See atomai.models
-            for more details.
+            Type of model to train: 'dilUnet' or 'dilnet' (Default: 'dilUnet').
+            See atomai.nets for more details.
         seed (int):
-            Deterministic mode for model training
+            Deterministic mode for model training (Default: 1)
         batch_seed (int):
             Separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
@@ -83,23 +83,27 @@ class trainer:
             Size of training and test batches
         **use_batchnorm (bool):
             Apply batch normalization after each convolutional layer
+            (Default: True)
         **use_dropouts (bool):
             Apply dropouts in the three inner blocks in the middle of a network
+            (Default: False)
         **loss (str):
             Type of loss for model training ('ce', 'dice' or 'focal')
+            (Default: 'ce')
         **upsampling_mode (str):
-            "bilinear" or "nearest" upsampling method
+            "bilinear" or "nearest" upsampling method (Default: "bilinear")
         **nb_filters (int):
             Number of convolutional filters in the first convolutional block
             (this number doubles in the consequtive block(s),
             see definition of dilUnet and dilnet models for details)
         **with_dilation (bool):
             Use dilated convolutions in the bottleneck of dilUnet
+            (Default: True)
         **layers (list):
             List with a number of layers in each block.
             For U-Net the first 4 elements in the list
             are used to determine the number of layers
-            in each block of the encoder (incluidng bottleneck layer),
+            in each block of the encoder (including bottleneck layer),
             and the number of layers in the decoder  is chosen accordingly
             (to maintain symmetry between encoder and decoder)
         **print_loss (int):
@@ -114,7 +118,7 @@ class trainer:
         **kwargs:
             One can also pass kwargs for utils.datatransform class
             to perform the augmentation "on-the-fly" (e.g. rotation=True,
-            or gauss=[20, 60])
+            gauss=[20, 60], ...)
 
     Example:
 
