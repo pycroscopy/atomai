@@ -191,7 +191,7 @@ class trainer:
                 "No GPU found. The training can be EXTREMELY slow",
                 UserWarning
             )
-        loss = kwargs.get('loss', "dice")
+        loss = kwargs.get('loss', "ce")
         if loss == 'dice':
             self.criterion = losses_metrics_.dice_loss()
         elif loss == 'focal':
