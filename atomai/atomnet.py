@@ -840,7 +840,8 @@ class ensemble_predictor:
                 self.predictive_model,
                 nb_classes=self.num_classes,
                 downsampling=self.downsample_factor,
-                use_gpu=self.use_gpu, verbose=False).decode(x_new)
+                use_gpu=self.use_gpu,
+                verbose=False).decode(x_new, num_batches=1)
             nn_output_ensemble[i] = nn_output
         nn_output_mean = np.mean(nn_output_ensemble, axis=0)
         nn_output_var = np.var(nn_output_ensemble, axis=0)
