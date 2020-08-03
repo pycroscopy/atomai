@@ -88,7 +88,7 @@ def average_weights(ensemble: Dict[int, Dict[str, torch.Tensor]]) -> Dict[str, t
             for n, p in model.items():
                 if n == name:
                     w_aver.append(p)
-        ensemble_state_dict[name].copy_(sum(w_aver) / len(w_aver))
+        ensemble_state_dict[name].copy_(sum(w_aver) / float(len(w_aver)))
     return ensemble_state_dict
 
 
