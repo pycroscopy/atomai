@@ -270,6 +270,8 @@ def img_resize(image_data: np.ndarray, rs: Tuple[int],
     Returns:
         Resized stack of images
     """
+    if rs[0] != rs[1]:
+        rs = (rs[1], rs[0])
     if image_data.shape[1:3] == rs:
         return image_data.copy()
     image_data_r = np.zeros(
@@ -295,6 +297,7 @@ def cv_resize(img: np.ndarray, rs: Tuple[int],
     """
     if img.shape == rs:
         return img
+    rs = (rs[1], rs[0])
     rs_method = cv2.INTER_AREA if img.shape[0] < rs[0] else cv2.INTER_CUBIC
     img_rs = cv2.resize(img, rs, interpolation=rs_method)
     if round_:
@@ -315,7 +318,9 @@ def cv_resize_stack(imgdata: np.ndarray, rs: Union[int, Tuple[int]],
     Returns:
         Resized image
     """
-    rs = [rs, rs] if isinstance(rs, int) else rs
+    rs = (rs, rs) if isinstance(rs, int) else rs
+    if imgdata.shape[1:3] == rs:
+        return imgdata
     imgdata_rs = np.zeros((imgdata.shape[0], rs[0], rs[1]))
     for i, img in enumerate(imgdata):
         img_rs = cv_resize(img, rs, round_)
