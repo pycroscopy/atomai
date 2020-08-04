@@ -467,14 +467,19 @@ class predictor:
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
-            **num_batches: number of batches (Default: 10)
+            **num_batches: number of batches
         """
         image_data = self.preprocess(image_data)
-        num_batches = kwargs.get("num_batches", 10)
+        n, _, w, h = image_data.shape
+        num_batches = kwargs.get("num_batches")
+        if num_batches is None:
+            if w >= 256 or h >= 256:
+                num_batches = len(image_data)
+            else:
+                num_batches = 10
         batch_size = len(image_data) // num_batches
         if batch_size < 1:
             num_batches = batch_size = 1
-        n, _, w, h = image_data.shape
         decoded_imgs = np.zeros((n, w, h, self.nb_classes))
         for i in range(num_batches):
             if self.verbose:
