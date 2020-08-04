@@ -320,11 +320,6 @@ class trainer:
                     np.around(self.test_loss[-1], 4)),
                       'GPU memory usage: {}/{}'.format(
                           gpu_usage[0], gpu_usage[1]))
-            # Save model weights (if test loss decreased)
-            if e > 0 and self.test_loss[-1] < min(self.test_loss[: -1]):
-                torch.save(self.meta_state_dict,
-                   os.path.join(self.savedir,
-                   self.savename+'_metadict_best_test_weights.tar'))
         # Save final model weights
         torch.save(self.meta_state_dict,
                    os.path.join(self.savedir,
@@ -472,14 +467,19 @@ class predictor:
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
-            **num_batches: number of batches (Default: 10)
+            **num_batches: number of batches
         """
         image_data = self.preprocess(image_data)
-        num_batches = kwargs.get("num_batches", 10)
+        n, _, w, h = image_data.shape
+        num_batches = kwargs.get("num_batches")
+        if num_batches is None:
+            if w >= 256 or h >= 256:
+                num_batches = len(image_data)
+            else:
+                num_batches = 10
         batch_size = len(image_data) // num_batches
         if batch_size < 1:
             num_batches = batch_size = 1
-        n, _, w, h = image_data.shape
         decoded_imgs = np.zeros((n, w, h, self.nb_classes))
         for i in range(num_batches):
             if self.verbose:
