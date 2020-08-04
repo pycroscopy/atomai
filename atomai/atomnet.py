@@ -320,11 +320,6 @@ class trainer:
                     np.around(self.test_loss[-1], 4)),
                       'GPU memory usage: {}/{}'.format(
                           gpu_usage[0], gpu_usage[1]))
-            # Save model weights (if test loss decreased)
-            if e > 0 and self.test_loss[-1] < min(self.test_loss[: -1]):
-                torch.save(self.meta_state_dict,
-                   os.path.join(self.savedir,
-                   self.savename+'_metadict_best_test_weights.tar'))
         # Save final model weights
         torch.save(self.meta_state_dict,
                    os.path.join(self.savedir,
