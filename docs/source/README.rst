@@ -73,11 +73,11 @@ Below is an example of how one can train a neural network for atom/defect findin
 One can also train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the `uncertainty in our prediction <https://arxiv.org/abs/1612.01474>`_ for each pixel. Note that in the example below, we "augmnent" our data on-the-fly by applying various image transformations (e.g. adding Gaussian noise, changing contrast, rotating and zooming). The sequence of these transformations is different for every model in the ensemble ensuring a unique "training trajectory" for each model.
 
 >>> # Initialize ensemble trainer
->>> trainer = ensembles.ensemble_trainer(X_train, y_train, n_models=12,
->>>                                      rotation=True, zoom=True, contrast=True, 
->>>                                      gauss=True, blur=True, background=True, 
->>>                                      loss='ce', batch_size=16, training_cycles_base=1000,
->>>                                      training_cycles_ensemble=100, filename='ensemble')
+>>> trainer = atomnet.ensemble_trainer(X_train, y_train, n_models=12,
+>>>                                    rotation=True, zoom=True, contrast=True, 
+>>>                                    gauss=True, blur=True, background=True, 
+>>>                                    loss='ce', batch_size=16, training_cycles_base=1000,
+>>>                                    training_cycles_ensemble=100, filename='ensemble')
 >>> # train deep ensemble of models
 >>> basemodel, ensemble, ensemble_aver = trainer.run()
 
@@ -99,7 +99,7 @@ Trained models are used to find atoms/particles/defects in the previously unseen
 Statistical analysis
 ^^^^^^^^^^^^^^^^^^^^
 
-The information extracted by *atomnet* can be further used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved imageimage of ferroelectric material, one can identify domains with different ferroic distortions:
+The information extracted by *atomnet* can be used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved image of ferroelectric material, one can identify domains with different ferroic distortions:
 
 >>> from atomai import atomstat
 >>>
