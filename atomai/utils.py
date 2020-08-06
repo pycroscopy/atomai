@@ -1040,8 +1040,8 @@ def plot_trajectories(traj: np.ndarray, frames: np.ndarray,
     if traj.shape[1] == 3:
         c_ = traj[:, -1]
     elif traj.shape[1] > 3:
-        lv = kwargs.get("lv", 1)
-        c_ = traj[:, 1 + lv]
+        lv = kwargs.get("lv", 3)
+        c_ = traj[:, 2 + lv]
     plt.figure(figsize=(fsize*2, fsize))
     plt.scatter(frames, r_coord, c=c_, cmap=cmap)
     if fov:
