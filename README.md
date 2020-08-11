@@ -47,6 +47,7 @@ labels_test_all = dataset['y_test']
 trained_model = atomnet.trainer(
     images_all, labels_all, 
     images_test_all, labels_test_all,
+    gauss_noise=True, zoom=True,  # on-the-fly data augmnetation
     training_cycles=500).run()   
 ```
 
