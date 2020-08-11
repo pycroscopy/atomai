@@ -24,7 +24,6 @@ from skimage import exposure
 from skimage.util import random_noise
 from sklearn import cluster
 from sklearn.feature_extraction.image import extract_patches_2d
-from sklearn.preprocessing import OneHotEncoder
 
 warnings.filterwarnings("ignore", module="scipy.optimize")
 
@@ -1764,10 +1763,10 @@ class datatransform:
         **zoom (bool or int):
             Zooming-in by a specified zoom factor (Default: 2)
             Note that a zoom window is always square
-        **gauss (bool or list ot tuple):
+        **gauss_noise (bool or list ot tuple):
             Gaussian noise. You can pass min and max values as a list/tuple
             (Default [min, max] range: [0, 50])
-        **poisson (bool or list ot tuple):
+        **poisson_noise (bool or list ot tuple):
             Poisson noise. You can pass min and max values as a list/tuple
             (Default [min, max] range: [30, 40])
         **salt_and_pepper (bool or list ot tuple):
@@ -1800,13 +1799,13 @@ class datatransform:
         self.squeeze = squeeze_channels
         self.rotation = kwargs.get('rotation')
         self.background = kwargs.get('background')
-        self.gauss = kwargs.get('gauss')
+        self.gauss = kwargs.get('gauss_noise')
         if self.gauss is True:
             self.gauss = [0, 50]
         self.jitter = kwargs.get("jitter")
         if self.jitter is True:
             self.jitter = [0, 50]
-        self.poisson = kwargs.get('poisson')
+        self.poisson = kwargs.get('poisson_noise')
         if self.poisson is True:
             self.poisson = [30, 40]
         self.salt_and_pepper = kwargs.get('salt_and_pepper')
@@ -2144,13 +2143,8 @@ def unsqueeze_channels(labels: np.ndarray, n_channels: int) -> np.ndarray:
     """
     if n_channels == 1:
         return labels
-    n, h, w = labels.shape
-    lbl_all = np.zeros((n, h, w, n_channels))
-    for i, lbl in enumerate(labels):
-        lbl = np.array(OneHotEncoder().fit_transform(lbl.reshape(-1, 1)).todense())
-        lbl = lbl.reshape(h, w, n_channels)
-        lbl_all[i] = lbl
-    return lbl_all.transpose([0, -1, 1, 2])
+    labels_ = np.eye(n_channels)[labels.astype(int)]
+    return np.transpose(labels_, [0, 3, 1, 2])
 
 
 def FFTmask(imgsrc: np.ndarray, maskratio: int = 10) -> Tuple[np.ndarray]:
