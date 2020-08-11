@@ -675,7 +675,7 @@ class ensemble_trainer:
             self.X_test, self.y_test,
             self.iter_base, self.model_type,
             plot_training_history=True,
-            savename=self.filename + "_base.pt",
+            savename=self.filename + "_base",
             **self.kdict)
         trained_basemodel = trainer_base.run()
 
