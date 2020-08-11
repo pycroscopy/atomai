@@ -1757,6 +1757,10 @@ class datatransform:
             Channel first or channel last ordering in the output masks
         seed (int):
             Determenism
+        **custom_transform (Callable):
+            Python function that takes two ndarrays (images and masks) as
+            input, applies a set of transformation to them, and returns the two
+            transformed arrays
         **rotation (bool):
             Rotating image by +- 90 deg (if image is square)
             and horizontal/vertical flipping.
@@ -1791,18 +1795,21 @@ class datatransform:
                  dim_order_out: str = 'channel_first',
                  squeeze_channels: bool = False,
                  seed: Optional[int] = None,
-                 **kwargs: bool):
-
+                 **kwargs: Union[bool, Callable, List, Tuple]) -> None:
+        """
+        Initializes image transformation parameters
+        """
         self.ch = n_channels
         self.dim_order_in = dim_order_in
         self.dim_order_out = dim_order_out
         self.squeeze = squeeze_channels
+        self.custom_transform = kwargs.get('custom_transform')
         self.rotation = kwargs.get('rotation')
         self.background = kwargs.get('background')
         self.gauss = kwargs.get('gauss_noise')
         if self.gauss is True:
             self.gauss = [0, 50]
-        self.jitter = kwargs.get("jitter")
+        self.jitter = kwargs.get('jitter')
         if self.jitter is True:
             self.jitter = [0, 50]
         self.poisson = kwargs.get('poisson_noise')
@@ -1819,7 +1826,7 @@ class datatransform:
             self.contrast = [5, 20]
         self.zoom = kwargs.get('zoom')
         if self.zoom is True:
-            self.zoom = 2  # [min, max] zoom
+            self.zoom = 2
         self.resize = kwargs.get('resize')
         if self.resize is True:
             self.resize = [2, 1.5]
@@ -1836,9 +1843,8 @@ class datatransform:
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
             gauss_var = np.random.randint(self.gauss[0], self.gauss[1])
-            img_ = random_noise(
+            X_batch_noisy[i] = random_noise(
                 img, mode='gaussian', var=1e-4*gauss_var)
-            X_batch_noisy[i] = img_
         return X_batch_noisy, y_batch
 
     def apply_jitter(self,
@@ -1852,8 +1858,7 @@ class datatransform:
         for i, img in enumerate(X_batch):
             jitter_amount = np.random.randint(self.jitter[0], self.jitter[1]) / 10
             shift_arr = stats.poisson.rvs(jitter_amount, loc=0, size=h)
-            img_ = np.array([np.roll(row, z) for row, z in zip(img, shift_arr)])
-            X_batch_noisy[i] = img_
+            X_batch_noisy[i] = np.array([np.roll(row, z) for row, z in zip(img, shift_arr)])
         return X_batch_noisy, y_batch
 
     def apply_poisson(self,
@@ -1871,8 +1876,7 @@ class datatransform:
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
             poisson_l = np.random.randint(self.poisson[0], self.poisson[1])
-            img = make_pnoise(img, poisson_l)
-            X_batch_noisy[i] = img
+            X_batch_noisy[i] = make_pnoise(img, poisson_l)
         return X_batch_noisy, y_batch
 
     def apply_sp(self,
@@ -1886,8 +1890,7 @@ class datatransform:
         for i, img in enumerate(X_batch):
             sp_amount = np.random.randint(
                 self.salt_and_pepper[0], self.salt_and_pepper[1])
-            img = random_noise(img, mode='s&p', amount=sp_amount*1e-3)
-            X_batch_noisy[i] = img
+            X_batch_noisy[i] = random_noise(img, mode='s&p', amount=sp_amount*1e-3)
         return X_batch_noisy, y_batch
 
     def apply_blur(self,
@@ -1900,8 +1903,7 @@ class datatransform:
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
             blur_amount = np.random.randint(self.blur[0], self.blur[1])
-            img = ndimage.filters.gaussian_filter(img, blur_amount*5e-2)
-            X_batch_noisy[i] = img
+            X_batch_noisy[i] = ndimage.filters.gaussian_filter(img, blur_amount*5e-2)
         return X_batch_noisy, y_batch
 
     def apply_contrast(self,
@@ -1914,8 +1916,7 @@ class datatransform:
         X_batch_noisy = np.zeros((n, h, w))
         for i, img in enumerate(X_batch):
             clevel = np.random.randint(self.contrast[0], self.contrast[1])
-            img = exposure.adjust_gamma(img, clevel/10)
-            X_batch_noisy[i] = img
+            X_batch_noisy[i] = exposure.adjust_gamma(img, clevel/10)
         return X_batch_noisy, y_batch
 
     def apply_zoom(self,
@@ -2032,8 +2033,11 @@ class datatransform:
 
     def run(self, images: np.ndarray, masks: np.ndarray) -> Tuple[np.ndarray]:
         """
-        Applies a sequence of augmentation procedures
-        to images and (except for noise) ground truth
+        Applies a sequence of augmentation procedures to images
+        and (except for noise) ground truth. Starts with user defined
+        custom_transform if available. Then proceeds with
+        rotation->zoom->resize->gauss->jitter->poisson->sp->blur->contrast->background.
+        The operations that are not specified in kwargs are skipped.
         """
         if self.dim_order_in == 'channel_first':
             masks = np.transpose(masks, [0, 2, 3, 1])
@@ -2042,6 +2046,8 @@ class datatransform:
         else:
             raise NotImplementedError("Use 'channel_first' or 'channel_last'")
         images = (images - images.min()) / images.ptp()
+        if self.custom_transform is not None:
+            images, masks = self.custom_transform(images, masks)
         if self.rotation:
             images, masks = self.apply_rotation(images, masks)
         if isinstance(self.zoom, int):
