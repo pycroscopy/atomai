@@ -12,7 +12,7 @@
 
 ## What is AtomAI
 
-AtomAI is a simple Python package for machine learning-based analysis of experimental atom-resolved data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the [AICrystallographer project](https://github.com/pycroscopy/AICrystallographer).
+AtomAI is a simple Python package for machine learning-based analysis of experimental atomic-scale and mesoscale data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the [AICrystallographer project](https://github.com/pycroscopy/AICrystallographer).
 
 ## How to use it
 
