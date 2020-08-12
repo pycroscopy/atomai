@@ -1,5 +1,4 @@
-from atomai import atomnet, atomstat, nets, vae
+from atomai import atomnet, atomstat, nets, utils, transforms
 from atomai.nets import load_model, load_ensemble
-from atomai.vae import load_vae_model
-from atomai import utils
-from atomai.utils import load_weights
+from atomai.atomstat import load_vae_model
+from atomai.__version__ import version as __version__

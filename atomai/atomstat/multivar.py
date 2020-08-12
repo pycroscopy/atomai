@@ -7,22 +7,18 @@ Module for statistical analysis of local image descriptors
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
-from typing import Tuple, List, Dict, Union, Type
+from typing import Tuple, List, Dict, Union
 
-import os
 import copy
 import warnings
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import cm
 from scipy import spatial
 from sklearn import cluster, decomposition, mixture
 
-from atomai.vae import VAE, rVAE, EncoderDecoder
-from atomai.utils import (get_intensities, get_nn_distances, peak_refinement,
-                          plot_transitions, extract_subimages)
+from atomai.utils import get_intensities, plot_transitions, extract_subimages
 
 
 class imlocal:
@@ -823,211 +819,14 @@ def sum_transitions(trans_dict: Dict, msize: int,
     return transmat_all
 
 
-def rvae(imstack: np.ndarray,
-         latent_dim: int = 2,
-         training_cycles: int = 300,
-         minibatch_size: int = 200,
-         test_size: float = 0.15,
-         seed: int = 0,
-         **kwargs: Union[int, bool]) -> Type[EncoderDecoder]:
-    """
-    Initializes rotationally invariant variational autoencoder (rVAE)
-    
-    Args:
-        imstack (np.ndarray):
-            3D or 4D stack of training images ( n x w x h or n x w x h x c )
-        latent_dim (int):
-            number of VAE latent dimensions associated with image content
-        training_cycles (int):
-            number of training 'epochs' (Default: 300)
-        minibatch_size (int):
-            size of training batch for each training epoch (Default: 200)
-        test_size (float):
-            proportion of the dataset for model evaluation (Default: 0.15)
-        seed(int):
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units in decoder (Default: 128)
-        **loss (str):
-            reconstruction loss function, "ce" or "mse" (Default: "mse")
-        **translation_prior (float):
-            translation prior
-        **rotation_prior (float):
-            rotational prior
-        **recording (bool):
-            saves a learned 2d manifold at each training step
-    """
-
-    rvae_ = rVAE(
-        imstack, latent_dim, training_cycles,
-        minibatch_size, test_size, seed, **kwargs)
-    return rvae_
-
-
-def vae(imstack: np.ndarray,
-        latent_dim: int = 2,
-        training_cycles: int = 300,
-        minibatch_size: int = 200,
-        test_size: float = 0.15,
-        seed: int = 0,
-        **kwargs: Union[int, bool]) -> Type[EncoderDecoder]:
-    """
-    Initializes a standard Variational Autoencoder (VAE)
-
-    Args:
-        imstack (numpy array):
-            3D or 4D stack of training images ( n x w x h or n x w x h x c )
-        latent_dim (int):
-            number of VAE latent dimensions associated with image content
-        training_cycles (int):
-            number of training 'epochs' (Default: 300)
-        minibatch_size (int):
-            size of training batch for each training epoch (Default: 200)
-        test_size (float):
-            proportion of the dataset for model evaluation (Default: 0.15)
-        seed (int):
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **conv_decoder (bool):
-            use convolutional layers in decoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units OR conv filters in decoder (Default: 128)
-    """
-    vae_ = VAE(
-        imstack, latent_dim, training_cycles,
-        minibatch_size, test_size, seed, **kwargs)
-    return vae_
-
-
-def plot_lattice_bonds(distances: np.ndarray,
-                       atom_pairs: np.ndarray,
-                       distance_ideal: float = None,
-                       frame: int = 0,
-                       display_results: bool = True,
-                       **kwargs: Union[str, int]) -> None:
-    """
-    Plots a map of lattice bonds
-
-    Args:
-        distances (numpy array):
-            :math:`n_atoms \\times nn` array,
-            where *nn* is a number of nearest neighbors
-        atom_pairs (numpy array):
-            :math:`n_atoms \\times (nn+1) \\times 3`,
-            where *nn* is a number of nearest neighbors
-        distance_ideal (float):
-            Bond distance in ideal lattice.
-            Defaults to average distance in the frame
-        frame (int):
-            frame number (used in filename when saving plot)
-        display_results (bool):
-            Plot bond maps
-        **savedir (str):
-            directory to save plots
-        **h (int):
-            image height
-        **w (int):
-            image width
-    """
-    savedir = kwargs.get("savedir", './')
-    h, w = kwargs.get("h"), kwargs.get("w")
-    if h is None or w is None:
-        w = int(np.amax(atom_pairs[..., 0]) - np.amin(atom_pairs[..., 0])) + 10
-        h = int(np.amax(atom_pairs[..., 1]) - np.amin(atom_pairs[..., 1])) + 10
-    if w != h:
-        warnings.warn("Currently supports only square images", UserWarning)
-    if distance_ideal is None:
-        distance_ideal = np.mean(distances)
-    distances = (distances - distance_ideal) / distance_ideal
-    d_uniq = np.sort(np.unique(distances))
-    colormap = cm.RdYlGn_r
-    colorst = [colormap(i) for i in np.linspace(0, 1, d_uniq.shape[0])]
-    fig, ax1 = plt.subplots(1, 1, figsize=(8, 8))
-    ax1.imshow(np.zeros((h, w)), cmap='gray')
-    for a, d in zip(atom_pairs, distances):
-        for i in range(a.shape[-1]):
-            x = [a[0][0], a[i+1][0]]
-            y = [a[0][1], a[i+1][1]]
-            color = colorst[np.where(d[i] == d_uniq)[0][0]]
-            ax1.plot(y, x, c=color)
-    ax1.axis(False)
-    ax1.set_aspect('auto')
-    clrbar = np.linspace(np.amin(d_uniq), np.amax(d_uniq), d_uniq.shape[0]-1).reshape(-1, 1)
-    ax2 = fig.add_axes([0.11, 0.08, .8, .2])
-    img = ax2.imshow(clrbar, colormap)
-    plt.gca().set_visible(False)
-    clrbar_ = plt.colorbar(img, ax=ax2, orientation='horizontal')
-    clrbar_.set_label('Variation in bond length (%)', fontsize=14, labelpad=10)
-    if display_results:
-        plt.show()
-    fig.savefig(os.path.join(savedir, 'frame_{}'.format(frame)))
-
-
-def map_bonds(coordinates: Dict[int, np.ndarray],
-              nn: int = 2,
-              upper_bound: float = None,
-              distance_ideal: float = None,
-              plot_results: bool = True,
-              **kwargs: Union[str, int]) -> np.ndarray:
-    """
-    Generates plots with lattice bonds
-    (color-coded according to the variation in their length)
-
-    Args:
-        coordinates (dict):
-            Dictionary where keys are frame numbers and values are
-            :math:`N \\times 3` numpy arrays with atomic coordinates.
-            In each array the first two columns are *xy* coordinates and
-            the third column is atom class.
-        nn (int): Number of nearest neighbors to search for.
-        upper_bound (float or int, non-negative):
-            Upper distance bound (in px) for Query the kd-tree for nearest neighbors.
-            Only distances below this value will be counted.
-        distance_ideal (float):
-            Bond distance in ideal lattice.
-            Defaults to average distance in the frame
-        plot_results (bool):
-            Plot bond maps
-        **savedir (str):
-            directory to save plots
-        **h (int):
-            image height
-        **w (int):
-            image width
-
-    Returns:
-        Array of distances to nearest neighbors for each atom
-    """
-    distances_all, atom_pairs_all = get_nn_distances(coordinates, nn, upper_bound)
-    if distance_ideal is None:
-        distance_ideal = np.mean(np.concatenate((distances_all)))
-    for i, (dist, at) in enumerate(zip(distances_all, atom_pairs_all)):
-        plot_lattice_bonds(dist, at, distance_ideal, i, plot_results, **kwargs)
-    return np.concatenate((distances_all))
-
-
 def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
                    nn_input: np.ndarray,
                    method: str = 'threshold',
                    **kwargs: float) -> Dict[int, np.ndarray]:
     """
     Updates atomic/defect classes based on the calculated intensities
-    at each predicted position
+    at each predicted position or local neighborhood analysis based on
+    subimages cropped around each predicted position
 
     Args:
         coordinates (dict):
