@@ -17,7 +17,7 @@ from typing import Dict, List, Tuple, Type, Union, Callable
 
 import numpy as np
 import torch
-from atomai import losses_metric
+from atomai import losses_metrics
 from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (average_weights, gpu_usage_map,
