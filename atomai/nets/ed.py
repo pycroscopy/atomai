@@ -13,7 +13,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from blocks import conv2dblock
+from .blocks import conv2dblock
 
 
 class EncoderNet(nn.Module):

@@ -15,7 +15,7 @@ import warnings
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Type, Union, Callable
 
-import atomai.losses_metrics as losses_metrics_
+import atomai import losses_metric
 import numpy as np
 import torch
 from atomai.nets import dilnet, dilUnet
@@ -198,9 +198,9 @@ class trainer:
             )
         loss = kwargs.get('loss', "ce")
         if loss == 'dice':
-            self.criterion = losses_metrics_.dice_loss()
+            self.criterion = losses_metrics.dice_loss()
         elif loss == 'focal':
-            self.criterion = losses_metrics_.focal_loss()
+            self.criterion = losses_metrics.focal_loss()
         elif loss == 'ce' and self.num_classes == 1:
             self.criterion = torch.nn.BCEWithLogitsLoss()
         elif loss == 'ce' and self.num_classes > 2:

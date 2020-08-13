@@ -9,7 +9,7 @@ Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 from typing import Type, Tuple, Dict
 
 import torch
-from fcnn import dilnet, dilUnet
+from .fcnn import dilnet, dilUnet
 
 
 def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
