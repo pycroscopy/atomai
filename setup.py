@@ -23,7 +23,7 @@ if __name__ == "__main__":
         author='Maxim Ziatdinov',
         author_email='maxim.ziatdinov@ai4microcopy.com',
         license='MIT license',
-        packages=find_packages(include=['atomai', 'atomai.*']),
+        packages=find_packages(),
         zip_safe=False,
         install_requires=[
             'torch>=1.0.0',
