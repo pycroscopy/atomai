@@ -65,10 +65,10 @@ def test_trainer_input_dims(img_dims_in, lbl_dims_in, n_atoms,
     y_train, y_test = gen_labels(lbl_dims_in, n_atoms)
     m = atomnet.trainer(
         X_train, y_train, X_test, y_test, training_cycles=1, batch_size=4)
-    assert_equal(m.images_all[0].ndim, img_dims_out)
-    assert_equal(m.images_test_all[0].ndim, img_dims_out)
-    assert_equal(m.labels_all[0].ndim, lbl_dims_out)
-    assert_equal(m.labels_test_all[0].ndim, lbl_dims_out)
+    assert_equal(m.X_train[0].ndim, img_dims_out)
+    assert_equal(m.X_test[0].ndim, img_dims_out)
+    assert_equal(m.y_train[0].ndim, lbl_dims_out)
+    assert_equal(m.y_test[0].ndim, lbl_dims_out)
 
 
 @pytest.mark.parametrize(
@@ -96,6 +96,7 @@ def test_trainer_dataloader(n_atoms, tensor_type):
     assert_equal(y_train_.dtype, tensor_type)
     assert_equal(len(X_train), len(y_train))
     assert_equal(X_train_.is_cuda, torch.cuda.is_available())
+
 
 @pytest.mark.parametrize("model_type", ['dilUnet', 'dilnet'])
 def test_trainer_determinism(model_type):
