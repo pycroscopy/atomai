@@ -15,9 +15,9 @@ import warnings
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Type, Union, Callable
 
-import atomai import losses_metric
 import numpy as np
 import torch
+from atomai import losses_metric
 from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (average_weights, gpu_usage_map,
