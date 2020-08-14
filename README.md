@@ -65,7 +65,7 @@ basemodel, ensemble, ensemble_aver = trainer.run()
 
 ### Prediction with trained model(s)
 
-Trained models are be used to find atoms/particles/defects in the previously unseen (by a model) experimental data:
+Trained model is used to find atoms/particles/defects in the previously unseen (by a model) experimental data:
 
 ```python
 # Here we load new experimental data (as 2D or 3D numpy array)
@@ -75,8 +75,10 @@ expdata = np.load('expdata-test.npy')
 spredictor = atomnet.predictor(trained_model, use_gpu=True, refine=False)
 # Get model's "raw" prediction, atomic coordinates and classes
 nn_input, (nn_output, coord_class) = spredictor.run(expdata)
+```
 
-# Get ensemble prediction (mean and variance for "raw" prediction and coordinates)
+One can also make a prediction with uncertainty estimates using the ensemble of models:
+```
 epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
