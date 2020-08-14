@@ -528,6 +528,7 @@ def train_single_model(images_all: training_data_types,
                        labels_test_all: training_data_types,
                        training_cycles: int,
                        model: Union[str, Callable] = 'dilUnet',
+                       IoU: bool = True,
                        seed: int = 1,
                        batch_seed: int = None,
                        **kwargs: Union[int, List, str, bool]
@@ -536,6 +537,6 @@ def train_single_model(images_all: training_data_types,
     "Wrapper function" for class atomai.atomnet.trainer
     """
     t = trainer(images_all, labels_all, images_test_all, labels_test_all,
-                training_cycles, model, seed, batch_seed, **kwargs)
+                training_cycles, model, IoU, seed, batch_seed, **kwargs)
     trained_model = t.run()
     return trained_model
