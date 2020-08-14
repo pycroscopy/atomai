@@ -35,7 +35,7 @@ class IoU:
             true = true.detach().cpu().numpy()
         pred = self.threshold_(pred, thresh)
         if pred.ndim == 4 and pred.shape[-1] > 1:
-            true, pred = squeeze_channels(true, pred)
+            true, pred = squeeze_channels(true, pred, clip=True)
         pred = torch.from_numpy(pred).long()
         true = torch.from_numpy(true).long()
         if torch.cuda.is_available():
