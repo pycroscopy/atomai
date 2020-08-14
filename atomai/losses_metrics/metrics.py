@@ -35,7 +35,7 @@ class IoU:
             true = true.detach().cpu().numpy()
         pred = self.threshold_(pred, thresh)
         if pred.ndim == 4 and pred.shape[-1] > 1:
-            pred, true = squeeze_channels(true, pred)
+            true, pred = squeeze_channels(true, pred)
         pred = torch.from_numpy(pred).long()
         true = torch.from_numpy(true).long()
         if torch.cuda.is_available():
@@ -52,7 +52,9 @@ class IoU:
         xarr = xarr.transpose(0, 2, 3, 1)
         xarr_ = np.zeros_like(xarr)
         for i, x in enumerate(xarr):
-            x = cv_thresh(x.astype(np.float32), thresh)
+            x -= x.min()
+            x /= x.ptp()
+            x = cv_thresh(x, thresh)
             x = x[..., None] if x.ndim == 2 else x
             xarr_[i] = x
         return xarr_
