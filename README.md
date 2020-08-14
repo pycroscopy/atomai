@@ -44,11 +44,10 @@ images_test_all = dataset['X_test']
 labels_test_all = dataset['y_test']
 
 # Train a model
-trained_model = atomnet.trainer(
-    images_all, labels_all, 
-    images_test_all, labels_test_all,
+trained_model = atomnet.train_single_model(
+    images_all, labels_all, images_test_all, labels_test_all,
     gauss_noise=True, zoom=True,  # on-the-fly data augmentation
-    training_cycles=500).run()   
+    training_cycles=500)  
 ```
 
 One can also train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel.
@@ -72,8 +71,9 @@ Trained models are be used to find atoms/particles/defects in the previously uns
 # Here we load new experimental data (as 2D or 3D numpy array)
 expdata = np.load('expdata-test.npy')
 
-# Get model's "raw" prediction, atomic coordinates and classes
+# Initialize oredictive object (can be reused for other datasets)
 spredictor = atomnet.predictor(trained_model, use_gpu=True, refine=False)
+# Get model's "raw" prediction, atomic coordinates and classes
 nn_input, (nn_output, coord_class) = spredictor.run(expdata)
 
 # Get ensemble prediction (mean and variance for "raw" prediction and coordinates)
