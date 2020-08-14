@@ -78,7 +78,7 @@ nn_input, (nn_output, coord_class) = spredictor.run(expdata)
 ```
 
 One can also make a prediction with uncertainty estimates using the ensemble of models:
-```
+```python
 epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
