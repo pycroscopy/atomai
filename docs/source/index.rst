@@ -19,7 +19,7 @@ Welcome to AtomAI's documentation!
 
    atomnet
    atomstat
-   vae
    nets
-   utils
+   transforms
    losses_metrics
+   utils
