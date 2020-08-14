@@ -83,7 +83,7 @@ epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinat
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
 
-(Note: The deep ensemble-based prediction of atomic coordinates mean and variance uses DBSCAN method to arrange predictions from different ensemble models into clusters and the result is quite sensitive to the value of ```eps``` passed as ```**kwargs``` (default value is 0.5). In some cases it is better to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` (thresholding followed by finding blob centers) on the "raw" mean prediction of the ensemble)
+(Note: The deep ensemble-based prediction of mean and variance of coordinates uses DBSCAN method to arrange predictions from different models into clusters and the result is quite sensitive to the value of ```eps``` (passed as ```**kwargs```, default value is 0.5). In some cases, it may be better/easier to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` (thresholding followed by finding blob centers) on the "raw" mean prediction of the ensemble)
 
 ### Statistical analysis
 
