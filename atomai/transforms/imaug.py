@@ -356,7 +356,7 @@ class datatransform:
 
 def squeeze_channels(images: np.ndarray,
                      labels: np.ndarray,
-                     clip: bool = True) -> Tuple[np.ndarray]:
+                     clip: bool = False) -> Tuple[np.ndarray]:
     """
     Squeezes channels in each training image and
     filters out image-label pairs where some pixels have multiple values.
