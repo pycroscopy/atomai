@@ -90,7 +90,7 @@ def create_lattice_mask(lattice: np.ndarray, xy_atoms: np.ndarray,
     Args:
         lattice (2D numpy array):
             Experimental image as 2D numpy array
-        xy_atoms (2 x N numpy array):
+        xy_atoms (N x 2 numpy array):
             Position of atoms in the experimental data
         *arg (python function):
             Function that creates a 2D numpy array with atom and
@@ -119,8 +119,8 @@ def create_lattice_mask(lattice: np.ndarray, xy_atoms: np.ndarray,
     scale = kwargs.get("scale", 7)
     rmask = kwargs.get("rmask", 5)
     lattice_mask = np.zeros_like(lattice)
-    for i in range(xy_atoms.shape[-1]):
-        x, y = xy_atoms[:, i]
+    for xy in xy_atoms:
+        x, y = xy
         x = int(np.around(x))
         y = int(np.around(y))
         _, mask = create_mask_func(scale, rmask)
