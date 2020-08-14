@@ -385,7 +385,7 @@ class ensemble_trainer:
         X_test (numpy array): Test images
         y_test (numpy array): Test labels
         n_models (int): number of models in ensemble
-        model_type (str): 'dilUnet' or 'dilnet'. See atomai.models for details
+        model(str): 'dilUnet' or 'dilnet'. See atomai.models for details
         training_cycles_base (int): Number of training iterations for baseline model
         training_cycles_ensemble (int): Number of training iterations for every ensemble model
         filename (str): Filepath for saving weights
@@ -397,7 +397,7 @@ class ensemble_trainer:
     """
     def __init__(self, X_train: np.ndarray, y_train: np.ndarray,
                  X_test: np.ndarray = None, y_test: np.ndarray = None,
-                 n_models=30, model_type: str = "dilUnet",
+                 n_models=30, model: str = "dilUnet",
                  training_cycles_base: int = 1000,
                  training_cycles_ensemble: int = 50,
                  filename: str = "./model", **kwargs: Dict) -> None:
@@ -410,7 +410,7 @@ class ensemble_trainer:
                 shuffle=True, random_state=0)
         self.X_train, self.y_train = X_train, y_train
         self.X_test, self.y_test = X_test, y_test
-        self.model_type, self.n_models = model_type, n_models
+        self.model_type, self.n_models = model, n_models
         self.iter_base = training_cycles_base
         self.iter_ensemble = training_cycles_ensemble
         self.filename, self.kdict = filename, kwargs
