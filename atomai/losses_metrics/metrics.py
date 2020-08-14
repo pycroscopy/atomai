@@ -5,8 +5,6 @@ metrics.py
 Accuracy metrics
 """
 
-from typing import Union
-
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -19,13 +17,21 @@ class IoU:
     """
     Computes mean of the Intersection over Union.
     Adapted with changes from https://github.com/kevinzakka/pytorch-goodies
+
+    Args:
+        true: labels (aka ground truth)
+        pred: model predictions
+        activation: applies softmax/sigmoid to predictions
+        thresh: image binary threshold level for predictions
     """
     def __init__(self,
-                 true: Union[torch.Tensor, np.ndarray],
-                 pred: Union[torch.Tensor, np.ndarray],
+                 true: torch.Tensor,
+                 pred: torch.Tensor,
                  activation: bool = True,
                  thresh: float = 0.5):
-
+        """
+        Initializes IoU
+        """
         self.thresh = thresh
         self.nb_classes = pred.shape[1]
         if activation:
@@ -73,6 +79,9 @@ class IoU:
         return hist
 
     def evaluate(self):
+        """
+        Computes mean IoU score for a batch
+        """
         hist = torch.zeros((self.nb_classes, self.nb_classes))
         if torch.cuda.is_available():
             hist = hist.cuda()

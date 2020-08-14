@@ -51,6 +51,9 @@ class EncoderDecoder:
                  coord: bool = True,
                  seed: int = 0,
                  **kwargs: Union[int, bool]) -> None:
+        """
+        Initializes encoder-decoder object
+        """
 
         if torch.cuda.is_available:
             torch.cuda.empty_cache()

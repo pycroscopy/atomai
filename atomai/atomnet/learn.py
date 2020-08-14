@@ -401,7 +401,9 @@ class ensemble_trainer:
                  training_cycles_base: int = 1000,
                  training_cycles_ensemble: int = 50,
                  filename: str = "./model", **kwargs: Dict) -> None:
-
+        """
+        Initializes parameters of ensemble trainer
+        """
         if X_test is None or y_test is None:
             X_train, X_test, y_train, y_test = train_test_split(
                 X_train, y_train, test_size=kwargs.get("test_size", 0.15),

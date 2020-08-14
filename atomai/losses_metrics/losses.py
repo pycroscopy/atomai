@@ -55,10 +55,10 @@ class dice_loss(torch.nn.Module):
     Adapted with changes from https://github.com/kevinzakka/pytorch-goodies
     """
     def __init__(self, eps: float = 1e-7):
-        super(dice_loss, self).__init__()
         """
         Parameter initialization
         """
+        super(dice_loss, self).__init__()
         self.eps = eps
 
     def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
