@@ -9,6 +9,7 @@ from typing import Union
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from atomai.transforms import squeeze_channels
 from atomai.utils import cv_thresh
@@ -22,17 +23,20 @@ class IoU:
     def __init__(self,
                  true: Union[torch.Tensor, np.ndarray],
                  pred: Union[torch.Tensor, np.ndarray],
-                 nb_classes: int,
+                 activation: bool = True,
                  thresh: float = 0.5):
 
         self.thresh = thresh
-        self.nb_classes = nb_classes
+        self.nb_classes = pred.shape[1]
+        if activation:
+            if self.nb_classes > 1:
+                pred = F.softmax(pred, dim=1)
+            else:
+                pred = torch.sigmoid(pred)
         if self.nb_classes == 1:
             self.nb_classes += 1
-        if isinstance(pred, torch.Tensor):
-            pred = pred.detach().cpu().numpy()
-        if isinstance(true, torch.Tensor):
-            true = true.detach().cpu().numpy()
+        pred = pred.detach().cpu().numpy()
+        true = true.detach().cpu().numpy()
         pred = self.threshold_(pred, thresh)
         if pred.ndim == 4 and pred.shape[-1] > 1:
             true, pred = squeeze_channels(true, pred, clip=True)
@@ -52,8 +56,6 @@ class IoU:
         xarr = xarr.transpose(0, 2, 3, 1)
         xarr_ = np.zeros_like(xarr)
         for i, x in enumerate(xarr):
-            x -= x.min()
-            x /= x.ptp()
             x = cv_thresh(x, thresh)
             x = x[..., None] if x.ndim == 2 else x
             xarr_[i] = x
