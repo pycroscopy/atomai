@@ -67,6 +67,9 @@ class predictor:
                  logits: bool = True,
                  seed: int = 1,
                  **kwargs: Union[int, float, bool]) -> None:
+        """
+        Initializes predictive object
+        """
         if seed:
             torch.manual_seed(seed)
             np.random.seed(seed)

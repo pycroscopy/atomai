@@ -5,6 +5,7 @@ ed.py
 Encoder/decoder modules for variational autoencoders
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+
 """
 
 from typing import Tuple

@@ -6,6 +6,7 @@ Module for training fully convolutional neural network (FCNN)
 for atom/defect/particle finding as well as an ensemble of FCNNs.
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+
 """
 
 

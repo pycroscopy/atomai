@@ -5,6 +5,7 @@ loaders.py
 Helpfer functions for loading pre-trained AtomAI's models
 
 Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
+
 """
 from typing import Type, Tuple, Dict
 
@@ -15,6 +16,7 @@ from .fcnn import dilnet, dilUnet
 def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
     """
     Loads trained AtomAI models
+
     Args:
         meta_state_dict (str):
             filepath to dictionary with trained weights and key information
