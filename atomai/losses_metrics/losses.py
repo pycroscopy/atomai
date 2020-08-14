@@ -1,8 +1,8 @@
 """
-losses_metrics.py
-=================
+losses.py
+=========
 
-Custom pytorch loss functions and metrics
+Custom Pytorch loss functions
 """
 
 import torch
@@ -86,4 +86,3 @@ class dice_loss(torch.nn.Module):
         cardinality = torch.sum(probas + true_1_hot, dims)
         dice_loss = (2. * intersection / (cardinality + self.eps)).mean()
         return (1 - dice_loss)
-
