@@ -12,3 +12,11 @@ Losses for imbalanced classes
     :members:
     :undoc-members:
     :member-order: bysource
+
+Metics for imbalanced classes
+-----------------------------
+
+..autoclass:: atomai.losses_metrics.IoU
+    :members:
+    :undoc-members:
+    :member-order: bysource
