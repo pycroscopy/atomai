@@ -74,6 +74,9 @@ class trainer:
             Type of model to train: 'dilUnet' or 'dilnet' (Default: 'dilUnet').
             See atomai.nets for more details. One can also pass a custom fully
             convolutional neural network model.
+        IoU (bool):
+            Compute and show mean Intersection over Union for each batch/iteration
+            (Default: False) 
         seed (int):
             Deterministic mode for model training (Default: 1)
         batch_seed (int):
@@ -142,6 +145,7 @@ class trainer:
                  y_test: training_data_types,
                  training_cycles: int,
                  model: str = 'dilUnet',
+                 IoU: bool = False,
                  seed: int = 1,
                  batch_seed: int = None,
                  **kwargs: Union[int, List, str, bool]) -> None:
@@ -220,6 +224,7 @@ class trainer:
         self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.training_cycles = training_cycles
+        self.iou = IoU
         self.print_loss = kwargs.get("print_loss", 100)
         self.savedir = kwargs.get("savedir", "./")
         self.savename = kwargs.get("savename", "model")
@@ -272,7 +277,7 @@ class trainer:
             images, labels = images.cuda(), labels.cuda()
         return images, labels
 
-    def train_step(self, img: torch.Tensor, lbl: torch.Tensor) -> float:
+    def train_step(self, img: torch.Tensor, lbl: torch.Tensor) -> Tuple[float]:
         """
         Propagates image(s) through a network to get model's prediction
         and compares predicted value with ground truth; then performs
@@ -284,7 +289,11 @@ class trainer:
         loss = self.criterion(prob, lbl)
         loss.backward()
         self.optimizer.step()
-        return loss.item()
+        if self.iou:
+            iou_score = losses_metrics.IoU(
+                lbl, prob, self.num_classes).evaluate()
+            return (loss.item(), iou_score)
+        return (loss.item(),)
 
     def test_step(self, img: torch.Tensor, lbl: torch.Tensor) -> float:
         """
@@ -294,7 +303,11 @@ class trainer:
         with torch.no_grad():
             prob = self.net(img)
             loss = self.criterion(prob, lbl)
-        return loss.item()
+        if self.iou:
+            iou_score = losses_metrics.IoU(
+                lbl, prob, self.num_classes).evaluate()
+            return (loss.item(), iou_score)
+        return (loss.item(),)
 
     def run(self) -> Type[torch.nn.Module]:
         """
@@ -308,36 +321,54 @@ class trainer:
                 self.batch_idx_train[e], mode='train')
             # Training step
             loss = self.train_step(images, labels)
-            self.train_loss.append(loss)
+            self.train_loss.append(loss[0])
             images_, labels_ = self.dataloader(
                 self.batch_idx_test[e], mode='test')
             loss_ = self.test_step(images_, labels_)
-            self.test_loss.append(loss_)
+            self.test_loss.append(loss_[0])
             # Print loss info
             if e == 0 or (e+1) % self.print_loss == 0:
                 if torch.cuda.is_available():
                     gpu_usage = gpu_usage_map(torch.cuda.current_device())
                 else:
                     gpu_usage = ['N/A ', ' N/A']
-                print('Epoch {} ...'.format(e+1),
-                      'Training loss: {} ...'.format(
-                          np.around(self.train_loss[-1], 4)),
-                      'Test loss: {} ...'.format(
-                    np.around(self.test_loss[-1], 4)),
-                      'GPU memory usage: {}/{}'.format(
-                          gpu_usage[0], gpu_usage[1]))
+                if self.iou:
+                    print('Epoch {} ...'.format(e+1),
+                          'Training loss: {} ...'.format(
+                              np.around(self.train_loss[-1], 4)),
+                          'Test loss: {} ...'.format(
+                              np.around(self.test_loss[-1], 4)),
+                          'Train IoU: {} ...'.format(
+                              np.around(loss[1], 4)),
+                          'Test IoU: {} ...'.format(
+                              np.around(loss_[1], 4)),
+                          'GPU memory usage: {}/{}'.format(
+                              gpu_usage[0], gpu_usage[1]))
+                else:
+                    print('Epoch {} ...'.format(e+1),
+                          'Training loss: {} ...'.format(
+                              np.around(self.train_loss[-1], 4)),
+                          'Test loss: {} ...'.format(
+                              np.around(self.test_loss[-1], 4)),
+                          'GPU memory usage: {}/{}'.format(
+                              gpu_usage[0], gpu_usage[1]))
         # Save final model weights
         torch.save(self.meta_state_dict,
                    os.path.join(self.savedir,
                    self.savename+'_metadict_final_weights.tar'))
         # Run evaluation (by passing all the test data) for a final model state
-        running_loss_test = 0
+        running_loss_test, running_iou_test = 0, 0
         for idx in range(len(self.X_test)):
             images_, labels_ = self.dataloader(idx, mode='test')
-            loss = self.test_step(images_, labels_)
-            running_loss_test += loss
+            loss_ = self.test_step(images_, labels_)
+            running_loss_test += loss_[0]
+            if self.iou:
+                running_iou_test += loss_[1]
         print('Model (final state) evaluation loss:',
               np.around(running_loss_test / len(self.X_test), 4))
+        if self.iou:
+            print('Model (final state) IoU:',
+                  np.around(running_iou_test / len(self.X_test), 4))
         if self.plot_training_history:
             plot_losses(self.train_loss, self.test_loss)
         return self.net
