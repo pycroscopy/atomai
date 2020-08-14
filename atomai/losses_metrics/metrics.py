@@ -38,6 +38,9 @@ class IoU:
             pred, true = squeeze_channels(true, pred)
         pred = torch.from_numpy(pred).long()
         true = torch.from_numpy(true).long()
+        if torch.cuda.is_available():
+            pred = pred.cuda()
+            true = true.cuda()
         self.pred = pred
         self.true = true
 
@@ -67,6 +70,8 @@ class IoU:
 
     def evaluate(self):
         hist = torch.zeros((self.nb_classes, self.nb_classes))
+        if torch.cuda.is_available():
+            hist = hist.cuda()
         for t, p in zip(self.true, self.pred):
             hist += self.compute_hist(t.flatten(), p.flatten())
         A_inter_B = torch.diag(hist)
