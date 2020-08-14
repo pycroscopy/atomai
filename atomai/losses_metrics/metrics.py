@@ -27,10 +27,12 @@ class IoU:
 
         self.thresh = thresh
         self.nb_classes = nb_classes
+        if self.nb_classes == 1:
+            self.nb_classes += 1
         if isinstance(pred, torch.Tensor):
             pred = pred.detach().cpu().numpy()
         if isinstance(true, torch.Tensor):
-            true = pred.detach().cpu().numpy()
+            true = true.detach().cpu().numpy()
         pred = self.threshold_(pred, thresh)
         if pred.ndim == 4 and pred.shape[-1] > 1:
             pred, true = squeeze_channels(true, pred)
@@ -63,7 +65,7 @@ class IoU:
         hist = hist.reshape(self.nb_classes, self.nb_classes).float()
         return hist
 
-    def eval(self):
+    def evaluate(self):
         hist = torch.zeros((self.nb_classes, self.nb_classes))
         for t, p in zip(self.true, self.pred):
             hist += self.compute_hist(t.flatten(), p.flatten())
