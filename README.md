@@ -44,21 +44,20 @@ images_test_all = dataset['X_test']
 labels_test_all = dataset['y_test']
 
 # Train a model
-trained_model = atomnet.trainer(
-    images_all, labels_all, 
-    images_test_all, labels_test_all,
+trained_model = atomnet.train_single_model(
+    images_all, labels_all, images_test_all, labels_test_all,
     gauss_noise=True, zoom=True,  # on-the-fly data augmentation
-    training_cycles=500).run()   
+    training_cycles=500)  
 ```
 
 One can also train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel.
 
 ```python
 # Initialize ensemble trainer
-trainer = atomnet.ensemble_trainer(X_train, y_train, n_models=12,
+trainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, labels_test_all,
                                    rotation=True, zoom=True, contrast=True, # On-the fly data augmentation
                                    gauss=True, blur=True, background=True, # On-the fly data augmentation
-                                   loss='ce', batch_size=16, training_cycles_base=1000,
+                                   n_models=12, model="dilUnet", training_cycles_base=1000,
                                    training_cycles_ensemble=100, filename='ensemble')
 # train deep ensemble of models
 basemodel, ensemble, ensemble_aver = trainer.run()
@@ -66,22 +65,25 @@ basemodel, ensemble, ensemble_aver = trainer.run()
 
 ### Prediction with trained model(s)
 
-Trained models are be used to find atoms/particles/defects in the previously unseen (by a model) experimental data:
+Trained model is used to find atoms/particles/defects in the previously unseen (by a model) experimental data:
 
 ```python
 # Here we load new experimental data (as 2D or 3D numpy array)
 expdata = np.load('expdata-test.npy')
 
-# Get model's "raw" prediction, atomic coordinates and classes
+# Initialize oredictive object (can be reused for other datasets)
 spredictor = atomnet.predictor(trained_model, use_gpu=True, refine=False)
+# Get model's "raw" prediction, atomic coordinates and classes
 nn_input, (nn_output, coord_class) = spredictor.run(expdata)
+```
 
-# Get ensemble prediction (mean and variance for "raw" prediction and coordinates)
+One can also make a prediction with uncertainty estimates using the ensemble of models:
+```python
 epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
 
-(Note: The deep ensemble-based prediction of atomic coordinates mean and variance uses DBSCAN method to arrange predictions from different ensemble models into clusters and the result is quite sensitive to the value of ```eps``` passed as ```**kwargs``` (default value is 0.5). In some cases it is better to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` (thresholding followed by finding blob centers) on the "raw" mean prediction of the ensemble)
+(Note: The deep ensemble-based prediction of mean and variance of coordinates uses DBSCAN method to arrange predictions from different models into clusters and the result is quite sensitive to the value of ```eps``` (passed as ```**kwargs```, default value is 0.5). In some cases, it may be better/easier to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` (thresholding followed by finding blob centers) on the "raw" mean prediction of the ensemble)
 
 ### Statistical analysis
 

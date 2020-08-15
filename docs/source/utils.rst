@@ -1,13 +1,9 @@
 Utility Functions
-=============================
+==================
 
 
 Training data preparation
 -------------------------
-.. autoclass:: atomai.utils.datatransform
-    :members:
-    :undoc-members:
-    :member-order: bysource
 
 .. autofunction:: atomai.utils.create_lattice_mask
 .. autofunction:: atomai.utils.create_multiclass_lattice_mask
@@ -33,20 +29,22 @@ Image pre/post processing
 .. autofunction:: atomai.utils.img_resize
 .. autofunction:: atomai.utils.img_pad
 .. autofunction:: atomai.utils.crop_borders
+.. autofunction:: atomai.utils.filter_cells
+.. autofunction:: atomai.utils.get_blob_params
+.. autofunction:: atomai.utils.cv_thresh
+.. autofunction:: atomai.utils.cv_resize
+.. autofunction:: atomai.utils.cv_resize_stack
 
 
 Atomic Coordinates
 -------------------
 
+.. autofunction:: atomai.utils.map_bonds
 .. autofunction:: atomai.utils.find_com
 .. autofunction:: atomai.utils.get_nn_distances
 .. autofunction:: atomai.utils.get_nn_distances_
 .. autofunction:: atomai.utils.peak_refinement
 .. autofunction:: atomai.utils.compare_coordinates
-.. autofunction:: atomai.utils.filter_cells
-.. autofunction:: atomai.utils.filter_cells_
-.. autofunction:: atomai.utils.get_blob_params
-.. autofunction:: atomai.utils.cv_thresh
 
 
 Visualization

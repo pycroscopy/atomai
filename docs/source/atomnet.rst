@@ -8,6 +8,8 @@ Single model training
     :undoc-members:
     :member-order: bysource
 
+.. autofunction:: atomai.atomnet.train_single_model
+
 Deep ensemble training
 ----------------------
 .. autoclass:: atomai.atomnet.ensemble_trainer
