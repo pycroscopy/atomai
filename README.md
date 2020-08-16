@@ -16,7 +16,7 @@ AtomAI is a simple Python package for machine learning-based analysis of experim
 
 ## How to use it
 
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which also takes  a single line of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data. The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
 
 ### Quickstart: AtomAI in the Cloud
 
@@ -56,7 +56,7 @@ One can also train an ensemble of models instead of just a single model. The ave
 # Initialize ensemble trainer
 trainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, labels_test_all,
                                    rotation=True, zoom=True, contrast=True, # On-the fly data augmentation
-                                   gauss=True, blur=True, background=True, # On-the fly data augmentation
+                                   gauss_noise=True, blur=True, background=True, # On-the fly data augmentation
                                    n_models=12, model="dilUnet", training_cycles_base=1000,
                                    training_cycles_ensemble=100, filename='ensemble')
 # train deep ensemble of models
