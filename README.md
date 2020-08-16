@@ -55,10 +55,10 @@ One can also train an ensemble of models instead of just a single model. The ave
 ```python
 # Initialize ensemble trainer
 trainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, labels_test_all,
-                                   rotation=True, zoom=True, contrast=True, # On-the fly data augmentation
-                                   gauss_noise=True, blur=True, background=True, # On-the fly data augmentation
-                                   n_models=12, model="dilUnet", training_cycles_base=1000,
-                                   training_cycles_ensemble=100, filename='ensemble')
+                                   rotation=True, zoom=True, # On-the fly data augmentation
+                                   gauss_noise=True, blur=True, # On-the fly data augmentation
+                                   n_models=30, model="dilUnet", # number of models in ensemble
+                                   training_cycles_base=1000, training_cycles_ensemble=100)
 # train deep ensemble of models
 basemodel, ensemble, ensemble_aver = trainer.run()
 ```
