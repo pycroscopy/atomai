@@ -31,7 +31,7 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ### Model training
-Below is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
+Below is an example of how one can train a neural network for atom/particle/defect finding with essentially one line of code:
 
 ```python
 from atomai import atomnet
