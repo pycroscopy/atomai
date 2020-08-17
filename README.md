@@ -54,13 +54,12 @@ One can also train an ensemble of models instead of just a single model. The ave
 
 ```python
 # Initialize ensemble trainer
-trainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, labels_test_all,
-                                   rotation=True, zoom=True, # On-the fly data augmentation
-                                   gauss_noise=True, blur=True, # On-the fly data augmentation
-                                   n_models=30, model="dilUnet", # number of models in ensemble
-                                   training_cycles_base=1000, training_cycles_ensemble=100)
+etrainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, labels_test_all,
+                                    rotation=True, zoom=True, gauss_noise=True, # On-the fly data augmentation
+                                    strategy="from_baseline", n_models=30, model="dilUnet",
+                                    training_cycles_base=1000, training_cycles_ensemble=100)
 # train deep ensemble of models
-basemodel, ensemble, ensemble_aver = trainer.run()
+ensemble, smodel = etrainer.run()
 ```
 
 ### Prediction with trained model(s)
@@ -71,7 +70,7 @@ Trained model is used to find atoms/particles/defects in the previously unseen (
 # Here we load new experimental data (as 2D or 3D numpy array)
 expdata = np.load('expdata-test.npy')
 
-# Initialize oredictive object (can be reused for other datasets)
+# Initialize predictive object (can be reused for other datasets)
 spredictor = atomnet.predictor(trained_model, use_gpu=True, refine=False)
 # Get model's "raw" prediction, atomic coordinates and classes
 nn_input, (nn_output, coord_class) = spredictor.run(expdata)
@@ -83,7 +82,7 @@ epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinat
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
 
-(Note: The deep ensemble-based prediction of mean and variance of coordinates uses DBSCAN method to arrange predictions from different models into clusters and the result is quite sensitive to the value of ```eps``` (passed as ```**kwargs```, default value is 0.5). In some cases, it may be better/easier to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` (thresholding followed by finding blob centers) on the "raw" mean prediction of the ensemble)
+(Note: The deep ensemble-based prediction of mean and variance of coordinates uses DBSCAN method to arrange predictions from different models into clusters and the result is quite sensitive to the value of ```eps``` (passed as ```**kwargs```, default value is 0.5). In some cases, it may be better/easier to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` on the mean "raw" prediction of the ensemble)
 
 ### Statistical analysis
 
