@@ -21,13 +21,13 @@ import torch
 from atomai import losses_metrics
 from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
-from atomai.utils import (average_weights, gpu_usage_map,
-                          plot_losses, preprocess_training_data)
+from atomai.utils import gpu_usage_map, plot_losses, preprocess_training_data
 from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
 training_data_types = Union[np.ndarray, List[np.ndarray], Dict[int, np.ndarray]]
+ensemble_out = Tuple[Dict[int, Dict[str, torch.Tensor]], Type[torch.nn.Module]]
 
 
 class trainer:
@@ -386,6 +386,12 @@ class ensemble_trainer:
         y_test (numpy array): Test labels
         n_models (int): number of models in ensemble
         model(str): 'dilUnet' or 'dilnet'. See atomai.models for details
+        strategy (str): Select between 'from_scratch' and 'from_baseline'.
+            If 'from_scratch' is selected, trains *n* models independently
+            starting each time with different random initialization. If
+            'from_baseline' is selected, trains one basemodel for *N* epochs
+            and then uses it as a baseline to train multiple ensemble models
+            for n epochs (*n* << *N*), each with different random shuffling of batches.
         training_cycles_base (int): Number of training iterations for baseline model
         training_cycles_ensemble (int): Number of training iterations for every ensemble model
         filename (str): Filepath for saving weights
@@ -398,6 +404,7 @@ class ensemble_trainer:
     def __init__(self, X_train: np.ndarray, y_train: np.ndarray,
                  X_test: np.ndarray = None, y_test: np.ndarray = None,
                  n_models=30, model: str = "dilUnet",
+                 strategy: str = "from_baseline",
                  training_cycles_base: int = 1000,
                  training_cycles_ensemble: int = 50,
                  filename: str = "./model", **kwargs: Dict) -> None:
@@ -411,31 +418,39 @@ class ensemble_trainer:
         self.X_train, self.y_train = X_train, y_train
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model, n_models
+        self.strategy = strategy
+        if self.strategy not in ["from_baseline", "from_scratch"]:
+            raise NotImplementedError(
+                "Select from 'from_baseline' and 'from_scratch' strategies")
         self.iter_base = training_cycles_base
-        self.iter_ensemble = training_cycles_ensemble
+        if self.strategy == "from_baseline":
+            self.iter_ensemble = training_cycles_ensemble
         self.filename, self.kdict = filename, kwargs
         self.ensemble_state_dict = {}
 
-    def train_baseline(self) -> Type[torch.nn.Module]:
+    def train_baseline(self,
+                       seed: int = 0,
+                       batch_seed: int = 0) -> Type[trainer]:
         """
-        Trains a single baseline model
+        Trains a single "baseline" model
         """
-        print('Training baseline model:')
+        if self.strategy == "from_baseline":
+            print('Training baseline model:')
         trainer_base = trainer(
             self.X_train, self.y_train,
             self.X_test, self.y_test,
             self.iter_base, self.model_type,
+            seed=seed, batch_seed=batch_seed,
             plot_training_history=True,
             savename=self.filename + "_base",
             **self.kdict)
-        trained_basemodel = trainer_base.run()
+        _ = trainer_base.run()
 
-        return trained_basemodel
+        return trainer_base
 
-    def train_ensemble(self,
-                       basemodel: Union[OrderedDict, Type[torch.nn.Module]],
-                       **kwargs: Dict
-                       ) -> Tuple[Dict[int, Dict[str, torch.Tensor]], Type[torch.nn.Module]]:
+    def train_ensemble_from_baseline(self,
+                                     basemodel: Union[OrderedDict, Type[torch.nn.Module]],
+                                     **kwargs: Dict) -> ensemble_out:
         """
         Trains ensemble of models starting each time from baseline weights
 
@@ -471,19 +486,30 @@ class ensemble_trainer:
                                 initial_model_state_dict.values())
             trained_model_i = trainer_i.run()
             self.ensemble_state_dict[i] = trained_model_i.state_dict()
+            self.save_ensemble_metadict(trainer_i.meta_state_dict)
+        return self.ensemble_state_dict, trainer_i.net
 
-        ensemble_metadict = copy.deepcopy(trainer_i.meta_state_dict)
+    def train_ensemble_from_scratch(self) -> ensemble_out:
+        """
+        Trains ensemble of models starting every time from scratch with
+        different initialization (for both weights and batches shuffling)
+        """
+        print("Training ensemble models:")
+        for i in range(self.n_models):
+            print("Ensemble model {}".format(i + 1))
+            trainer_i = self.train_baseline(seed=i, batch_seed=i)
+            self.ensemble_state_dict[i] = trainer_i.net.state_dict()
+            self.save_ensemble_metadict(trainer_i.meta_state_dict)
+        return self.ensemble_state_dict, trainer_i.net
+
+    def save_ensemble_metadict(self, meta_state_dict: Dict) -> None:
+        """
+        Saves meta dictionary with ensemble weights and key information about
+        model's structure (needed to load it back) to disk'
+        """
+        ensemble_metadict = copy.deepcopy(meta_state_dict)
         ensemble_metadict["weights"] = self.ensemble_state_dict
         torch.save(ensemble_metadict, self.filename + "_ensemble.tar")
-
-        ensemble_state_dict_aver = average_weights(self.ensemble_state_dict)
-        ensemble_aver_metadict = copy.deepcopy(trainer_i.meta_state_dict)
-        ensemble_aver_metadict["weights"] = ensemble_state_dict_aver
-        torch.save(ensemble_aver_metadict, self.filename + "_ensemble_aver_weights.pt")
-
-        trainer_i.net.load_state_dict(ensemble_state_dict_aver)
-
-        return self.ensemble_state_dict, trainer_i.net
 
     @classmethod
     def update_weights(cls,
@@ -516,13 +542,16 @@ class ensemble_trainer:
         self.X_test = X_test
         self.y_test = y_test
 
-    def run(self) -> Tuple[Type[torch.nn.Module], Dict, Dict]:
+    def run(self) -> ensemble_out:
         """
         Trains a baseline model and ensemble of models
         """
-        basemodel = self.train_baseline()
-        ensemble, ensemble_aver = self.train_ensemble(basemodel)
-        return basemodel, ensemble, ensemble_aver
+        if self.strategy == 'from_baseline':
+            base_trainer = self.train_baseline()
+            ensemble, smodel = self.train_ensemble_from_baseline(base_trainer.net)
+        elif self.strategy == 'from_scratch':
+            ensemble, smodel = self.train_ensemble_from_scratch()
+        return ensemble, smodel
 
 
 def train_single_model(images_all: training_data_types,

@@ -81,7 +81,8 @@ class EncoderDecoder:
                 latent_dim, numlayers_d, numhidden_d, self.im_dim, mlp_d)
         else:
             self.decoder_net = rDecoderNet(
-                latent_dim, numlayers_d, numhidden_d, self.im_dim)
+                latent_dim, numlayers_d, numhidden_d, self.im_dim,
+                kwargs.get("skip", False))
         self.encoder_net = EncoderNet(
             self.im_dim, self.z_dim, numlayers_e, numhidden_e, mlp_e)
 
@@ -447,6 +448,9 @@ class rVAE(EncoderDecoder):
             number of hidden units OR conv filters in encoder (Default: 128)
         **numhidden_decoder (int):
             number of hidden units in decoder (Default: 128)
+        **skip (bool):
+            uses generative skip model with residual paths between
+            latents and decoder layers (Default: False)
         **loss (str):
             reconstruction loss function, "ce" or "mse" (Default: "mse")
         **translation_prior (float):
