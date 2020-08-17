@@ -386,7 +386,7 @@ class ensemble_trainer:
         y_test (numpy array): Test labels
         n_models (int): number of models in ensemble
         model(str): 'dilUnet' or 'dilnet'. See atomai.models for details
-        strategy ('str'): Select between 'from_scratch' and 'from_baseline'.
+        strategy (str): Select between 'from_scratch' and 'from_baseline'.
             If 'from_scratch' is selected, trains *n* models independently
             starting each time with different random initialization. If
             'from_baseline' is selected, trains one basemodel for *N* epochs
@@ -430,7 +430,7 @@ class ensemble_trainer:
 
     def train_baseline(self,
                        seed: int = 0,
-                       batch_seed: int = 0) -> Type[torch.nn.Module]:
+                       batch_seed: int = 0) -> Type[trainer]:
         """
         Trains a single "baseline" model
         """
@@ -487,7 +487,6 @@ class ensemble_trainer:
             trained_model_i = trainer_i.run()
             self.ensemble_state_dict[i] = trained_model_i.state_dict()
             self.save_ensemble_metadict(trainer_i.meta_state_dict)
-
         return self.ensemble_state_dict, trainer_i.net
 
     def train_ensemble_from_scratch(self) -> ensemble_out:
