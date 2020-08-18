@@ -241,7 +241,7 @@ class locator:
         if nn_output.shape[-1] == 1:  # Add background class for 1-channel data
             nn_output_b = 1 - nn_output
             nn_output = np.concatenate(
-                (nn_output[:, :, :, None], nn_output_b[:, :, :, None]), axis=3)
+                (nn_output, nn_output_b), axis=3)
         if self.dim_order == 'channel_first':  # make channel dim the last dim
             nn_output = np.transpose(nn_output, (0, 2, 3, 1))
         elif self.dim_order == 'channel_last':
@@ -292,12 +292,12 @@ class locator:
             return d_coord_r
         return d_coord
 
-    def rem_edge_coord(self, coordinates: np.ndarray, w: int, h: int) -> np.ndarray:
+    def rem_edge_coord(self, coordinates: np.ndarray, h: int, w: int) -> np.ndarray:
         """
         Removes coordinates at the image edges
         """
 
-        def coord_edges(coordinates, w, h):
+        def coord_edges(coordinates, h, w):
             return [coordinates[0] > h - self.dist_edge,
                     coordinates[0] < self.dist_edge,
                     coordinates[1] > w - self.dist_edge,
@@ -305,7 +305,7 @@ class locator:
 
         coord_to_rem = [
                         idx for idx, c in enumerate(coordinates)
-                        if any(coord_edges(c, w, h))
+                        if any(coord_edges(c, h, w))
                         ]
         coord_to_rem = np.array(coord_to_rem, dtype=int)
         coordinates = np.delete(coordinates, coord_to_rem, axis=0)
