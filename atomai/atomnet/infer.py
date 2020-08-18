@@ -9,14 +9,16 @@ Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 """
 
 import time
+import warnings
 from typing import Dict, List, Tuple, Type, Union
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from atomai.utils import (Hook, cluster_coord, cv_thresh, find_com,
-                          img_pad, img_resize, mock_forward,
-                          peak_refinement, torch_format)
+
+from atomai.utils import (Hook, cluster_coord, cv_thresh, find_com, img_pad,
+                          img_resize, mock_forward, peak_refinement,
+                          torch_format)
 
 
 class predictor:
@@ -145,6 +147,7 @@ class predictor:
 
     def decode(self,
                image_data: np.ndarray,
+               return_image: bool = False,
                **kwargs: int) -> Tuple[np.ndarray]:
         """
         Make prediction
@@ -152,6 +155,8 @@ class predictor:
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
+            return_image (bool):
+                Returns images used as input into NN
             **num_batches: number of batches
         """
         image_data = self.preprocess(image_data)
@@ -176,8 +181,10 @@ class predictor:
         if len(images_i) > 0:
             decoded_i = self.predict(images_i)
             decoded_imgs[(i+1)*batch_size:] = decoded_i
-        images_data = image_data.permute(0, 2, 3, 1).numpy()
-        return images_data, decoded_imgs
+        if return_image:
+            image_data = image_data.permute(0, 2, 3, 1).numpy()
+            return image_data, decoded_imgs
+        return decoded_imgs
 
     def run(self,
             image_data: np.ndarray,
@@ -191,7 +198,11 @@ class predictor:
             **num_batches: number of batches (Default: 10)
         """
         start_time = time.time()
-        images, decoded_imgs = self.decode(image_data, **kwargs)
+        warn_msg = ("The default output of predictor.decode() and predictor.run() " +
+                    "is now ```nn_output, coords``` instead of ```nn_input, (nn_output, coords)```")
+        warnings.warn(warn_msg, UserWarning)
+        images, decoded_imgs = self.decode(
+            image_data, return_image=True, **kwargs)
         loc = locator(self.thresh, refine=self.refine, d=self.d)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
@@ -200,7 +211,7 @@ class predictor:
                   + n_images_str + "decoded in approximately "
                   + str(np.around(time.time() - start_time, decimals=4))
                   + ' seconds')
-        return images, (decoded_imgs, coordinates)
+        return decoded_imgs, coordinates
 
 
 class locator:
@@ -377,7 +388,7 @@ class ensemble_predictor:
         for i, w in self.ensemble.items():
             self.predictive_model.load_state_dict(w)
             self.predictive_model.eval()
-            _, nn_output = predictor(
+            nn_output = predictor(
                 self.predictive_model,
                 nb_classes=self.num_classes,
                 downsampling=self.downsample_factor,
