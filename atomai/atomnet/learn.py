@@ -400,12 +400,14 @@ class ensemble_trainer:
         y_test (numpy array): Test labels
         n_models (int): number of models in ensemble
         model(str): 'dilUnet' or 'dilnet'. See atomai.models for details
-        strategy (str): Select between 'from_scratch' and 'from_baseline'.
-            If 'from_scratch' is selected, trains *n* models independently
+        strategy (str): Select between 'from_scratch', 'from_baseline' and 'swag'.
+            If 'from_scratch' is selected, it trains *n* models independently
             starting each time with different random initialization. If
-            'from_baseline' is selected, trains one basemodel for *N* epochs
+            'from_baseline' is selected, it trains one basemodel for *N* epochs
             and then uses it as a baseline to train multiple ensemble models
             for n epochs (*n* << *N*), each with different random shuffling of batches.
+            If 'swag' is selected, it performs SWAG-like sampling of weights ar the
+            end of a single model training.
         training_cycles_base (int): Number of training iterations for baseline model
         training_cycles_ensemble (int): Number of training iterations for every ensemble model
         filename (str): Filepath for saving weights
@@ -440,6 +442,9 @@ class ensemble_trainer:
         if self.strategy == "from_baseline":
             self.iter_ensemble = training_cycles_ensemble
         self.filename, self.kdict = filename, kwargs
+        if self.strategy == "swag":
+            self.kdict["swag"] = True
+            self.kdict["use_batchnorm"] = False
         self.ensemble_state_dict = {}
 
     def train_baseline(self,
@@ -516,6 +521,15 @@ class ensemble_trainer:
             self.save_ensemble_metadict(trainer_i.meta_state_dict)
         return self.ensemble_state_dict, trainer_i.net
 
+    def train_model_swag(self) -> ensemble_out:
+        """
+        Performs SWAG-like weights sampling at the end of single model training
+        """
+        trainer_i = self.train_baseline()
+        sampled_weights = sample_weights(trainer_i.recent_weights)
+        self.ensemble_state_dict = sampled_weights
+        return self.ensemble_state_dict, trainer_i.net
+
     def save_ensemble_metadict(self, meta_state_dict: Dict) -> None:
         """
         Saves meta dictionary with ensemble weights and key information about
@@ -565,6 +579,11 @@ class ensemble_trainer:
             ensemble, smodel = self.train_ensemble_from_baseline(base_trainer.net)
         elif self.strategy == 'from_scratch':
             ensemble, smodel = self.train_ensemble_from_scratch()
+        elif self.strategy == 'swag':
+            ensemble, smodel = self.train_model_swag()
+        else:
+            raise NotImplementedError(
+                "The strategy must be 'from_baseline', 'from_scratch' or 'swag'")
         return ensemble, smodel
 
 
@@ -609,4 +628,10 @@ def train_swag_model(images_all: training_data_types,
                 training_cycles, model, IoU, seed, batch_seed, **kwargs)
     trained_model = t.run()
     sampled_weights = sample_weights(t.recent_weights)
+
+    filename = kwargs.get("savename", "model")
+    swag_metadict = copy.deepcopy(t.meta_state_dict)
+    swag_metadict["weights"] = sampled_weights
+    torch.save(swag_metadict, filename + "_swag.tar")
+
     return sampled_weights, trained_model
