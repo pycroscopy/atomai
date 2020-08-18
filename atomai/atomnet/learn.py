@@ -21,7 +21,8 @@ import torch
 from atomai import losses_metrics
 from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
-from atomai.utils import gpu_usage_map, plot_losses, preprocess_training_data
+from atomai.utils import (gpu_usage_map, plot_losses,
+                          preprocess_training_data, sample_weights)
 from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
@@ -77,7 +78,7 @@ class trainer:
             convolutional neural network model.
         IoU (bool):
             Compute and show mean Intersection over Union for each batch/iteration
-            (Default: False) 
+            (Default: False)
         seed (int):
             Deterministic mode for model training (Default: 1)
         batch_seed (int):
@@ -110,6 +111,8 @@ class trainer:
             in each block of the encoder (including bottleneck layer),
             and the number of layers in the decoder  is chosen accordingly
             (to maintain symmetry between encoder and decoder)
+        **swag (bool): Performs diagonal Gaussian subspace samling at the end
+            of training (does not work if batch normalization is ON!)
         **print_loss (int):
             Prints loss every *n*-th epoch
         **savedir (str):
@@ -226,6 +229,9 @@ class trainer:
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.training_cycles = training_cycles
         self.iou = IoU
+        self.swag = kwargs.get("swag", False)
+        if self.swag:
+            self.recent_weights = {}
         self.print_loss = kwargs.get("print_loss", 100)
         self.savedir = kwargs.get("savedir", "./")
         self.savename = kwargs.get("savename", "model")
@@ -325,9 +331,17 @@ class trainer:
             self.train_loss.append(loss[0])
             images_, labels_ = self.dataloader(
                 self.batch_idx_test[e], mode='test')
+            # Test step
             loss_ = self.test_step(images_, labels_)
             self.test_loss.append(loss_[0])
-            # Print loss info
+
+            if self.swag and self.training_cycles - e <= 30:
+                i_ = 30 - (self.training_cycles - e)
+                state_dict_ = OrderedDict()
+                for k, v in self.net.state_dict().items():
+                    state_dict_[k] = copy.deepcopy(v).cpu()
+                self.recent_weights[i_] = state_dict_
+
             if e == 0 or (e+1) % self.print_loss == 0:
                 if torch.cuda.is_available():
                     gpu_usage = gpu_usage_map(torch.cuda.current_device())
@@ -560,7 +574,7 @@ def train_single_model(images_all: training_data_types,
                        labels_test_all: training_data_types,
                        training_cycles: int,
                        model: Union[str, Callable] = 'dilUnet',
-                       IoU: bool = True,
+                       IoU: bool = False,
                        seed: int = 1,
                        batch_seed: int = None,
                        **kwargs: Union[int, List, str, bool]
@@ -572,3 +586,27 @@ def train_single_model(images_all: training_data_types,
                 training_cycles, model, IoU, seed, batch_seed, **kwargs)
     trained_model = t.run()
     return trained_model
+
+
+def train_swag_model(images_all: training_data_types,
+                     labels_all: training_data_types,
+                     images_test_all: training_data_types,
+                     labels_test_all: training_data_types,
+                     training_cycles: int,
+                     model: Union[str, Callable] = 'dilUnet',
+                     IoU: bool = False,
+                     seed: int = 1,
+                     batch_seed: int = None,
+                     **kwargs: Union[int, List, str, bool]
+                     ) -> Type[torch.nn.Module]:
+    """
+    "Wrapper function" for class atomai.atomnet.trainer
+    with SWAG-like weights sampling at the end of model training
+    """
+    kwargs["swag"] = True
+    kwargs["use_batchnorm"] = False
+    t = trainer(images_all, labels_all, images_test_all, labels_test_all,
+                training_cycles, model, IoU, seed, batch_seed, **kwargs)
+    trained_model = t.run()
+    sampled_weights = sample_weights(t.recent_weights)
+    return sampled_weights, trained_model

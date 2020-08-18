@@ -15,6 +15,8 @@ import numpy as np
 import subprocess
 import torch
 
+dc = copy.deepcopy
+
 
 def load_weights(model: Type[torch.nn.Module],
                  weights_path: str) -> Type[torch.nn.Module]:
@@ -72,6 +74,41 @@ def average_weights(ensemble: Dict[int, Dict[str, torch.Tensor]]) -> Dict[str, t
                     w_aver.append(p)
         ensemble_state_dict[name].copy_(sum(w_aver) / float(len(w_aver)))
     return ensemble_state_dict
+
+
+def sample_weights(ensemble: Dict[int, Dict[str, torch.Tensor]],
+                   n_samples: int = 30) -> Dict[int, Dict[str, torch.Tensor]]:
+    """
+    Calculate the mean and standard deviation for each trainable parameter
+    and use them to draw samples for each parameter independently according to
+    :math" `\\theta_i ~ N(\\mu_i, \\sigma_i)`
+
+    Args:
+        ensemble (dict):
+            Dictionary with trained weights of models
+            with the exact same architecture
+
+    Returns:
+        Updated dictionary with sampled weights
+    """
+    ensemble_ = {i: dc(ensemble[0])
+                 for i in range(n_samples)}
+    ensemble_state_dict = ensemble[0]
+    names = [name for name in ensemble_state_dict.keys()]
+    for name in names:
+        w_all = []
+        for model in ensemble.values():
+            for n, p in model.items():
+                if n == name:
+                    w_all.append(dc(p)[None, ...])
+        w_all = torch.cat(w_all, dim=0)
+        if w_all.dtype == torch.float32:
+            w_all_mu = torch.mean(w_all, axis=0)
+            w_all_std = torch.std(w_all, axis=0)
+            ndist = torch.distributions.Normal(w_all_mu, w_all_std)
+            for i in range(n_samples):
+                ensemble_[i][name].copy_(ndist.sample())
+    return ensemble_
 
 
 def gpu_usage_map(cuda_device: int) -> int:
@@ -151,7 +188,7 @@ def combine_classes(coord_class_dict: Dict[int, np.ndarray],
     """
     Combines classes in a dictionary from atomnet.locator or atomnet.predictor outputs
     """
-    coord_class_dict_ = copy.deepcopy(coord_class_dict)
+    coord_class_dict_ = dc(coord_class_dict)
     for i in range(len(coord_class_dict_)):
         coord_class_dict_[i][:, -1] = combine_classes_(
             coord_class_dict_[i][:, -1], classes_to_combine)
@@ -194,7 +231,7 @@ def renumerate_classes(coord_class_dict: Dict[int, np.ndarray],
     Renumerate classes in a dictionary from atomnet.locator or atomnet.predictor output
     such that they are ordered starting from 1 or 0 with an increment of 1
     """
-    coord_class_dict_ = copy.deepcopy(coord_class_dict)
+    coord_class_dict_ = dc(coord_class_dict)
     for i in range(len(coord_class_dict)):
         coord_class_dict_[i][:, -1] = renumerate_classes_(
             coord_class_dict_[i][:, -1], start_from_1=True)
