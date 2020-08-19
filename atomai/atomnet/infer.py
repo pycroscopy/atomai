@@ -112,6 +112,10 @@ class predictor:
         """
         if image_data.ndim == 2:
             image_data = np.expand_dims(image_data, axis=0)
+        if image_data.ndim == 4 and image_data.shape[-1] == 1:
+            image_data = image_data[..., 0]
+        elif image_data.ndim == 4 and image_data.shape[1] == 1:
+            image_data = image_data[:, 0, ...]
         if self.resize is not None:
             image_data = img_resize(image_data, self.resize)
         image_data = img_pad(image_data, self.downsampling)
@@ -159,6 +163,9 @@ class predictor:
                 Returns images used as input into NN
             **num_batches: number of batches
         """
+        warn_msg = ("The default output of predictor.decode() and predictor.run() " +
+                    "is now ```nn_output, coords``` instead of ```nn_input, (nn_output, coords)```")
+        warnings.warn(warn_msg, UserWarning)
         image_data = self.preprocess(image_data)
         n, _, w, h = image_data.shape
         num_batches = kwargs.get("num_batches")
@@ -198,9 +205,6 @@ class predictor:
             **num_batches: number of batches (Default: 10)
         """
         start_time = time.time()
-        warn_msg = ("The default output of predictor.decode() and predictor.run() " +
-                    "is now ```nn_output, coords``` instead of ```nn_input, (nn_output, coords)```")
-        warnings.warn(warn_msg, UserWarning)
         images, decoded_imgs = self.decode(
             image_data, return_image=True, **kwargs)
         loc = locator(self.thresh, refine=self.refine, d=self.d)
