@@ -422,6 +422,10 @@ class ensemble_predictor:
         """
         if np.ndim(imgdata) == 2:
             imgdata = np.expand_dims(imgdata, axis=0)
+        if imgdata.ndim == 4 and imgdata.shape[-1] == 1:
+            imgdata = imgdata[..., 0]
+        elif imgdata.ndim == 4 and imgdata.shape[1] == 1:
+            imgdata = imgdata[:, 0, ...]
         imgdata = img_pad(imgdata, self.downsample_factor)
         num_batches = kwargs.get("num_batches", 10)
         batch_size = len(imgdata) // num_batches
