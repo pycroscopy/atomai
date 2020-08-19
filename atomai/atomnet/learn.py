@@ -435,9 +435,9 @@ class ensemble_trainer:
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model, n_models
         self.strategy = strategy
-        if self.strategy not in ["from_baseline", "from_scratch"]:
+        if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
             raise NotImplementedError(
-                "Select from 'from_baseline' and 'from_scratch' strategies")
+                "Select 'from_baseline' 'from_scratch' or 'swag' strategy")
         self.iter_base = training_cycles_base
         if self.strategy == "from_baseline":
             self.iter_ensemble = training_cycles_ensemble
