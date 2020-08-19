@@ -145,14 +145,24 @@ def preprocess_training_data(images_all: input_data_types,
 
 def torch_format(image_data: np.ndarray) -> torch.Tensor:
     """
-    Reshapes, normalizes and converts image data
+    Reshapes (if needed), normalizes and converts image data
     to pytorch format for model training and prediction
 
     Args:
-        image_data (3D numpy array):
+        image_data (3D or 4D numpy array):
             Image stack with dimensions (n_batches x height x width)
+            or (n_batches x 1 x height x width)
     """
-    image_data = np.expand_dims(image_data, axis=1)
+    if image_data.ndim not in [3, 4]:
+        raise AssertionError(
+            "Provide image(s) as 3D (n, h, w) or 4D (n, 1, h, w) tensor")
+    if np.ndim(image_data) == 3:
+        image_data = np.expand_dims(image_data, axis=1)
+    elif np.ndim(image_data) == 4 and image_data.shape[1] != 1:
+        raise AssertionError(
+            "4D image tensor must have (n, 1, h, w) dimensions")
+    else:
+        pass
     image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
     image_data = torch.from_numpy(image_data).float()
     return image_data
