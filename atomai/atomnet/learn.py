@@ -591,7 +591,7 @@ def train_single_model(images_all: training_data_types,
                        training_cycles: int,
                        model: Union[str, Callable] = 'dilUnet',
                        IoU: bool = False,
-                       seed: int = 0,
+                       seed: int = 1,
                        batch_seed: int = None,
                        **kwargs: Union[int, List, str, bool]
                        ) -> Type[torch.nn.Module]:
