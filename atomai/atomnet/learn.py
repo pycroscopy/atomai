@@ -431,6 +431,13 @@ class ensemble_trainer:
             X_train, X_test, y_train, y_test = train_test_split(
                 X_train, y_train, test_size=kwargs.get("test_size", 0.15),
                 shuffle=True, random_state=0)
+        seed = 0
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
         self.X_train, self.y_train = X_train, y_train
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model, n_models
