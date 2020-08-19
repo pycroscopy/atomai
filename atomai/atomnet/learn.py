@@ -154,12 +154,7 @@ class trainer:
                  batch_seed: int = None,
                  **kwargs: Union[int, List, str, bool]) -> None:
         if seed:
-            torch.manual_seed(seed)
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.manual_seed_all(seed)
-                torch.backends.cudnn.deterministic = True
-                torch.backends.cudnn.benchmark = False
+            set_train_rng(seed)
         if batch_seed is None:
             np.random.seed(seed)
         else:
@@ -431,13 +426,7 @@ class ensemble_trainer:
             X_train, X_test, y_train, y_test = train_test_split(
                 X_train, y_train, test_size=kwargs.get("test_size", 0.15),
                 shuffle=True, random_state=0)
-        seed = 0
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.manual_seed_all(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+        set_train_rng(seed=0)
         self.X_train, self.y_train = X_train, y_train
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model, n_models
@@ -643,3 +632,15 @@ def train_swag_model(images_all: training_data_types,
     torch.save(swag_metadict, filename + "_swag.tar")
 
     return sampled_weights, trained_model
+
+
+def set_train_rng(seed: int = 0):
+    """
+    For reproducibility
+    """
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
