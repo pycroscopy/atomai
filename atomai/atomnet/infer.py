@@ -375,6 +375,19 @@ class ensemble_predictor:
             self.eps = kwargs.get("eps", 0.5)
             self.thresh = kwargs.get("threshold", 0.5)
 
+    def preprocess_data(self, imgdata: np.ndarray):
+        """
+        Basic preprocessing of input images
+        """
+        if np.ndim(imgdata) == 2:
+            imgdata = np.expand_dims(imgdata, axis=0)
+        if imgdata.ndim == 4 and imgdata.shape[-1] == 1:
+            imgdata = imgdata[..., 0]
+        elif imgdata.ndim == 4 and imgdata.shape[1] == 1:
+            imgdata = imgdata[:, 0, ...]
+        imgdata = img_pad(imgdata, self.downsample_factor)
+        return imgdata
+
     def predict(self,
                 x_new: np.ndarray
                 ) -> Tuple[Tuple[np.ndarray, np.ndarray],
@@ -385,7 +398,7 @@ class ensemble_predictor:
         Args:
             x_new (numpy array): batch of images
         """
-        x_new = img_pad(x_new, self.downsample_factor)
+        x_new = self.preprocess_data(x_new)
         batch_dim, img_h, img_w = x_new.shape
         nn_output_ensemble = np.zeros((
             len(self.ensemble), batch_dim, img_h, img_w, self.num_classes))
@@ -420,13 +433,7 @@ class ensemble_predictor:
             **num_batches (int): number of batches
                 (for large datasets to make sure everything fits into memory)
         """
-        if np.ndim(imgdata) == 2:
-            imgdata = np.expand_dims(imgdata, axis=0)
-        if imgdata.ndim == 4 and imgdata.shape[-1] == 1:
-            imgdata = imgdata[..., 0]
-        elif imgdata.ndim == 4 and imgdata.shape[1] == 1:
-            imgdata = imgdata[:, 0, ...]
-        imgdata = img_pad(imgdata, self.downsample_factor)
+        imgdata = self.preprocess_data(imgdata)
         num_batches = kwargs.get("num_batches", 10)
         batch_size = len(imgdata) // num_batches
         if batch_size < 1:
