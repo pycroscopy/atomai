@@ -103,12 +103,12 @@ def test_trainer_determinism(model_type):
     X_train, y_train, X_test, y_test = gen_dummy_data(1)
     m1 = atomnet.trainer(
         X_train, y_train, X_test, y_test, model_type=model_type,
-        training_cycles=5, batch_size=4, upsampling="nearest")
+        training_cycles=5, batch_size=4, upsampling="nearest", seed=1)
     m1.run()
     loss1 = m1.train_loss[-1]
     m2 = atomnet.trainer(
         X_train, y_train, X_test, y_test, model_type=model_type,
-        training_cycles=5, batch_size=4, upsampling="nearest")
+        training_cycles=5, batch_size=4, upsampling="nearest", seed=1)
     m2.run()
     loss2 = m2.train_loss[-1]
     assert_allclose(loss1, loss2)
