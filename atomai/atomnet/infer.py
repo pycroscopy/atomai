@@ -8,6 +8,7 @@ Module for making predictions with trained fully convolutional neural networks
 Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 """
 
+import copy
 import time
 import warnings
 from typing import Dict, List, Tuple, Type, Union
@@ -15,7 +16,6 @@ from typing import Dict, List, Tuple, Type, Union
 import numpy as np
 import torch
 import torch.nn.functional as F
-
 from atomai.utils import (Hook, cluster_coord, cv_thresh, find_com, img_pad,
                           img_resize, mock_forward, peak_refinement,
                           torch_format)
@@ -356,7 +356,7 @@ class ensemble_predictor:
         self.use_gpu = torch.cuda.is_available()
 
         self.ensemble = ensemble
-        self.predictive_model = predictive_model
+        self.predictive_model = copy.deepcopy(predictive_model)
 
         self.num_classes = kwargs.get("num_classes")
         if self.num_classes is None:
