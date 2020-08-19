@@ -150,7 +150,7 @@ class trainer:
                  training_cycles: int,
                  model: str = 'dilUnet',
                  IoU: bool = False,
-                 seed: int = 1,
+                 seed: int = 0,
                  batch_seed: int = None,
                  **kwargs: Union[int, List, str, bool]) -> None:
         if seed:
@@ -595,7 +595,7 @@ def train_single_model(images_all: training_data_types,
                        training_cycles: int,
                        model: Union[str, Callable] = 'dilUnet',
                        IoU: bool = False,
-                       seed: int = 1,
+                       seed: int = 0,
                        batch_seed: int = None,
                        **kwargs: Union[int, List, str, bool]
                        ) -> Type[torch.nn.Module]:
@@ -615,7 +615,7 @@ def train_swag_model(images_all: training_data_types,
                      training_cycles: int,
                      model: Union[str, Callable] = 'dilUnet',
                      IoU: bool = False,
-                     seed: int = 1,
+                     seed: int = 0,
                      batch_seed: int = None,
                      **kwargs: Union[int, List, str, bool]
                      ) -> Type[torch.nn.Module]:
