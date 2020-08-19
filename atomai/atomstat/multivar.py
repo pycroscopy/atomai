@@ -850,6 +850,10 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
         coordinates = {0: coordinates}
     if np.ndim(nn_input) == 2:
         nn_input = nn_input[None, ..., None]
+    elif np.ndim(nn_input) == 3 and nn_input.shape[-1] > 10:  # assuming we never have more than 10 classes
+        nn_input = nn_input[..., None]
+    elif np.ndim(nn_input) == 3 and nn_input.shape[-1] < 10:
+        nn_input = nn_input[None, ...]
     coordinates_ = copy.deepcopy(coordinates)
     if method == 'threshold':
         r = kwargs.get("window_size", 3)
