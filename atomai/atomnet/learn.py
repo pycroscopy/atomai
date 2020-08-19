@@ -526,7 +526,8 @@ class ensemble_trainer:
         Performs SWAG-like weights sampling at the end of single model training
         """
         trainer_i = self.train_baseline()
-        sampled_weights = sample_weights(trainer_i.recent_weights)
+        sampled_weights = sample_weights(
+            trainer_i.recent_weights, self.n_models)
         self.ensemble_state_dict = sampled_weights
         return self.ensemble_state_dict, trainer_i.net
 
