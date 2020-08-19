@@ -150,7 +150,7 @@ class trainer:
                  training_cycles: int,
                  model: str = 'dilUnet',
                  IoU: bool = False,
-                 seed: int = 0,
+                 seed: int = 1,
                  batch_seed: int = None,
                  **kwargs: Union[int, List, str, bool]) -> None:
         if seed:
@@ -426,7 +426,7 @@ class ensemble_trainer:
             X_train, X_test, y_train, y_test = train_test_split(
                 X_train, y_train, test_size=kwargs.get("test_size", 0.15),
                 shuffle=True, random_state=0)
-        set_train_rng(seed=0)
+        set_train_rng(seed=1)
         self.X_train, self.y_train = X_train, y_train
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model, n_models
@@ -444,8 +444,8 @@ class ensemble_trainer:
         self.ensemble_state_dict = {}
 
     def train_baseline(self,
-                       seed: int = 0,
-                       batch_seed: int = 0) -> Type[trainer]:
+                       seed: int = 1,
+                       batch_seed: int = 1) -> Type[trainer]:
         """
         Trains a single "baseline" model
         """
@@ -495,7 +495,7 @@ class ensemble_trainer:
             print('Ensemble model', i+1)
             trainer_i = trainer(
                 self.X_train, self.y_train, self.X_test, self.y_test,
-                self.iter_ensemble, self.model_type, batch_seed=i,
+                self.iter_ensemble, self.model_type, batch_seed=i+1,
                 print_loss=10, plot_training_history=False, **self.kdict)
             self.update_weights(trainer_i.net.state_dict().values(),
                                 initial_model_state_dict.values())
@@ -512,7 +512,7 @@ class ensemble_trainer:
         print("Training ensemble models:")
         for i in range(self.n_models):
             print("Ensemble model {}".format(i + 1))
-            trainer_i = self.train_baseline(seed=i, batch_seed=i)
+            trainer_i = self.train_baseline(seed=i+1, batch_seed=i+1)
             self.ensemble_state_dict[i] = trainer_i.net.state_dict()
             self.save_ensemble_metadict(trainer_i.meta_state_dict)
         return self.ensemble_state_dict, trainer_i.net
@@ -611,7 +611,7 @@ def train_swag_model(images_all: training_data_types,
                      training_cycles: int,
                      model: Union[str, Callable] = 'dilUnet',
                      IoU: bool = False,
-                     seed: int = 0,
+                     seed: int = 1,
                      batch_seed: int = None,
                      **kwargs: Union[int, List, str, bool]
                      ) -> Type[torch.nn.Module]:
@@ -634,7 +634,7 @@ def train_swag_model(images_all: training_data_types,
     return sampled_weights, trained_model
 
 
-def set_train_rng(seed: int = 0):
+def set_train_rng(seed: int = 1):
     """
     For reproducibility
     """
