@@ -328,7 +328,7 @@ class imlocal:
         """
         gmm_components, gmm_imgs, com_class_frames = self.gmm(
             n_components_gmm, covariance_type, random_state, plot_results)
-        if type(n_components_pca) == np.int:
+        if isinstance(n_components_pca, np.int):
             n_components_pca = [n_components_pca for _ in range(n_components_gmm)]
         pca_components_all, X_vec_t_all = [], []
         for j, (imgs, ncomp) in enumerate(zip(gmm_imgs, n_components_pca)):
@@ -850,6 +850,10 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
         coordinates = {0: coordinates}
     if np.ndim(nn_input) == 2:
         nn_input = nn_input[None, ..., None]
+    elif np.ndim(nn_input) == 3 and nn_input.shape[-1] > 10:  # assuming we never have more than 10 classes
+        nn_input = nn_input[..., None]
+    elif np.ndim(nn_input) == 3 and nn_input.shape[-1] < 10:
+        nn_input = nn_input[None, ...]
     coordinates_ = copy.deepcopy(coordinates)
     if method == 'threshold':
         r = kwargs.get("window_size", 3)

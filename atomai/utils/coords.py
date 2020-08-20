@@ -189,7 +189,7 @@ def peak_refinement(imgdata: np.ndarray, coordinates: np.ndarray,
             x, y = np.mgrid[:e1:1, :e2:1]
             initial_guess = (img[d, d], d, d, 1, 1, 0, 0)
             try:
-                popt, pcov = optimize.curve_fit(
+                popt, _ = optimize.curve_fit(
                         gaussian_2d, (x, y), img.flatten(), p0=initial_guess)
                 if np.linalg.norm(popt[1:3] - d) < 3:
                     xyc = popt[1:3] + np.around(c) - d
