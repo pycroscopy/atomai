@@ -127,6 +127,18 @@ def gpu_usage_map(cuda_device: int) -> int:
     return gpu_usage[0:2]
 
 
+def set_train_rng(seed: int = 1):
+    """
+    For reproducibility
+    """
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+
 class Hook():
     """
     Returns the input and output of a

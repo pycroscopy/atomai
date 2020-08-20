@@ -21,7 +21,7 @@ import torch
 from atomai import losses_metrics
 from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
-from atomai.utils import (gpu_usage_map, plot_losses,
+from atomai.utils import (gpu_usage_map, plot_losses, set_train_rng,
                           preprocess_training_data, sample_weights)
 from sklearn.model_selection import train_test_split
 
@@ -153,6 +153,9 @@ class trainer:
                  seed: int = 1,
                  batch_seed: int = None,
                  **kwargs: Union[int, List, str, bool]) -> None:
+        """
+        Initialize single model trainer
+        """
         if seed:
             set_train_rng(seed)
         if batch_seed is None:
@@ -632,15 +635,3 @@ def train_swag_model(images_all: training_data_types,
     torch.save(swag_metadict, filename + "_swag.tar")
 
     return sampled_weights, trained_model
-
-
-def set_train_rng(seed: int = 1):
-    """
-    For reproducibility
-    """
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False

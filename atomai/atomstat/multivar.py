@@ -328,7 +328,7 @@ class imlocal:
         """
         gmm_components, gmm_imgs, com_class_frames = self.gmm(
             n_components_gmm, covariance_type, random_state, plot_results)
-        if type(n_components_pca) == np.int:
+        if isinstance(n_components_pca, np.int):
             n_components_pca = [n_components_pca for _ in range(n_components_gmm)]
         pca_components_all, X_vec_t_all = [], []
         for j, (imgs, ncomp) in enumerate(zip(gmm_imgs, n_components_pca)):

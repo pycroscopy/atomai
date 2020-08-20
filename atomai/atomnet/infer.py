@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 from atomai.utils import (Hook, cluster_coord, cv_thresh, find_com, img_pad,
                           img_resize, mock_forward, peak_refinement,
-                          torch_format)
+                          set_train_rng, torch_format)
 
 
 class predictor:
@@ -73,13 +73,7 @@ class predictor:
         Initializes predictive object
         """
         if seed:
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            if use_gpu and torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.manual_seed_all(seed)
-                torch.backends.cudnn.deterministic = True
-                torch.backends.cudnn.benchmark = False
+            set_train_rng(seed)
         model = trained_model
         self.nb_classes = kwargs.get('nb_classes', None)
         if self.nb_classes is None:
@@ -242,7 +236,9 @@ class locator:
                  dist_edge: int = 5,
                  dim_order: str = 'channel_last',
                  **kwargs: Union[bool, float]) -> None:
-
+        """
+        Initialize locator parameters
+        """
         self.dim_order = dim_order
         self.threshold = threshold
         self.dist_edge = dist_edge

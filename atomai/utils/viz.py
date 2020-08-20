@@ -285,7 +285,7 @@ def animation_from_png(png_dir: str, moviename: str = 'anim',
     """
     Create animation from saved png files
     """
-    import os, imageio, shutil
+    import imageio, shutil
     images = []
     if ".ipynb_checkpoints" in os.listdir(png_dir):
         shutil.rmtree(os.path.join(png_dir, ".ipynb_checkpoints"))

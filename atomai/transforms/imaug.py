@@ -381,7 +381,7 @@ def squeeze_channels(images: np.ndarray,
         if clip:
             label[label > labels.shape[-1] - 1] = 0
             labels_valid.append(label)
-            images_valid.append(image[None, ...]) 
+            images_valid.append(image[None, ...])
         else:
             if len(np.unique(label)) == labels.shape[-1]:
                 labels_valid.append(label)
