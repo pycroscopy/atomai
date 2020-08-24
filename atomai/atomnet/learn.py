@@ -539,11 +539,13 @@ class ensemble_trainer:
         different initialization (for both weights and batches shuffling)
         with a SWAG-like weights sampling at the end of each model training
         """
+        print("Training ensemble models:")
         for i in range(self.n_models):
+            print("Ensemble model {}".format(i + 1))
             trainer_i = self.train_baseline(seed=i, batch_seed=i)
             sampled_weights = sample_weights(
                 trainer_i.recent_weights, 30)
-            for k, v in sampled_weights.keys():
+            for k, v in sampled_weights.items():
                 self.ensemble_state_dict[(30 * i) + k] = copy.deepcopy(v)
         return self.ensemble_state_dict, trainer_i.net
 
