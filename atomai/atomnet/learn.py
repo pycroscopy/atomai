@@ -404,8 +404,10 @@ class ensemble_trainer:
             'from_baseline' is selected, it trains one basemodel for *N* epochs
             and then uses it as a baseline to train multiple ensemble models
             for n epochs (*n* << *N*), each with different random shuffling of batches.
-            If 'swag' is selected, it performs SWAG-like sampling of weights ar the
-            end of a single model training.
+            If 'swag' is selected, it performs SWAG-like sampling of weights at the
+            end of a single model training. If 'multiswag' is selected, it combines
+            'from_baseline' and 'swag' methods, i.e. it performes weights sampling
+            at the end of each independent training.
         training_cycles_base (int): Number of training iterations for baseline model
         training_cycles_ensemble (int): Number of training iterations for every ensemble model
         filename (str): Filepath for saving weights
@@ -434,14 +436,15 @@ class ensemble_trainer:
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model, n_models
         self.strategy = strategy
-        if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
+        if self.strategy not in ["from_baseline", "from_scratch",
+                                 "swag", "multiswag"]:
             raise NotImplementedError(
-                "Select 'from_baseline' 'from_scratch' or 'swag' strategy")
+                "Select 'from_baseline' 'from_scratch', 'swag' or 'multiswag' strategy")
         self.iter_base = training_cycles_base
         if self.strategy == "from_baseline":
             self.iter_ensemble = training_cycles_ensemble
         self.filename, self.kdict = filename, kwargs
-        if self.strategy == "swag":
+        if self.strategy == "swag" or self.strategy == "multiswag":
             self.kdict["swag"] = True
             self.kdict["use_batchnorm"] = False
         self.ensemble_state_dict = {}
@@ -520,7 +523,7 @@ class ensemble_trainer:
             self.save_ensemble_metadict(trainer_i.meta_state_dict)
         return self.ensemble_state_dict, trainer_i.net
 
-    def train_model_swag(self) -> ensemble_out:
+    def train_swag(self) -> ensemble_out:
         """
         Performs SWAG-like weights sampling at the end of single model training
         """
@@ -528,6 +531,20 @@ class ensemble_trainer:
         sampled_weights = sample_weights(
             trainer_i.recent_weights, self.n_models)
         self.ensemble_state_dict = sampled_weights
+        return self.ensemble_state_dict, trainer_i.net
+
+    def train_multiswag(self) -> ensemble_out:
+        """
+        Trains ensemble of models starting every time from scratch with
+        different initialization (for both weights and batches shuffling)
+        with a SWAG-like weights sampling at the end of each model training
+        """
+        for i in range(self.n_models):
+            trainer_i = self.train_baseline(seed=i, batch_seed=i)
+            sampled_weights = sample_weights(
+                trainer_i.recent_weights, 30)
+            for k, v in sampled_weights.keys():
+                self.ensemble_state_dict[(30 * i) + k] = copy.deepcopy(v)
         return self.ensemble_state_dict, trainer_i.net
 
     def save_ensemble_metadict(self, meta_state_dict: Dict) -> None:
@@ -580,10 +597,12 @@ class ensemble_trainer:
         elif self.strategy == 'from_scratch':
             ensemble, smodel = self.train_ensemble_from_scratch()
         elif self.strategy == 'swag':
-            ensemble, smodel = self.train_model_swag()
+            ensemble, smodel = self.train_swag()
+        elif self.strategy == 'multiswag':
+            ensemble, smodel = self.train_multiswag()
         else:
             raise NotImplementedError(
-                "The strategy must be 'from_baseline', 'from_scratch' or 'swag'")
+                "The strategy must be 'from_baseline', 'from_scratch', 'swag' or 'multiswag'")
         return ensemble, smodel
 
 
