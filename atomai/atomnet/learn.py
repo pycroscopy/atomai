@@ -315,6 +315,22 @@ class trainer:
             return (loss.item(), iou_score)
         return (loss.item(),)
 
+    def eval_model(self):
+        self.net.eval()
+        running_loss_test, running_iou_test = 0, 0
+        for idx in range(len(self.X_test)):
+            images_, labels_ = self.dataloader(idx, mode='test')
+            loss_ = self.test_step(images_, labels_)
+            running_loss_test += loss_[0]
+            if self.iou:
+                running_iou_test += loss_[1]
+        print('Model (final state) evaluation loss:',
+              np.around(running_loss_test / len(self.X_test), 4))
+        if self.iou:
+            print('Model (final state) IoU:',
+                  np.around(running_iou_test / len(self.X_test), 4))
+        return
+
     def run(self) -> Type[torch.nn.Module]:
         """
         Trains a neural network for *N* epochs by passing a single pair of
@@ -371,18 +387,11 @@ class trainer:
                    os.path.join(self.savedir,
                    self.savename+'_metadict_final_weights.tar'))
         # Run evaluation (by passing all the test data) for a final model state
-        running_loss_test, running_iou_test = 0, 0
-        for idx in range(len(self.X_test)):
-            images_, labels_ = self.dataloader(idx, mode='test')
-            loss_ = self.test_step(images_, labels_)
-            running_loss_test += loss_[0]
-            if self.iou:
-                running_iou_test += loss_[1]
-        print('Model (final state) evaluation loss:',
-              np.around(running_loss_test / len(self.X_test), 4))
-        if self.iou:
-            print('Model (final state) IoU:',
-                  np.around(running_iou_test / len(self.X_test), 4))
+        self.eval_model()
+        if self.swa:
+            self.net.load_state_dict(average_weights(self.recent_weights))
+            print("After weights averaging")
+            self.eval_model()
         if self.plot_training_history:
             plot_losses(self.train_loss, self.test_loss)
         return self.net
@@ -545,8 +554,7 @@ class ensemble_trainer:
         for i in range(self.n_models):
             print("Ensemble model {}".format(i + 1))
             trainer_i = self.train_baseline(seed=i, batch_seed=i)
-            weights_aver = average_weights(trainer_i.recent_weights)
-            self.ensemble_state_dict[i] = copy.deepcopy(weights_aver)
+            self.ensemble_state_dict[i] = trainer_i.net.state_dict()
         self.save_ensemble_metadict(trainer_i.meta_state_dict)
         return self.ensemble_state_dict, trainer_i.net
 
