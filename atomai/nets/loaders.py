@@ -23,6 +23,7 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
             filepath to dictionary with trained weights and key information
             about model's structure (stored during and after model training
             with atomnet.trainer)
+
     Returns:
         Model in evaluation state
     """
@@ -58,10 +59,12 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
 def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[str, torch.Tensor]]]:
     """
     Loads trained ensemble models
+    
     Args:
         meta_state_dict (str):
             filepath to dictionary with trained weights and key information
             about model's structure
+
     Returns:
         Single model with averaged weights and dictionary with weights of all models
     """
