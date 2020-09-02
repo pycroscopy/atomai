@@ -11,6 +11,7 @@ from typing import Type, Tuple, Dict
 
 import torch
 from .fcnn import dilnet, dilUnet
+from ..utils import average_weights
 
 
 def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
@@ -62,7 +63,7 @@ def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int
             filepath to dictionary with trained weights and key information
             about model's structure
     Returns:
-        Model skeleton (initialized) and dictionary with weights of all the models
+        Single model with averaged weights and dictionary with weights of all models
     """
     torch.manual_seed(0)
     if torch.cuda.device_count() > 0:
@@ -89,5 +90,5 @@ def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int
         raise NotImplementedError(
             "The network must be either 'dilUnet' or 'dilnet'"
         )
-    model.load_state_dict(checkpoint[0])
+    model.load_state_dict(average_weights(checkpoint))
     return model.eval(), checkpoint
