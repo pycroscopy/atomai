@@ -105,11 +105,12 @@ class predictor:
         Prepares an input for a neural network
         """
         if image_data.ndim == 2:
-            image_data = np.expand_dims(image_data, axis=0)
-        if image_data.ndim == 4 and image_data.shape[-1] == 1:
-            image_data = image_data[..., 0]
-        elif image_data.ndim == 4 and image_data.shape[1] == 1:
-            image_data = image_data[:, 0, ...]
+            image_data = image_data[np.newaxis, ...]
+        elif image_data.ndim == 4:
+            if image_data.shape[-1] == 1:
+                image_data = image_data[..., 0]
+            elif image_data.shape[1] == 1:
+                image_data = image_data[:, 0, ...]
         if self.resize is not None:
             image_data = img_resize(image_data, self.resize)
         image_data = img_pad(image_data, self.downsampling)
