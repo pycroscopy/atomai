@@ -409,15 +409,16 @@ class ensemble_trainer:
         n_models (int): number of models in ensemble
         model(str): 'dilUnet' or 'dilnet'. See atomai.models for details
         strategy (str): Select between 'from_scratch', 'from_baseline' and 'swag'.
-            If 'from_scratch' is selected, it trains *n* models independently
-            starting each time with different random initialization. If
-            'from_baseline' is selected, it trains one basemodel for *N* epochs
-            and then uses it as a baseline to train multiple ensemble models
-            for n epochs (*n* << *N*), each with different random shuffling of batches.
-            If 'swag' is selected, it performs SWAG-like sampling of weights at the
-            end of a single model training. If 'from_scratch_swa' is selected, it performs
-            "from_scratch" ensemble training and averages the last 30 stochastic weights
-            for each individual trajectory.
+            If 'from_scratch' is selected, the *n* models are trained independently
+            starting each time with a different random initialization. If
+            'from_baseline' is selected, a basemodel is trained for *N* epochs
+            and then its weights are used as a baseline to train multiple ensemble models
+            for n epochs (*n* << *N*), each with different random shuffling of batches
+            (and different seed for data augmentation if any). If 'swag' is
+            selected, a SWAG-like sampling of weights is performed at the end of
+            a single model training. 
+        swa (bool):
+            Stochastic weights averaging  at the end of each training trajectory
         training_cycles_base (int): Number of training iterations for baseline model
         training_cycles_ensemble (int): Number of training iterations for every ensemble model
         filename (str): Filepath for saving weights
@@ -430,7 +431,7 @@ class ensemble_trainer:
     def __init__(self, X_train: np.ndarray, y_train: np.ndarray,
                  X_test: np.ndarray = None, y_test: np.ndarray = None,
                  n_models=30, model: str = "dilUnet",
-                 strategy: str = "from_baseline",
+                 strategy: str = "from_baseline", swa=False,
                  training_cycles_base: int = 1000,
                  training_cycles_ensemble: int = 50,
                  filename: str = "./model", **kwargs: Dict) -> None:
@@ -446,17 +447,16 @@ class ensemble_trainer:
         self.X_test, self.y_test = X_test, y_test
         self.model_type, self.n_models = model, n_models
         self.strategy = strategy
-        if self.strategy not in ["from_baseline", "from_scratch",
-                                 "swag", "from_scratch_swa"]:
+        if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
             raise NotImplementedError(
-                "Select 'from_baseline' 'from_scratch', 'swag' or 'from_scratch_swa' strategy")
+                "Select 'from_baseline' 'from_scratch', or 'swag'  strategy")
         self.iter_base = training_cycles_base
         if self.strategy == "from_baseline":
             self.iter_ensemble = training_cycles_ensemble
         self.filename, self.kdict = filename, kwargs
-        if self.strategy == "swag" or self.strategy == "multi_swa":
+        if swa or self.strategy == 'swag':
             self.kdict["swa"] = True
-            self.kdict["use_batchnorm"] = False
+            #self.kdict["use_batchnorm"] = False  # there were some issues when using batchnorm together with swa in pytorch 1.4 
         self.ensemble_state_dict = {}
 
     def train_baseline(self,
@@ -528,7 +528,7 @@ class ensemble_trainer:
         from the baseline model weights
         """
         baseline = self.train_baseline()
-        ensemble, smodel = self.train_ensemble_from_baseline(baseline.net)
+        ensemble, smodel = self.train_from_baseline(baseline.net)
         return ensemble, smodel
 
     def train_ensemble_from_scratch(self) -> ensemble_out:
@@ -603,7 +603,7 @@ class ensemble_trainer:
         """
         if self.strategy == 'from_baseline':
             ensemble, smodel = self.train_ensemble_from_baseline()
-        elif self.strategy == 'from_scratch' or self.strategy == 'from_scratch_swa':
+        elif self.strategy == 'from_scratch':
             ensemble, smodel = self.train_ensemble_from_scratch()
         elif self.strategy == 'swag':
             ensemble, smodel = self.train_swag()
