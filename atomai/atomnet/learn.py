@@ -389,8 +389,8 @@ class trainer:
         # Run evaluation (by passing all the test data) for a final model state
         self.eval_model()
         if self.swa:
+            print("Performing stochastic weights averaging...")
             self.net.load_state_dict(average_weights(self.recent_weights))
-            print("After weights averaging")
             self.eval_model()
         if self.plot_training_history:
             plot_losses(self.train_loss, self.test_loss)
