@@ -22,13 +22,13 @@ AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for trai
 
 The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
 
-1) [Train a deep fully convolutional neural network for atom finding](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+1) [Train a deep fully convolutional neural network for atom finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
 
-2) [Multivariate statistical analysis of distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+2) [Multivariate statistical analysis of distortion domains in a single atomic image](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
 
-3) [Variational autoencoders for analysis of structural transformations](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+3) [Variational autoencoders for analysis of structural transformations](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
 
-4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ### Model training
 Below is an example of how one can train a neural network for atom/particle/defect finding with essentially one line of code:
