@@ -36,16 +36,13 @@ Below is an example of how one can train a neural network for atom/particle/defe
 ```python
 from atomai import atomnet
 
-# Here you load your training data
+# Load your training/test data (as numpy arrays or lists of numpy arrays)
 dataset = np.load('training_data.npz')
-images_all = dataset['X_train']
-labels_all = dataset['y_train']
-images_test_all = dataset['X_test']
-labels_test_all = dataset['y_test']
+images_all, labels_all, images_test_all, labels_test_all = dataset.values()
 
 # Train a model
 trained_model = atomnet.train_single_model(
-    images_all, labels_all, images_test_all, labels_test_all,
+    images_all, labels_all, images_test_all, labels_test_all,  # train and test data
     gauss_noise=True, zoom=True,  # on-the-fly data augmentation
     training_cycles=500, swa=True)  # train for 500 iterations with stochastic weights averaging at the end  
 ```
@@ -68,7 +65,7 @@ Trained model is used to find atoms/particles/defects in the previously unseen (
 
 ```python
 # Here we load new experimental data (as 2D or 3D numpy array)
-expdata = np.load('expdata-test.npy')
+expdata = np.load('expdata.npy')
 
 # Initialize predictive object (can be reused for other datasets)
 spredictor = atomnet.predictor(trained_model, use_gpu=True, refine=False)
