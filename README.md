@@ -47,7 +47,7 @@ labels_test_all = dataset['y_test']
 trained_model = atomnet.train_single_model(
     images_all, labels_all, images_test_all, labels_test_all,
     gauss_noise=True, zoom=True,  # on-the-fly data augmentation
-    training_cycles=500)  
+    training_cycles=500, swa=True)  # train for 500 iterations with stochastic weights averaging at the end  
 ```
 
 One can also train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel.
@@ -56,7 +56,7 @@ One can also train an ensemble of models instead of just a single model. The ave
 # Initialize ensemble trainer
 etrainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, labels_test_all,
                                     rotation=True, zoom=True, gauss_noise=True, # On-the fly data augmentation
-                                    strategy="from_baseline", n_models=30, model="dilUnet",
+                                    strategy="from_baseline", swa=True, n_models=30, model="dilUnet",
                                     training_cycles_base=1000, training_cycles_ensemble=100)
 # train deep ensemble of models
 ensemble, smodel = etrainer.run()
@@ -73,16 +73,16 @@ expdata = np.load('expdata-test.npy')
 # Initialize predictive object (can be reused for other datasets)
 spredictor = atomnet.predictor(trained_model, use_gpu=True, refine=False)
 # Get model's "raw" prediction, atomic coordinates and classes
-nn_input, (nn_output, coord_class) = spredictor.run(expdata)
+nn_output, coord_class = spredictor.run(expdata)
 ```
 
 One can also make a prediction with uncertainty estimates using the ensemble of models:
 ```python
-epredictor = atomnet.ensemble_predictor(smodel, ensemble, calculate_coordinates=True)
+epredictor = atomnet.ensemble_predictor(smodel, ensemble, calculate_coordinates=True, eps=0.5)
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
 
-(Note: The deep ensemble-based prediction of mean and variance of coordinates uses DBSCAN method to arrange predictions from different models into clusters and the result is quite sensitive to the value of ```eps``` (passed as ```**kwargs```, default value is 0.5). In some cases, it may be better/easier to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` on the mean "raw" prediction of the ensemble)
+(Note: In some cases, it may be easier to get coordinates by simply running ```atomnet.locator(*args, *kwargs).run(out_mu)``` on the mean "raw" prediction of the ensemble)
 
 ### Statistical analysis
 
