@@ -55,8 +55,8 @@ etrainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, lab
                                     rotation=True, zoom=True, gauss_noise=True, # On-the fly data augmentation
                                     strategy="from_baseline", swa=True, n_models=30, model="dilUnet",
                                     training_cycles_base=1000, training_cycles_ensemble=100)
-# train deep ensemble of models
-ensemble, smodel = etrainer.run()
+# Train deep ensemble of models
+ensemble, amodel = etrainer.run()
 ```
 
 ### Prediction with trained model(s)
@@ -75,7 +75,7 @@ nn_output, coord_class = spredictor.run(expdata)
 
 One can also make a prediction with uncertainty estimates using the ensemble of models:
 ```python
-epredictor = atomnet.ensemble_predictor(smodel, ensemble, calculate_coordinates=True, eps=0.5)
+epredictor = atomnet.ensemble_predictor(amodel, ensemble, calculate_coordinates=True, eps=0.5)
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
 
