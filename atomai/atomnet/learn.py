@@ -22,7 +22,8 @@ from atomai import losses_metrics
 from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (gpu_usage_map, plot_losses, set_train_rng,
-                          preprocess_training_data, sample_weights)
+                          preprocess_training_data, sample_weights,
+                          average_weights)
 from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
@@ -111,8 +112,8 @@ class trainer:
             in each block of the encoder (including bottleneck layer),
             and the number of layers in the decoder  is chosen accordingly
             (to maintain symmetry between encoder and decoder)
-        **swag (bool): Performs diagonal Gaussian subspace samling at the end
-            of training (does not work if batch normalization is ON!)
+        **swa (bool):
+            Saves the last 30 stochastic weights that can be averaged later on
         **print_loss (int):
             Prints loss every *n*-th epoch
         **savedir (str):
@@ -227,8 +228,8 @@ class trainer:
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.training_cycles = training_cycles
         self.iou = IoU
-        self.swag = kwargs.get("swag", False)
-        if self.swag:
+        self.swa = kwargs.get("swa", False)
+        if self.swa:
             self.recent_weights = {}
         self.print_loss = kwargs.get("print_loss", 100)
         self.savedir = kwargs.get("savedir", "./")
@@ -314,6 +315,22 @@ class trainer:
             return (loss.item(), iou_score)
         return (loss.item(),)
 
+    def eval_model(self):
+        self.net.eval()
+        running_loss_test, running_iou_test = 0, 0
+        for idx in range(len(self.X_test)):
+            images_, labels_ = self.dataloader(idx, mode='test')
+            loss_ = self.test_step(images_, labels_)
+            running_loss_test += loss_[0]
+            if self.iou:
+                running_iou_test += loss_[1]
+        print('Model (final state) evaluation loss:',
+              np.around(running_loss_test / len(self.X_test), 4))
+        if self.iou:
+            print('Model (final state) IoU:',
+                  np.around(running_iou_test / len(self.X_test), 4))
+        return
+
     def run(self) -> Type[torch.nn.Module]:
         """
         Trains a neural network for *N* epochs by passing a single pair of
@@ -333,7 +350,7 @@ class trainer:
             loss_ = self.test_step(images_, labels_)
             self.test_loss.append(loss_[0])
 
-            if self.swag and self.training_cycles - e <= 30:
+            if self.swa and self.training_cycles - e <= 30:
                 i_ = 30 - (self.training_cycles - e)
                 state_dict_ = OrderedDict()
                 for k, v in self.net.state_dict().items():
@@ -370,18 +387,11 @@ class trainer:
                    os.path.join(self.savedir,
                    self.savename+'_metadict_final_weights.tar'))
         # Run evaluation (by passing all the test data) for a final model state
-        running_loss_test, running_iou_test = 0, 0
-        for idx in range(len(self.X_test)):
-            images_, labels_ = self.dataloader(idx, mode='test')
-            loss_ = self.test_step(images_, labels_)
-            running_loss_test += loss_[0]
-            if self.iou:
-                running_iou_test += loss_[1]
-        print('Model (final state) evaluation loss:',
-              np.around(running_loss_test / len(self.X_test), 4))
-        if self.iou:
-            print('Model (final state) IoU:',
-                  np.around(running_iou_test / len(self.X_test), 4))
+        self.eval_model()
+        if self.swa:
+            print("Performing stochastic weights averaging...")
+            self.net.load_state_dict(average_weights(self.recent_weights))
+            self.eval_model()
         if self.plot_training_history:
             plot_losses(self.train_loss, self.test_loss)
         return self.net
@@ -399,13 +409,16 @@ class ensemble_trainer:
         n_models (int): number of models in ensemble
         model(str): 'dilUnet' or 'dilnet'. See atomai.models for details
         strategy (str): Select between 'from_scratch', 'from_baseline' and 'swag'.
-            If 'from_scratch' is selected, it trains *n* models independently
-            starting each time with different random initialization. If
-            'from_baseline' is selected, it trains one basemodel for *N* epochs
-            and then uses it as a baseline to train multiple ensemble models
-            for n epochs (*n* << *N*), each with different random shuffling of batches.
-            If 'swag' is selected, it performs SWAG-like sampling of weights ar the
-            end of a single model training.
+            If 'from_scratch' is selected, the *n* models are trained independently
+            starting each time with a different random initialization. If
+            'from_baseline' is selected, a basemodel is trained for *N* epochs
+            and then its weights are used as a baseline to train multiple ensemble models
+            for n epochs (*n* << *N*), each with different random shuffling of batches
+            (and different seed for data augmentation if any). If 'swag' is
+            selected, a SWAG-like sampling of weights is performed at the end of
+            a single model training. 
+        swa (bool):
+            Stochastic weights averaging  at the end of each training trajectory
         training_cycles_base (int): Number of training iterations for baseline model
         training_cycles_ensemble (int): Number of training iterations for every ensemble model
         filename (str): Filepath for saving weights
@@ -418,7 +431,7 @@ class ensemble_trainer:
     def __init__(self, X_train: np.ndarray, y_train: np.ndarray,
                  X_test: np.ndarray = None, y_test: np.ndarray = None,
                  n_models=30, model: str = "dilUnet",
-                 strategy: str = "from_baseline",
+                 strategy: str = "from_baseline", swa=False,
                  training_cycles_base: int = 1000,
                  training_cycles_ensemble: int = 50,
                  filename: str = "./model", **kwargs: Dict) -> None:
@@ -436,14 +449,14 @@ class ensemble_trainer:
         self.strategy = strategy
         if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
             raise NotImplementedError(
-                "Select 'from_baseline' 'from_scratch' or 'swag' strategy")
+                "Select 'from_baseline' 'from_scratch', or 'swag'  strategy")
         self.iter_base = training_cycles_base
         if self.strategy == "from_baseline":
             self.iter_ensemble = training_cycles_ensemble
         self.filename, self.kdict = filename, kwargs
-        if self.strategy == "swag":
-            self.kdict["swag"] = True
-            self.kdict["use_batchnorm"] = False
+        if swa or self.strategy == 'swag':
+            self.kdict["swa"] = True
+            #self.kdict["use_batchnorm"] = False  # there were some issues when using batchnorm together with swa in pytorch 1.4 
         self.ensemble_state_dict = {}
 
     def train_baseline(self,
@@ -466,9 +479,9 @@ class ensemble_trainer:
 
         return trainer_base
 
-    def train_ensemble_from_baseline(self,
-                                     basemodel: Union[OrderedDict, Type[torch.nn.Module]],
-                                     **kwargs: Dict) -> ensemble_out:
+    def train_from_baseline(self,
+                            basemodel: Union[OrderedDict, Type[torch.nn.Module]],
+                            **kwargs: Dict) -> ensemble_out:
         """
         Trains ensemble of models starting each time from baseline weights
 
@@ -505,7 +518,18 @@ class ensemble_trainer:
             trained_model_i = trainer_i.run()
             self.ensemble_state_dict[i] = trained_model_i.state_dict()
             self.save_ensemble_metadict(trainer_i.meta_state_dict)
+        averaged_weights = average_weights(self.ensemble_state_dict)
+        trainer_i.net.load_state_dict(averaged_weights)
         return self.ensemble_state_dict, trainer_i.net
+
+    def train_ensemble_from_baseline(self) -> ensemble_out:
+        """
+        Trains a baseline model and ensemble of model starting each time
+        from the baseline model weights
+        """
+        baseline = self.train_baseline()
+        ensemble, smodel = self.train_from_baseline(baseline.net)
+        return ensemble, smodel
 
     def train_ensemble_from_scratch(self) -> ensemble_out:
         """
@@ -518,9 +542,11 @@ class ensemble_trainer:
             trainer_i = self.train_baseline(seed=i+1, batch_seed=i+1)
             self.ensemble_state_dict[i] = trainer_i.net.state_dict()
             self.save_ensemble_metadict(trainer_i.meta_state_dict)
+        averaged_weights = average_weights(self.ensemble_state_dict)
+        trainer_i.net.load_state_dict(averaged_weights)
         return self.ensemble_state_dict, trainer_i.net
 
-    def train_model_swag(self) -> ensemble_out:
+    def train_swag(self) -> ensemble_out:
         """
         Performs SWAG-like weights sampling at the end of single model training
         """
@@ -528,6 +554,7 @@ class ensemble_trainer:
         sampled_weights = sample_weights(
             trainer_i.recent_weights, self.n_models)
         self.ensemble_state_dict = sampled_weights
+        self.save_ensemble_metadict(trainer_i.meta_state_dict)
         return self.ensemble_state_dict, trainer_i.net
 
     def save_ensemble_metadict(self, meta_state_dict: Dict) -> None:
@@ -575,15 +602,14 @@ class ensemble_trainer:
         Trains a baseline model and ensemble of models
         """
         if self.strategy == 'from_baseline':
-            base_trainer = self.train_baseline()
-            ensemble, smodel = self.train_ensemble_from_baseline(base_trainer.net)
+            ensemble, smodel = self.train_ensemble_from_baseline()
         elif self.strategy == 'from_scratch':
             ensemble, smodel = self.train_ensemble_from_scratch()
         elif self.strategy == 'swag':
-            ensemble, smodel = self.train_model_swag()
+            ensemble, smodel = self.train_swag()
         else:
             raise NotImplementedError(
-                "The strategy must be 'from_baseline', 'from_scratch' or 'swag'")
+                "The strategy must be 'from_baseline', 'from_scratch', 'swag' or 'from_scratch_swa'")
         return ensemble, smodel
 
 
@@ -605,33 +631,3 @@ def train_single_model(images_all: training_data_types,
                 training_cycles, model, IoU, seed, batch_seed, **kwargs)
     trained_model = t.run()
     return trained_model
-
-
-def train_swag_model(images_all: training_data_types,
-                     labels_all: training_data_types,
-                     images_test_all: training_data_types,
-                     labels_test_all: training_data_types,
-                     training_cycles: int,
-                     model: Union[str, Callable] = 'dilUnet',
-                     IoU: bool = False,
-                     seed: int = 1,
-                     batch_seed: int = None,
-                     **kwargs: Union[int, List, str, bool]
-                     ) -> Type[torch.nn.Module]:
-    """
-    "Wrapper function" for class atomai.atomnet.trainer
-    with SWAG-like weights sampling at the end of model training
-    """
-    kwargs["swag"] = True
-    kwargs["use_batchnorm"] = False
-    t = trainer(images_all, labels_all, images_test_all, labels_test_all,
-                training_cycles, model, IoU, seed, batch_seed, **kwargs)
-    trained_model = t.run()
-    sampled_weights = sample_weights(t.recent_weights)
-
-    filename = kwargs.get("savename", "model")
-    swag_metadict = copy.deepcopy(t.meta_state_dict)
-    swag_metadict["weights"] = sampled_weights
-    torch.save(swag_metadict, filename + "_swag.tar")
-
-    return sampled_weights, trained_model

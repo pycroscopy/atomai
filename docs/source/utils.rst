@@ -58,4 +58,5 @@ Trained weights
 ----------------
 .. autofunction:: atomai.utils.load_weights
 .. autofunction:: atomai.utils.average_weights
+.. autofunction:: atomai.utils.sample_weights
 .. autofunction:: atomai.utils.nb_filters_classes

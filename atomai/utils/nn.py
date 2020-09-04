@@ -62,16 +62,16 @@ def average_weights(ensemble: Dict[int, Dict[str, torch.Tensor]]) -> Dict[str, t
             of models with exact same architecture.
 
     Returns:
-        Average weights (as model's state_dict)
+        Averaged weights (as model's state_dict)
     """
-    ensemble_state_dict = ensemble[0]
+    ensemble_state_dict = dc(ensemble[0])
     names = [name for name in ensemble_state_dict.keys()]
     for name in names:
         w_aver = []
         for model in ensemble.values():
             for n, p in model.items():
                 if n == name:
-                    w_aver.append(p)
+                    w_aver.append(dc(p))
         ensemble_state_dict[name].copy_(sum(w_aver) / float(len(w_aver)))
     return ensemble_state_dict
 
@@ -81,7 +81,7 @@ def sample_weights(ensemble: Dict[int, Dict[str, torch.Tensor]],
     """
     Calculate the mean and standard deviation for each trainable parameter
     and use them to draw samples for each parameter independently according to
-    :math" `\\theta_i ~ N(\\mu_i, \\sigma_i)`
+    :math:`\\theta_i \\sim N(\\mu_i, \\sigma_i)`
 
     Args:
         ensemble (dict):
