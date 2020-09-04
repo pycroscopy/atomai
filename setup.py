@@ -19,7 +19,7 @@ if __name__ == "__main__":
         description='Deep and machine learning for atom-resolved data',
         long_description=open(os.path.join(module_dir, 'README.md')).read(),
         long_description_content_type='text/markdown',
-        url='https://github.com/ziatdinovmax/atomai',
+        url='https://github.com/pycroscopy/atomai/',
         author='Maxim Ziatdinov',
         author_email='maxim.ziatdinov@ai4microcopy.com',
         license='MIT license',
