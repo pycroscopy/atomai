@@ -75,14 +75,14 @@ class EncoderDecoder:
         numlayers_d = kwargs.get("numlayers_decoder", 2)
         numhidden_e = kwargs.get("numhidden_encoder", 128)
         numhidden_d = kwargs.get("numhidden_decoder", 128)
-
+        skip = kwargs.get("skip", False)
         if not coord:
             self.decoder_net = DecoderNet(
                 latent_dim, numlayers_d, numhidden_d, self.im_dim, mlp_d)
         else:
             self.decoder_net = rDecoderNet(
                 latent_dim, numlayers_d, numhidden_d, self.im_dim,
-                kwargs.get("skip", False))
+                skip)
         self.encoder_net = EncoderNet(
             self.im_dim, self.z_dim, numlayers_e, numhidden_e, mlp_e)
 
@@ -93,10 +93,11 @@ class EncoderDecoder:
             "latent_dim": latent_dim,
             "coord": coord,
             "conv_encoder": not mlp_e,
-            "numlayers_e": numlayers_e,
-            "numlayers_d": numlayers_d,
-            "numhidden_e": numhidden_e,
-            "numhidden_d": numhidden_d,
+            "numlayers_encoder": numlayers_e,
+            "numlayers_decoder": numlayers_d,
+            "numhidden_encoder": numhidden_e,
+            "numhidden_decoder": numhidden_d,
+            "skip": skip
         }
         if not coord:
             self.metadict["conv_decoder"] = not mlp_d
