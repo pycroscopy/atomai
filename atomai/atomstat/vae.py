@@ -367,7 +367,7 @@ class EncoderDecoder:
                 subimgs, num_batches=kwargs.get("num_batches", 10))
             traj_enc = np.concatenate((traj[:, :2], z_mean), axis=-1)
             trajectories_enc_all.append(traj_enc)
-        return trajectories_enc_all, frames
+        return trajectories_enc_all, frames, subimgs_all
 
     def manifold2d(self, **kwargs: Union[int, str, bool]) -> None:
         """
