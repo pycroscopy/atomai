@@ -391,7 +391,7 @@ class EncoderDecoder:
             figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d, self.im_dim[-1]))
         if l1 and l2:
             grid_x = np.linspace(l1[0], l1[1], d)
-            grid_y = np.linsapce(l2[0], l2[1], d)
+            grid_y = np.linspace(l2[0], l2[1], d)
         else:
             grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
             grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
