@@ -106,7 +106,8 @@ class EncoderDecoder:
         """
         Loads saved weights
         """
-        weights = torch.load(filepath)
+        device_ = 'cuda' if torch.cuda.is_available() else 'cpu'
+        weights = torch.load(filepath, map_location=device_)
         encoder_weights = weights["encoder"]
         decoder_weights = weights["decoder"]
         self.encoder_net.load_state_dict(encoder_weights)
