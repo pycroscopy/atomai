@@ -40,7 +40,7 @@ def plot_coord(img: np.ndarray, coord: np.ndarray, fsize: int = 6) -> None:
     y, x, c = coord.T
     plt.figure(figsize=(fsize, fsize))
     plt.imshow(img, cmap='gray')
-    plt.scatter(x, y, c=c, cmap='RdYlGn', s=8)
+    plt.scatter(x, y, c=c, origin="lower", cmap='RdYlGn', s=8)
     plt.show()
 
 
