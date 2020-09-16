@@ -11,7 +11,6 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 
 
 import copy
-import os
 import warnings
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Type, Union, Callable
@@ -23,7 +22,7 @@ from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (gpu_usage_map, plot_losses, set_train_rng,
                           preprocess_training_data, sample_weights,
-                          average_weights)
+                          average_weights, init_torch_dataloaders)
 from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
@@ -114,11 +113,14 @@ class trainer:
             (to maintain symmetry between encoder and decoder)
         **swa (bool):
             Saves the last 30 stochastic weights that can be averaged later on
+        **perturb_weights (bool or dict):
+            Time-dependent weight perturbation, :math:`w\\leftarrow w + a / (1 + e)^\\gamma`,
+            where parameters *a* and *gamma* can be passed as a dictionary,
+            together with parameter *e_p* determining every n-th epoch at
+            which a perturbation is applied
         **print_loss (int):
             Prints loss every *n*-th epoch
-        **savedir (str):
-            Directory to automatically save intermediate and final weights
-        **savename (str):
+        **filename (str):
             Filename for model weights
             (appended with "_test_weights_best.pt" and "_weights_final.pt")
         **plot_training_history (bool):
@@ -163,16 +165,32 @@ class trainer:
             np.random.seed(seed)
         else:
             np.random.seed(batch_seed)
-
         self.batch_size = kwargs.get("batch_size", 32)
+        self.full_epoch = kwargs.get("full_epoch", False)
         (self.X_train, self.y_train,
          self.X_test, self.y_test,
          self.num_classes) = preprocess_training_data(
-                                X_train, y_train, X_test, y_test,
-                                self.batch_size)
+                                X_train, y_train,
+                                X_test, y_test, self.batch_size)
+        if self.full_epoch:
+            self.train_loader, self.test_loader = init_torch_dataloaders(
+                self.X_train, self.y_train, self.X_test, self.y_test,
+                self.batch_size, self.num_classes)
+
         use_batchnorm = kwargs.get('use_batchnorm', True)
         use_dropouts = kwargs.get('use_dropouts', False)
         upsampling = kwargs.get('upsampling', "bilinear")
+
+        self.swa = kwargs.get("swa", False)
+        if self.swa:
+            self.recent_weights = {}
+        self.perturb_weights = kwargs.get("perturb_weights", False)
+        if self.perturb_weights:
+            use_batchnorm = False
+            if isinstance(self.perturb_weights, bool):
+                e_p = 1 if self.full_epoch else 50
+                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
+
         if not isinstance(model, str) and hasattr(model, "state_dict"):
             self.net = model
         elif isinstance(model, str) and model == 'dilUnet':
@@ -217,23 +235,27 @@ class trainer:
                 "Select Dice loss ('dice'), focal loss ('focal') or"
                 " cross-entropy loss ('ce')"
             )
-        self.batch_idx_train = np.random.randint(
-            0, len(self.X_train), training_cycles)
-        self.batch_idx_test = np.random.randint(
-            0, len(self.X_test), training_cycles)
-        auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
-                   "poisson_noise", "contrast", "salt_and_pepper", "blur",
-                   "resize", "rotation","background"]
-        self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
+        if not self.full_epoch:
+            self.batch_idx_train = np.random.randint(
+                0, len(self.X_train), training_cycles)
+            self.batch_idx_test = np.random.randint(
+                0, len(self.X_test), training_cycles)
+            auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
+                       "poisson_noise", "contrast", "salt_and_pepper", "blur",
+                       "resize", "rotation", "background"]
+            self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.training_cycles = training_cycles
         self.iou = IoU
-        self.swa = kwargs.get("swa", False)
-        if self.swa:
-            self.recent_weights = {}
-        self.print_loss = kwargs.get("print_loss", 100)
-        self.savedir = kwargs.get("savedir", "./")
-        self.savename = kwargs.get("savename", "model")
+        if self.iou:
+            self.iou_score, self.iou_score_test = [], []
+        self.print_loss = kwargs.get("print_loss")
+        if self.print_loss is None:
+            if not self.full_epoch:
+                self.print_loss = 100
+            else:
+                self.print_loss = 1
+        self.filename = kwargs.get("filename", "./model")
         self.plot_training_history = kwargs.get("plot_training_history", True)
         self.train_loss, self.test_loss = [], []
         if isinstance(model, str):
@@ -315,86 +337,183 @@ class trainer:
             return (loss.item(), iou_score)
         return (loss.item(),)
 
-    def eval_model(self):
-        self.net.eval()
-        running_loss_test, running_iou_test = 0, 0
-        for idx in range(len(self.X_test)):
-            images_, labels_ = self.dataloader(idx, mode='test')
-            loss_ = self.test_step(images_, labels_)
-            running_loss_test += loss_[0]
-            if self.iou:
-                running_iou_test += loss_[1]
-        print('Model (final state) evaluation loss:',
-              np.around(running_loss_test / len(self.X_test), 4))
+    def step(self, e: int) -> None:
+        """
+        Single train-test step which passes a single
+        mini-batch (for both training and testing), i.e.
+        1 "epoch" = 1 mini-batch
+        """
+        images, labels = self.dataloader(
+            self.batch_idx_train[e], mode='train')
+        # Training step
+        loss = self.train_step(images, labels)
+        self.train_loss.append(loss[0])
+        images_, labels_ = self.dataloader(
+            self.batch_idx_test[e], mode='test')
+        # Test step
+        loss_ = self.test_step(images_, labels_)
+        self.test_loss.append(loss_[0])
         if self.iou:
-            print('Model (final state) IoU:',
-                  np.around(running_iou_test / len(self.X_test), 4))
+            self.iou_score.append(loss[1])
+            self.iou_score_test.append(loss_[1])
+
+    def step_vanilla(self) -> None:
+        """
+        A standard PyTorch training loop where
+        all available mini-batches are passed at
+        a single step/epoch
+        """
+        c, c_test = 0, 0
+        losses, losses_test = 0, 0
+        if self.iou:
+            iou_s, iou_s_test = 0, 0
+        # Training step
+        for images, labels in self.train_loader:
+            loss = self.train_step(images, labels)
+            losses += loss[0]
+            if self.iou:
+                iou_s += loss[1]
+            c += 1
+        else:  # Test step
+            for images_, labels_ in self.test_loader:
+                loss_ = self.test_step(images_, labels_)
+                losses_test += loss_[0]
+                if self.iou:
+                    iou_s_test += loss_[1]
+                c_test += 1
+        self.train_loss.append(losses / c)
+        self.test_loss.append(losses_test / c_test)
+        if self.iou:
+            self.iou_score.append(iou_s / c)
+            self.iou_score_test.append(iou_s_test / c_test)
+
+    def eval_model(self) -> None:
+        """
+        Evaluates model on the entire dataset
+        """
+        self.net.eval()
+        running_loss_test, c = 0, 0
+        if self.iou:
+            running_iou_test = 0
+        if self.full_epoch:
+            for images_, labels_ in self.test_loader:
+                loss_ = self.test_step(images_, labels_)
+                running_loss_test += loss_[0]
+                if self.iou:
+                    running_iou_test += loss_[1]
+                c += 1
+            print('Model (final state) evaluation loss:',
+                  np.around(running_loss_test / c, 4))
+            if self.iou:
+                print('Model (final state) IoU:',
+                      np.around(running_iou_test / c, 4))
+        else:
+            running_loss_test, running_iou_test = 0, 0
+            for idx in range(len(self.X_test)):
+                images_, labels_ = self.dataloader(idx, mode='test')
+                loss_ = self.test_step(images_, labels_)
+                running_loss_test += loss_[0]
+                if self.iou:
+                    running_iou_test += loss_[1]
+            print('Model (final state) evaluation loss:',
+                  np.around(running_loss_test / len(self.X_test), 4))
+            if self.iou:
+                print('Model (final state) IoU:',
+                      np.around(running_iou_test / len(self.X_test), 4))
         return
+
+    def weight_perturbation(self, e: int) -> None:
+        """
+        Time-dependent weights perturbation
+        (role of time is played by "epoch" number)
+        """
+        a = self.perturb_weights["a"]
+        gamma = self.perturb_weights["gamma"]
+        e_p = self.perturb_weights["e_p"]
+        if self.perturb_weights and (e + 1) % e_p == 0:
+            var = torch.tensor(a / (1 + e)**gamma)
+            for k, v in self.net.state_dict().items():
+                v_prime = v + v.new(v.shape).normal_(0, torch.sqrt(var))
+                self.net.state_dict()[k].copy_(v_prime)
+
+    def save_running_weights(self, e: int) -> None:
+        """
+        Saves running weights (for stochastic weights averaging)
+        """
+        swa_epochs = 5 if self.full_epoch else 30
+        if self.training_cycles - e <= swa_epochs:
+            i_ = swa_epochs - (self.training_cycles - e)
+            state_dict_ = OrderedDict()
+            for k, v in self.net.state_dict().items():
+                state_dict_[k] = copy.deepcopy(v).cpu()
+            self.recent_weights[i_] = state_dict_
 
     def run(self) -> Type[torch.nn.Module]:
         """
-        Trains a neural network for *N* epochs by passing a single pair of
-        training images and labels and a single pair of test images
-        and labels at each epoch. Saves the final model weights.
+        Trains a neural network, prints the statistics,
+        saves the final model weights.
         """
         for e in range(self.training_cycles):
-            # Get training images/labels
-            images, labels = self.dataloader(
-                self.batch_idx_train[e], mode='train')
-            # Training step
-            loss = self.train_step(images, labels)
-            self.train_loss.append(loss[0])
-            images_, labels_ = self.dataloader(
-                self.batch_idx_test[e], mode='test')
-            # Test step
-            loss_ = self.test_step(images_, labels_)
-            self.test_loss.append(loss_[0])
-
-            if self.swa and self.training_cycles - e <= 30:
-                i_ = 30 - (self.training_cycles - e)
-                state_dict_ = OrderedDict()
-                for k, v in self.net.state_dict().items():
-                    state_dict_[k] = copy.deepcopy(v).cpu()
-                self.recent_weights[i_] = state_dict_
-
+            if self.full_epoch:
+                self.step_vanilla()
+            else:
+                self.step(e)
+            if self.swa:
+                self.save_running_weights(e)
+            if self.perturb_weights:
+                self.weight_perturbation(e)
             if e == 0 or (e+1) % self.print_loss == 0:
-                if torch.cuda.is_available():
-                    gpu_usage = gpu_usage_map(torch.cuda.current_device())
-                else:
-                    gpu_usage = ['N/A ', ' N/A']
-                if self.iou:
-                    print('Epoch {} ...'.format(e+1),
-                          'Training loss: {} ...'.format(
-                              np.around(self.train_loss[-1], 4)),
-                          'Test loss: {} ...'.format(
-                              np.around(self.test_loss[-1], 4)),
-                          'Train IoU: {} ...'.format(
-                              np.around(loss[1], 4)),
-                          'Test IoU: {} ...'.format(
-                              np.around(loss_[1], 4)),
-                          'GPU memory usage: {}/{}'.format(
-                              gpu_usage[0], gpu_usage[1]))
-                else:
-                    print('Epoch {} ...'.format(e+1),
-                          'Training loss: {} ...'.format(
-                              np.around(self.train_loss[-1], 4)),
-                          'Test loss: {} ...'.format(
-                              np.around(self.test_loss[-1], 4)),
-                          'GPU memory usage: {}/{}'.format(
-                              gpu_usage[0], gpu_usage[1]))
+                self.print_statistics(e)
         # Save final model weights
-        torch.save(self.meta_state_dict,
-                   os.path.join(self.savedir,
-                   self.savename+'_metadict_final_weights.tar'))
-        # Run evaluation (by passing all the test data) for a final model state
-        self.eval_model()
+        self.save_model()
+        if not self.full_epoch:
+            self.eval_model()
         if self.swa:
+            #if not self.full_epoch:
             print("Performing stochastic weights averaging...")
             self.net.load_state_dict(average_weights(self.recent_weights))
             self.eval_model()
         if self.plot_training_history:
             plot_losses(self.train_loss, self.test_loss)
         return self.net
+
+    def save_model(self, *args: str) -> None:
+        try:
+            filename = args[0]
+        except IndexError:
+            filename = self.filename
+        torch.save(self.meta_state_dict,
+                   filename + '_metadict_final_weights.tar')
+
+    def print_statistics(self, e: int) -> None:
+        """
+        Print loss and (optionally) IoU score on train
+        and test data, as well as GPU memory usage.
+        """
+        if torch.cuda.is_available():
+            gpu_usage = gpu_usage_map(torch.cuda.current_device())
+        else:
+            gpu_usage = ['N/A ', ' N/A']
+        if self.iou:
+            print('Epoch {} ...'.format(e+1),
+                  'Training loss: {} ...'.format(
+                      np.around(self.train_loss[-1], 4)),
+                  'Test loss: {} ...'.format(
+                      np.around(self.test_loss[-1], 4)),
+                  'Train IoU: {} ...'.format(
+                      np.around(self.iou_score[-1], 4)),
+                  'Test IoU: {} ...'.format(
+                      np.around(self.iou_score_test[-1], 4)),
+                  'GPU memory usage: {}/{}'.format(
+                      gpu_usage[0], gpu_usage[1]))
+        else:
+            print('Epoch {} ...'.format(e+1),
+                  'Training loss: {} ...'.format(
+                      np.around(self.train_loss[-1], 4)),
+                  'Test loss: {} ...'.format(
+                      np.around(self.test_loss[-1], 4)),
+                  'GPU memory usage: {}/{}'.format(
+                      gpu_usage[0], gpu_usage[1]))
 
 
 class ensemble_trainer:
@@ -416,7 +535,7 @@ class ensemble_trainer:
             for n epochs (*n* << *N*), each with different random shuffling of batches
             (and different seed for data augmentation if any). If 'swag' is
             selected, a SWAG-like sampling of weights is performed at the end of
-            a single model training. 
+            a single model training.
         swa (bool):
             Stochastic weights averaging  at the end of each training trajectory
         training_cycles_base (int): Number of training iterations for baseline model
@@ -456,7 +575,7 @@ class ensemble_trainer:
         self.filename, self.kdict = filename, kwargs
         if swa or self.strategy == 'swag':
             self.kdict["swa"] = True
-            #self.kdict["use_batchnorm"] = False  # there were some issues when using batchnorm together with swa in pytorch 1.4 
+            #self.kdict["use_batchnorm"] = False  # there were some issues when using batchnorm together with swa in pytorch 1.4
         self.ensemble_state_dict = {}
 
     def train_baseline(self,
@@ -500,6 +619,8 @@ class ensemble_trainer:
         n_models = kwargs.get("n_models")
         if n_models is not None:
             self.n_models = n_models
+        if "print_loss" not in self.kdict.keys():
+            self.kdict["print_loss"] = 10
         filename = kwargs.get("filename")
         training_cycles_ensemble = kwargs.get("training_cycles_ensemble")
         if training_cycles_ensemble is not None:
@@ -512,7 +633,7 @@ class ensemble_trainer:
             trainer_i = trainer(
                 self.X_train, self.y_train, self.X_test, self.y_test,
                 self.iter_ensemble, self.model_type, batch_seed=i+1,
-                print_loss=10, plot_training_history=False, **self.kdict)
+                plot_training_history=False, **self.kdict)
             self.update_weights(trainer_i.net.state_dict().values(),
                                 initial_model_state_dict.values())
             trained_model_i = trainer_i.run()
