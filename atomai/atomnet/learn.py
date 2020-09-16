@@ -22,7 +22,7 @@ from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (gpu_usage_map, plot_losses, set_train_rng,
                           preprocess_training_data, sample_weights,
-                          average_weights)
+                          average_weights, init_torch_dataloaders)
 from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
@@ -173,20 +173,9 @@ class trainer:
                                 X_train, y_train,
                                 X_test, y_test, self.batch_size)
         if self.full_epoch:
-            tor = lambda x: torch.from_numpy(np.concatenate(x)).float()
-            self.X_train, self.y_train = tor(self.X_train), tor(self.y_train)
-            self.X_test, self.y_test = tor(self.X_test), tor(self.y_test)
-            if torch.cuda.is_available():
-                self.X_train = self.X_train.cuda()
-                self.y_train = self.y_train.cuda()
-                self.X_test = self.X_test.cuda()
-                self.y_test = self.y_test.cuda()
-            self.train_loader = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(self.X_train, self.y_train),
-                batch_size=self.batch_size, shuffle=True)
-            self.test_loader = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(self.X_test, self.y_test),
-                batch_size=self.batch_size)
+            self.train_loader, self.test_loader = init_torch_dataloaders(
+                self.X_train, self.y_train, self.X_test, self.y_test,
+                self.batch_size, self.num_classes)
         use_batchnorm = kwargs.get('use_batchnorm', True)
         use_dropouts = kwargs.get('use_dropouts', False)
         upsampling = kwargs.get('upsampling', "bilinear")
@@ -399,18 +388,34 @@ class trainer:
         Evaluates model on the entire dataset
         """
         self.net.eval()
-        running_loss_test, running_iou_test = 0, 0
-        for idx in range(len(self.X_test)):
-            images_, labels_ = self.dataloader(idx, mode='test')
-            loss_ = self.test_step(images_, labels_)
-            running_loss_test += loss_[0]
-            if self.iou:
-                running_iou_test += loss_[1]
-        print('Model (final state) evaluation loss:',
-              np.around(running_loss_test / len(self.X_test), 4))
+        running_loss_test, c = 0, 0
         if self.iou:
-            print('Model (final state) IoU:',
-                  np.around(running_iou_test / len(self.X_test), 4))
+            running_iou_test = 0
+        if self.full_epoch:
+            for images_, labels_ in self.test_loader:
+                loss_ = self.test_step(images_, labels_)
+                running_loss_test += loss_[0]
+                if self.iou:
+                    running_iou_test += loss_[1]
+                c += 1
+            print('Model (final state) evaluation loss:',
+                  np.around(running_loss_test / c, 4))
+            if self.iou:
+                print('Model (final state) IoU:',
+                      np.around(running_iou_test / c, 4))
+        else:
+            running_loss_test, running_iou_test = 0, 0
+            for idx in range(len(self.X_test)):
+                images_, labels_ = self.dataloader(idx, mode='test')
+                loss_ = self.test_step(images_, labels_)
+                running_loss_test += loss_[0]
+                if self.iou:
+                    running_iou_test += loss_[1]
+            print('Model (final state) evaluation loss:',
+                np.around(running_loss_test / len(self.X_test), 4))
+            if self.iou:
+                print('Model (final state) IoU:',
+                    np.around(running_iou_test / len(self.X_test), 4))
         return
 
     def weight_perturbation(self, e: int) -> None:
@@ -460,11 +465,10 @@ class trainer:
         if not self.full_epoch:
             self.eval_model()
         if self.swa:
-            if not self.full_epoch:
-                print("Performing stochastic weights averaging...")
+            #if not self.full_epoch:
+            print("Performing stochastic weights averaging...")
             self.net.load_state_dict(average_weights(self.recent_weights))
-            if not self.full_epoch:
-                self.eval_model()
+            self.eval_model()
         if self.plot_training_history:
             plot_losses(self.train_loss, self.test_loss)
         return self.net
