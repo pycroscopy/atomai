@@ -176,9 +176,21 @@ class trainer:
             self.train_loader, self.test_loader = init_torch_dataloaders(
                 self.X_train, self.y_train, self.X_test, self.y_test,
                 self.batch_size, self.num_classes)
+
         use_batchnorm = kwargs.get('use_batchnorm', True)
         use_dropouts = kwargs.get('use_dropouts', False)
         upsampling = kwargs.get('upsampling', "bilinear")
+
+        self.swa = kwargs.get("swa", False)
+        if self.swa:
+            self.recent_weights = {}
+        self.perturb_weights = kwargs.get("perturb_weights", False)
+        if self.perturb_weights:
+            use_batchnorm = False
+            if isinstance(self.perturb_weights, bool):
+                e_p = 1 if self.full_epoch else 50
+                self.perturb_weights = {"a": .1, "gamma": 1.5, "e_p": e_p}
+
         if not isinstance(model, str) and hasattr(model, "state_dict"):
             self.net = model
         elif isinstance(model, str) and model == 'dilUnet':
@@ -237,14 +249,6 @@ class trainer:
         self.iou = IoU
         if self.iou:
             self.iou_score, self.iou_score_test = [], []
-        self.swa = kwargs.get("swa", False)
-        if self.swa:
-            self.recent_weights = {}
-        self.perturb_weights = kwargs.get("perturb_weights", False)
-        if self.perturb_weights:
-            if isinstance(self.perturb_weights, bool):
-                e_p = 1 if self.full_epoch else 100
-                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
         self.print_loss = kwargs.get("print_loss")
         if self.print_loss is None:
             if not self.full_epoch:
