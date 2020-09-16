@@ -113,7 +113,7 @@ class trainer:
             (to maintain symmetry between encoder and decoder)
         **swa (bool):
             Saves the last 30 stochastic weights that can be averaged later on
-        **perturb_weights (bool):
+        **perturb_weights (bool or dict):
             Time-dependent weight perturbation, :math:`w\\leftarrow w + a / (1 + e)^\\gamma`,
             where parameters *a* and *gamma* can be passed as a dictionary,
             together with parameter *e_p* determining every n-th epoch at
@@ -189,7 +189,7 @@ class trainer:
             use_batchnorm = False
             if isinstance(self.perturb_weights, bool):
                 e_p = 1 if self.full_epoch else 50
-                self.perturb_weights = {"a": .1, "gamma": 1.5, "e_p": e_p}
+                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
 
         if not isinstance(model, str) and hasattr(model, "state_dict"):
             self.net = model
@@ -416,10 +416,10 @@ class trainer:
                 if self.iou:
                     running_iou_test += loss_[1]
             print('Model (final state) evaluation loss:',
-                np.around(running_loss_test / len(self.X_test), 4))
+                  np.around(running_loss_test / len(self.X_test), 4))
             if self.iou:
                 print('Model (final state) IoU:',
-                    np.around(running_iou_test / len(self.X_test), 4))
+                      np.around(running_iou_test / len(self.X_test), 4))
         return
 
     def weight_perturbation(self, e: int) -> None:
@@ -619,6 +619,8 @@ class ensemble_trainer:
         n_models = kwargs.get("n_models")
         if n_models is not None:
             self.n_models = n_models
+        if "print_loss" not in self.kdict.keys():
+            self.kdict["print_loss"] = 10
         filename = kwargs.get("filename")
         training_cycles_ensemble = kwargs.get("training_cycles_ensemble")
         if training_cycles_ensemble is not None:
@@ -631,7 +633,7 @@ class ensemble_trainer:
             trainer_i = trainer(
                 self.X_train, self.y_train, self.X_test, self.y_test,
                 self.iter_ensemble, self.model_type, batch_seed=i+1,
-                print_loss=10, plot_training_history=False, **self.kdict)
+                plot_training_history=False, **self.kdict)
             self.update_weights(trainer_i.net.state_dict().values(),
                                 initial_model_state_dict.values())
             trained_model_i = trainer_i.run()
