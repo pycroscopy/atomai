@@ -16,6 +16,7 @@ import networkx as nx
 def construct_graph(coord: np.ndarray,
                     max_edge_length: int,
                     map_dict: Dict,
+                    **kwargs
                     ) -> Type[nx.Graph]:
     """
     Constructs undirected graph from atomic coordiantes
@@ -30,6 +31,9 @@ def construct_graph(coord: np.ndarray,
             dictionary which maps atomic classes from the NN output (dict keys)
             to strings corresponding to chemical elements (dict values)
     """
+    min_edge_length = kwargs.get("min_edge_length")
+    if min_edge_length is None:
+        min_edge_length = max_edge_length // 2
     # unique classes corresponding to different atomic species
     unique_idx = np.unique(coord[:, -1])
     # create graph object
@@ -43,7 +47,7 @@ def construct_graph(coord: np.ndarray,
     for p1 in G.nodes():
         for p2 in G.nodes():
             distance = dist(G, G, p1, p2)
-            if 0 < distance < max_edge_length:
+            if min_edge_length < distance < max_edge_length:
                 G.add_edge(p1, p2)
     return G
 
