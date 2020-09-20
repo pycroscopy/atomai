@@ -63,7 +63,8 @@ def dist(G1: Type[nx.Graph], G2: Type[nx.Graph], p1: str, p2: str) -> float:
 def plot_graph(G: Type[nx.Graph],
                img: np.ndarray,
                fsize: Union[int, Tuple[int, int]] = 8,
-               show_labels: bool = True) -> None:
+               show_labels: bool = True,
+               **kwargs: Union[int, str, float]) -> None:
 
     """
     Plots graph overlayed on the original image (raw or NN/VAE output)
@@ -71,9 +72,16 @@ def plot_graph(G: Type[nx.Graph],
     fsize = fsize if isinstance(fsize, tuple) else (fsize, fsize)
     plt.figure(figsize=fsize)
     pos = nx.get_node_attributes(G, 'pos')
-    plt.imshow(img, origin="lower", cmap='gray')
-    nx.draw_networkx_nodes(G, pos=pos, nodelist=G.nodes(), node_size=30)
-    nx.draw_networkx_edges(G, pos, width=1)
+    plt.imshow(img, origin="lower", cmap=kwargs.get("cmap", "gnuplot2")
+    nx.draw_networkx_nodes(
+        G, pos=pos, nodelist=G.nodes(),
+        node_size=kwargs.get("node_size", 30),
+        node_color=kwargs.get("node_color", "#1f78b4"),
+        alpha=kwargs.get("alpha", None))
+    nx.draw_networkx_edges(
+        G, pos, width=1,
+        edge_color=kwargs.get("edge_color", "orange"),
+        alpha=kwargs.get("alpha", None))
     if show_labels:
         nx.draw_networkx_labels(G, pos, font_size=14, font_color='black')
     plt.show()
