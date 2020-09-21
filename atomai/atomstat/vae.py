@@ -75,13 +75,14 @@ class EncoderDecoder:
         numlayers_d = kwargs.get("numlayers_decoder", 2)
         numhidden_e = kwargs.get("numhidden_encoder", 128)
         numhidden_d = kwargs.get("numhidden_decoder", 128)
-
+        skip = kwargs.get("skip", False)
         if not coord:
             self.decoder_net = DecoderNet(
                 latent_dim, numlayers_d, numhidden_d, self.im_dim, mlp_d)
         else:
             self.decoder_net = rDecoderNet(
-                latent_dim, numlayers_d, numhidden_d, self.im_dim)
+                latent_dim, numlayers_d, numhidden_d, self.im_dim,
+                skip)
         self.encoder_net = EncoderNet(
             self.im_dim, self.z_dim, numlayers_e, numhidden_e, mlp_e)
 
@@ -92,10 +93,11 @@ class EncoderDecoder:
             "latent_dim": latent_dim,
             "coord": coord,
             "conv_encoder": not mlp_e,
-            "numlayers_e": numlayers_e,
-            "numlayers_d": numlayers_d,
-            "numhidden_e": numhidden_e,
-            "numhidden_d": numhidden_d,
+            "numlayers_encoder": numlayers_e,
+            "numlayers_decoder": numlayers_d,
+            "numhidden_encoder": numhidden_e,
+            "numhidden_decoder": numhidden_d,
+            "skip": skip
         }
         if not coord:
             self.metadict["conv_decoder"] = not mlp_d
@@ -104,7 +106,8 @@ class EncoderDecoder:
         """
         Loads saved weights
         """
-        weights = torch.load(filepath)
+        device_ = 'cuda' if torch.cuda.is_available() else 'cpu'
+        weights = torch.load(filepath, map_location=device_)
         encoder_weights = weights["encoder"]
         decoder_weights = weights["decoder"]
         self.encoder_net.load_state_dict(encoder_weights)
@@ -121,8 +124,8 @@ class EncoderDecoder:
         except IndexError:
             savepath = "./VAE"
         torch.save({"encoder": self.encoder_net.state_dict(),
-                    "decoder": self.decoder_net.state_dict()},
-                     savepath + ".tar")
+                   "decoder": self.decoder_net.state_dict()},
+                   savepath + ".tar")
 
     def save_model(self, *args: List[str]) -> None:
         """
@@ -365,9 +368,9 @@ class EncoderDecoder:
                 subimgs, num_batches=kwargs.get("num_batches", 10))
             traj_enc = np.concatenate((traj[:, :2], z_mean), axis=-1)
             trajectories_enc_all.append(traj_enc)
-        return trajectories_enc_all, frames
+        return trajectories_enc_all, frames, subimgs_all
 
-    def manifold2d(self, **kwargs: Union[int, str, bool]) -> None:
+    def manifold2d(self, **kwargs: Union[int, List, str, bool]) -> None:
         """
         Performs mapping from latent space to data space allowing the learned
         manifold to be visualized. This works only for 2d latent variable
@@ -375,17 +378,24 @@ class EncoderDecoder:
 
         Args:
             **d (int): grid size
+            l1 (list): range of 1st latent varianle
+            l2 (list): range of 2nd latent variable
             **cmap (str): color map (Default: gnuplot)
             **draw_grid (bool): plot semi-transparent grid
         """
+        l1, l2 = kwargs.get("l1"), kwargs.get("l2")
         d = kwargs.get("d", 9)
         cmap = kwargs.get("cmap", "gnuplot")
         if len(self.im_dim) == 2:
             figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d))
         elif len(self.im_dim) == 3:
             figure = np.zeros((self.im_dim[0] * d, self.im_dim[1] * d, self.im_dim[-1]))
-        grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
-        grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
+        if l1 and l2:
+            grid_x = np.linspace(l1[0], l1[1], d)
+            grid_y = np.linspace(l2[0], l2[1], d)
+        else:
+            grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
+            grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
 
         for i, yi in enumerate(grid_x):
             for j, xi in enumerate(grid_y):
@@ -447,6 +457,9 @@ class rVAE(EncoderDecoder):
             number of hidden units OR conv filters in encoder (Default: 128)
         **numhidden_decoder (int):
             number of hidden units in decoder (Default: 128)
+        **skip (bool):
+            uses generative skip model with residual paths between
+            latents and decoder layers (Default: False)
         **loss (str):
             reconstruction loss function, "ce" or "mse" (Default: "mse")
         **translation_prior (float):

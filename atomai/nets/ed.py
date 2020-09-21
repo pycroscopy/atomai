@@ -30,10 +30,11 @@ class EncoderNet(nn.Module):
         num_layers (int):
             number of NN layers
         hidden_dim (int):
-            number of neurons in each fully connnected layer (when mlp=True)
-            or number of filters in each convolutional layer (when mlp=False, default)
+            number of neurons in each fully connnected layer (for mlp=True)
+            or number of filters in each convolutional layer (for mlp=False)
         mlp (bool):
-            using a simple multi-layer perceptron instead of convolutional layers (Default: False)
+            use a simple multi-layer perceptron instead of convolutional layers
+            (Default: False)
 
     """
     def __init__(self,
@@ -79,8 +80,7 @@ class EncoderNet(nn.Module):
 
 class rDecoderNet(nn.Module):
     """
-    Spatial decoder network (for rotationally-invariant variational autoencoder)
-    (based on https://arxiv.org/abs/1909.11663)
+    Spatial decoder network with skip connections
 
     Args:
         latent_dim (int):
@@ -91,12 +91,16 @@ class rDecoderNet(nn.Module):
             number of neurons in each fully connected layer
         out_dim (tuple):
             output dimensions: (height, width) or (height, width, channels)
+        skip (bool):
+            Use skip connections to propagate latent variables
+            through decoder network (Default: False)
     """
     def __init__(self,
                  latent_dim: int,
                  num_layers: int,
                  hidden_dim: int,
-                 out_dim: Tuple[int]) -> None:
+                 out_dim: Tuple[int],
+                 skip: bool = False) -> None:
         """
         Initializes network parameters
         """
@@ -109,9 +113,8 @@ class rDecoderNet(nn.Module):
             c = out_dim[-1]
             self.reshape_ = (out_dim[0], out_dim[1], c)
             self.apply_softplus = False
-        self.fc_coord = nn.Linear(2, hidden_dim)
-        self.fc_latent = nn.Linear(latent_dim, hidden_dim, bias=False)
-        self.activation = nn.Tanh()
+        self.skip = skip
+        self.coord_latent = coord_latent(latent_dim, hidden_dim, not skip)
         fc_decoder = []
         for i in range(num_layers):
             fc_decoder.extend([nn.Linear(hidden_dim, hidden_dim), nn.Tanh()])
@@ -122,6 +125,56 @@ class rDecoderNet(nn.Module):
         """
         Forward pass
         """
+        batch_dim = x_coord.size()[0]
+        h = self.coord_latent(x_coord, z)
+        if self.skip:
+            residual = h
+            for i, fc_block in enumerate(self.fc_decoder):
+                h = fc_block(h)
+                if (i + 1) % 2 == 0:
+                    h = h.add(residual)
+        else:
+            h = self.fc_decoder(h)
+        h = self.out(h)
+        h = h.reshape(batch_dim, *self.reshape_)
+        if self.apply_softplus:
+            return F.softplus(h)
+        return h
+
+
+class coord_latent(nn.Module):
+    """
+    The "spatial" part of the rVAE's decoder that allows for translational
+    and rotational invariance (based on https://arxiv.org/abs/1909.11663)
+
+    Args:
+        latent_dim (int):
+            number of latent dimensions associated with images content
+        out_dim (int):
+            number of output dimensions
+            (usually equal to number of hidden units
+             in the first layer of the corresponding VAE's decoder)
+        activation (bool):
+            Applies tanh activation to the output (Default: False)
+    """
+    def __init__(self,
+                 latent_dim: int,
+                 out_dim: int,
+                 activation: bool = False) -> None:
+        """
+        Initiate parameters
+        """
+        super(coord_latent, self).__init__()
+        self.fc_coord = nn.Linear(2, out_dim)
+        self.fc_latent = nn.Linear(latent_dim, out_dim, bias=False)
+        self.activation = nn.Tanh() if activation else None
+
+    def forward(self,
+                x_coord: torch.Tensor,
+                z: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass
+        """
         batch_dim, n = x_coord.size()[:2]
         x_coord = x_coord.reshape(batch_dim * n, -1)
         h_x = self.fc_coord(x_coord)
@@ -129,13 +182,9 @@ class rDecoderNet(nn.Module):
         h_z = self.fc_latent(z)
         h = h_x.add(h_z.unsqueeze(1))
         h = h.reshape(batch_dim * n, -1)
-        h = self.activation(h)
-        h = self.fc_decoder(h)
-        h = self.out(h)
-        out = h.reshape(batch_dim, *self.reshape_)
-        if self.apply_softplus:
-            return F.softplus(out)
-        return out
+        if self.activation is not None:
+            h = self.activation(h)
+        return h
 
 
 class DecoderNet(nn.Module):
@@ -152,7 +201,8 @@ class DecoderNet(nn.Module):
         out_dim (tuple):
             image dimensions: (height, width) or (height, width, channels)
         mlp (bool):
-            using a simple multi-layer perceptron instead of convolutional layers (Default: False)
+            using a simple multi-layer perceptron instead of convolutional layers
+            (Default: False)
     """
     def __init__(self,
                  latent_dim: int,

@@ -16,7 +16,7 @@ Losses for imbalanced classes
 Metics for imbalanced classes
 -----------------------------
 
-..autoclass:: atomai.losses_metrics.IoU
+.. autoclass:: atomai.losses_metrics.IoU
     :members:
     :undoc-members:
     :member-order: bysource

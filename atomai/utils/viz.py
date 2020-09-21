@@ -33,21 +33,24 @@ def plot_losses(train_loss: Union[List[float], np.ndarray],
     plt.show()
 
 
-def plot_coord(img: np.ndarray, coord: np.ndarray, fsize: int = 6) -> None:
+def plot_coord(img: np.ndarray,
+               coord: np.ndarray,
+               fsize: int = 6, **kwargs) -> None:
     """
     Plots coordinates (colored according to atom class)
     """
+    cmap_ = kwargs.get("cmap", "RdYlGn")
     y, x, c = coord.T
     plt.figure(figsize=(fsize, fsize))
-    plt.imshow(img, cmap='gray')
-    plt.scatter(x, y, c=c, cmap='RdYlGn', s=8)
+    plt.imshow(img, cmap='gray', origin='lower')
+    plt.scatter(x, y, c=c, cmap=cmap_, s=8)
     plt.show()
 
 
 def draw_boxes(imgdata: np.ndarray, defcoord: np.ndarray,
                bbox: int = 16, fsize: int = 6) -> None:
     """
-    Draws boxes cetered around the extracted dedects
+    Draws boxes centered around the extracted dedects
     """
     _, ax = plt.subplots(1, 1, figsize=(fsize, fsize))
     ax.imshow(imgdata, cmap='gray')
@@ -285,7 +288,7 @@ def animation_from_png(png_dir: str, moviename: str = 'anim',
     """
     Create animation from saved png files
     """
-    import os, imageio, shutil
+    import imageio, shutil
     images = []
     if ".ipynb_checkpoints" in os.listdir(png_dir):
         shutil.rmtree(os.path.join(png_dir, ".ipynb_checkpoints"))

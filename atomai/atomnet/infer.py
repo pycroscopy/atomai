@@ -8,15 +8,17 @@ Module for making predictions with trained fully convolutional neural networks
 Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 """
 
+import copy
 import time
+import warnings
 from typing import Dict, List, Tuple, Type, Union
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from atomai.utils import (Hook, cluster_coord, cv_thresh, find_com,
-                          img_pad, img_resize, mock_forward,
-                          peak_refinement, torch_format)
+from atomai.utils import (Hook, cluster_coord, cv_thresh, find_com, img_pad,
+                          img_resize, mock_forward, peak_refinement,
+                          set_train_rng, torch_format)
 
 
 class predictor:
@@ -71,13 +73,7 @@ class predictor:
         Initializes predictive object
         """
         if seed:
-            torch.manual_seed(seed)
-            np.random.seed(seed)
-            if use_gpu and torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.manual_seed_all(seed)
-                torch.backends.cudnn.deterministic = True
-                torch.backends.cudnn.benchmark = False
+            set_train_rng(seed)
         model = trained_model
         self.nb_classes = kwargs.get('nb_classes', None)
         if self.nb_classes is None:
@@ -109,7 +105,12 @@ class predictor:
         Prepares an input for a neural network
         """
         if image_data.ndim == 2:
-            image_data = np.expand_dims(image_data, axis=0)
+            image_data = image_data[np.newaxis, ...]
+        elif image_data.ndim == 4:
+            if image_data.shape[-1] == 1:
+                image_data = image_data[..., 0]
+            elif image_data.shape[1] == 1:
+                image_data = image_data[:, 0, ...]
         if self.resize is not None:
             image_data = img_resize(image_data, self.resize)
         image_data = img_pad(image_data, self.downsampling)
@@ -145,6 +146,7 @@ class predictor:
 
     def decode(self,
                image_data: np.ndarray,
+               return_image: bool = False,
                **kwargs: int) -> Tuple[np.ndarray]:
         """
         Make prediction
@@ -152,8 +154,13 @@ class predictor:
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
+            return_image (bool):
+                Returns images used as input into NN
             **num_batches: number of batches
         """
+        warn_msg = ("The default output of predictor.decode() and predictor.run() " +
+                    "is now ```nn_output, coords``` instead of ```nn_input, (nn_output, coords)```")
+        warnings.warn(warn_msg, UserWarning)
         image_data = self.preprocess(image_data)
         n, _, w, h = image_data.shape
         num_batches = kwargs.get("num_batches")
@@ -176,8 +183,10 @@ class predictor:
         if len(images_i) > 0:
             decoded_i = self.predict(images_i)
             decoded_imgs[(i+1)*batch_size:] = decoded_i
-        images_data = image_data.permute(0, 2, 3, 1).numpy()
-        return images_data, decoded_imgs
+        if return_image:
+            image_data = image_data.permute(0, 2, 3, 1).numpy()
+            return image_data, decoded_imgs
+        return decoded_imgs
 
     def run(self,
             image_data: np.ndarray,
@@ -191,7 +200,8 @@ class predictor:
             **num_batches: number of batches (Default: 10)
         """
         start_time = time.time()
-        images, decoded_imgs = self.decode(image_data, **kwargs)
+        images, decoded_imgs = self.decode(
+            image_data, return_image=True, **kwargs)
         loc = locator(self.thresh, refine=self.refine, d=self.d)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
@@ -200,7 +210,7 @@ class predictor:
                   + n_images_str + "decoded in approximately "
                   + str(np.around(time.time() - start_time, decimals=4))
                   + ' seconds')
-        return images, (decoded_imgs, coordinates)
+        return decoded_imgs, coordinates
 
 
 class locator:
@@ -227,7 +237,9 @@ class locator:
                  dist_edge: int = 5,
                  dim_order: str = 'channel_last',
                  **kwargs: Union[bool, float]) -> None:
-
+        """
+        Initialize locator parameters
+        """
         self.dim_order = dim_order
         self.threshold = threshold
         self.dist_edge = dist_edge
@@ -241,7 +253,7 @@ class locator:
         if nn_output.shape[-1] == 1:  # Add background class for 1-channel data
             nn_output_b = 1 - nn_output
             nn_output = np.concatenate(
-                (nn_output[:, :, :, None], nn_output_b[:, :, :, None]), axis=3)
+                (nn_output, nn_output_b), axis=3)
         if self.dim_order == 'channel_first':  # make channel dim the last dim
             nn_output = np.transpose(nn_output, (0, 2, 3, 1))
         elif self.dim_order == 'channel_last':
@@ -292,12 +304,12 @@ class locator:
             return d_coord_r
         return d_coord
 
-    def rem_edge_coord(self, coordinates: np.ndarray, w: int, h: int) -> np.ndarray:
+    def rem_edge_coord(self, coordinates: np.ndarray, h: int, w: int) -> np.ndarray:
         """
         Removes coordinates at the image edges
         """
 
-        def coord_edges(coordinates, w, h):
+        def coord_edges(coordinates, h, w):
             return [coordinates[0] > h - self.dist_edge,
                     coordinates[0] < self.dist_edge,
                     coordinates[1] > w - self.dist_edge,
@@ -305,7 +317,7 @@ class locator:
 
         coord_to_rem = [
                         idx for idx, c in enumerate(coordinates)
-                        if any(coord_edges(c, w, h))
+                        if any(coord_edges(c, h, w))
                         ]
         coord_to_rem = np.array(coord_to_rem, dtype=int)
         coordinates = np.delete(coordinates, coord_to_rem, axis=0)
@@ -341,7 +353,7 @@ class ensemble_predictor:
         self.use_gpu = torch.cuda.is_available()
 
         self.ensemble = ensemble
-        self.predictive_model = predictive_model
+        self.predictive_model = copy.deepcopy(predictive_model)
 
         self.num_classes = kwargs.get("num_classes")
         if self.num_classes is None:
@@ -360,6 +372,19 @@ class ensemble_predictor:
             self.eps = kwargs.get("eps", 0.5)
             self.thresh = kwargs.get("threshold", 0.5)
 
+    def preprocess_data(self, imgdata: np.ndarray):
+        """
+        Basic preprocessing of input images
+        """
+        if np.ndim(imgdata) == 2:
+            imgdata = np.expand_dims(imgdata, axis=0)
+        if imgdata.ndim == 4 and imgdata.shape[-1] == 1:
+            imgdata = imgdata[..., 0]
+        elif imgdata.ndim == 4 and imgdata.shape[1] == 1:
+            imgdata = imgdata[:, 0, ...]
+        imgdata = img_pad(imgdata, self.downsample_factor)
+        return imgdata
+
     def predict(self,
                 x_new: np.ndarray
                 ) -> Tuple[Tuple[np.ndarray, np.ndarray],
@@ -370,14 +395,14 @@ class ensemble_predictor:
         Args:
             x_new (numpy array): batch of images
         """
-        x_new = img_pad(x_new, self.downsample_factor)
+        x_new = self.preprocess_data(x_new)
         batch_dim, img_h, img_w = x_new.shape
         nn_output_ensemble = np.zeros((
             len(self.ensemble), batch_dim, img_h, img_w, self.num_classes))
         for i, w in self.ensemble.items():
             self.predictive_model.load_state_dict(w)
             self.predictive_model.eval()
-            _, nn_output = predictor(
+            nn_output = predictor(
                 self.predictive_model,
                 nb_classes=self.num_classes,
                 downsampling=self.downsample_factor,
@@ -405,9 +430,7 @@ class ensemble_predictor:
             **num_batches (int): number of batches
                 (for large datasets to make sure everything fits into memory)
         """
-        if np.ndim(imgdata) == 2:
-            imgdata = np.expand_dims(imgdata, axis=0)
-        imgdata = img_pad(imgdata, self.downsample_factor)
+        imgdata = self.preprocess_data(imgdata)
         num_batches = kwargs.get("num_batches", 10)
         batch_size = len(imgdata) // num_batches
         if batch_size < 1:

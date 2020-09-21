@@ -8,7 +8,7 @@ for model training and prediction and generation of stack of subimages
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
-from typing import Tuple, Optional, Dict, Union, List
+from typing import Tuple, Optional, Dict, Union, List, Type
 from collections import OrderedDict
 import warnings
 import numpy as np
@@ -143,16 +143,63 @@ def preprocess_training_data(images_all: input_data_types,
             num_classes)
 
 
+def init_torch_dataloaders(X_train: Union[List, np.ndarray],
+                           y_train: Union[List, np.ndarray],
+                           X_test: Union[List, np.ndarray],
+                           y_test: Union[List, np.ndarray],
+                           batch_size: int, num_classes: int
+                           ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+    """
+    Returns train and test dataloaders in a native PyTorch format
+    """
+    if not (type(X_train) == type(y_train) ==
+            type(X_test) == type(y_test)):
+        raise AssertionError(
+            "Provide all training and test data in the same format")
+    if isinstance(X_train, list):
+        tor = lambda x: torch.from_numpy(np.concatenate(x))
+        X_train, y_train = tor(X_train).float(), tor(y_train)
+        X_test, y_test = tor(X_test).float(), tor(y_test)
+    if num_classes > 1:
+        y_train = y_train.long()
+        y_test = y_test.long()
+    else:
+        y_train = y_train.float()
+        y_test = y_test.float()
+    if torch.cuda.is_available():
+        X_train = X_train.cuda()
+        y_train = y_train.cuda()
+        X_test = X_test.cuda()
+        y_test = y_test.cuda()
+    train_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(X_train, y_train),
+        batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(X_test, y_test),
+        batch_size=batch_size)
+    return train_loader, test_loader
+
+
 def torch_format(image_data: np.ndarray) -> torch.Tensor:
     """
-    Reshapes, normalizes and converts image data
+    Reshapes (if needed), normalizes and converts image data
     to pytorch format for model training and prediction
 
     Args:
-        image_data (3D numpy array):
+        image_data (3D or 4D numpy array):
             Image stack with dimensions (n_batches x height x width)
+            or (n_batches x 1 x height x width)
     """
-    image_data = np.expand_dims(image_data, axis=1)
+    if image_data.ndim not in [3, 4]:
+        raise AssertionError(
+            "Provide image(s) as 3D (n, h, w) or 4D (n, 1, h, w) tensor")
+    if np.ndim(image_data) == 3:
+        image_data = np.expand_dims(image_data, axis=1)
+    elif np.ndim(image_data) == 4 and image_data.shape[1] != 1:
+        raise AssertionError(
+            "4D image tensor must have (n, 1, h, w) dimensions")
+    else:
+        pass
     image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
     image_data = torch.from_numpy(image_data).float()
     return image_data
