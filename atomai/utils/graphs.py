@@ -68,11 +68,18 @@ def plot_graph(G: Type[nx.Graph],
 
     """
     Plots graph overlayed on the original image (raw or NN/VAE output)
+
+    Args:
+        G (networkx object): Graph object
+        img (numpy array): 2D image (used to construct graph)
+        fsize (int or tuple): figure size
+        show_labels (bool): display node labels (e.g. C_1, C_13)
+        **kwargs: additional plotting parameters
     """
     fsize = fsize if isinstance(fsize, tuple) else (fsize, fsize)
     plt.figure(figsize=fsize)
     pos = nx.get_node_attributes(G, 'pos')
-    plt.imshow(img, origin="lower", cmap=kwargs.get("cmap", "gnuplot2")
+    plt.imshow(img, origin="lower", cmap=kwargs.get("cmap", "gnuplot2"))
     nx.draw_networkx_nodes(
         G, pos=pos, nodelist=G.nodes(),
         node_size=kwargs.get("node_size", 30),
