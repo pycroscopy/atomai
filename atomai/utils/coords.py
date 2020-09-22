@@ -64,8 +64,21 @@ def get_nn_distances_(coordinates: np.ndarray, nn: int = 2,
     return d[:, 1:], coordinates[nn]
 
 
+def imcoordgrid(im_dim: Tuple) -> torch.Tensor:
+    """
+    Returns a grid with pixel coordinates (used e.g. in rVAE)
+    """
+    xx = torch.linspace(-1, 1, im_dim[0])
+    yy = torch.linspace(1, -1, im_dim[1])
+    x0, x1 = torch.meshgrid(xx, yy)
+    x_coord = torch.stack(
+        [x0.T.flatten(), x1.T.flatten()], axis=1)
+    return x_coord
+
+
 def transform_coordinates(coord: Union[np.ndarray, torch.Tensor],
-                          phi: float, coord_dx: Union[np.ndarray, torch.Tensor]
+                          phi: float,
+                          coord_dx: Union[np.ndarray, torch.Tensor, int] = 0,
                           ) -> torch.Tensor:
     """
     Pytorch-based 2D rotation of coordinates followed by translation.
