@@ -143,14 +143,15 @@ def preprocess_training_data(images_all: input_data_types,
             num_classes)
 
 
-def init_torch_dataloaders(X_train: Union[List, np.ndarray],
-                           y_train: Union[List, np.ndarray],
-                           X_test: Union[List, np.ndarray],
-                           y_test: Union[List, np.ndarray],
-                           batch_size: int, num_classes: int
-                           ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+def init_fcnn_dataloaders(X_train: Union[List, np.ndarray],
+                          y_train: Union[List, np.ndarray],
+                          X_test: Union[List, np.ndarray],
+                          y_test: Union[List, np.ndarray],
+                          batch_size: int, num_classes: int
+                          ) -> Tuple[Type[torch.utils.data.DataLoader]]:
     """
-    Returns train and test dataloaders in a native PyTorch format
+    Returns train and test dataloaders for images and labels
+    in a native PyTorch format
     """
     if not (type(X_train) == type(y_train) ==
             type(X_test) == type(y_test)):
@@ -178,6 +179,30 @@ def init_torch_dataloaders(X_train: Union[List, np.ndarray],
         torch.utils.data.TensorDataset(X_test, y_test),
         batch_size=batch_size)
     return train_loader, test_loader
+
+
+def init_vae_dataloaders(X_train: Union[List, np.ndarray],
+                         X_test: Union[List, np.ndarray],
+                         batch_size: int
+                          ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+    """
+    Returns train and test dataloaders for training images
+    in a native PyTorch format
+    """
+    X_train = torch.from_numpy(X_train).float()
+    X_test = torch.from_numpy(X_test).float()
+
+    if torch.cuda.is_available():
+        X_train = X_train.cuda()
+        X_test = X_test.cuda()
+
+    data_train = torch.utils.data.TensorDataset(X_train)
+    data_test = torch.utils.data.TensorDataset(X_test)
+    train_iterator = torch.utils.data.DataLoader(
+        data_train, batch_size=batch_size, shuffle=True)
+    test_iterator = torch.utils.data.DataLoader(
+        data_test, batch_size=batch_size)
+    return train_iterator, test_iterator
 
 
 def torch_format(image_data: np.ndarray) -> torch.Tensor:
