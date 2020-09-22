@@ -22,7 +22,7 @@ from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (gpu_usage_map, plot_losses, set_train_rng,
                           preprocess_training_data, sample_weights,
-                          average_weights, init_torch_dataloaders)
+                          average_weights, init_fcnn_dataloaders)
 from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
@@ -173,7 +173,7 @@ class trainer:
                                 X_train, y_train,
                                 X_test, y_test, self.batch_size)
         if self.full_epoch:
-            self.train_loader, self.test_loader = init_torch_dataloaders(
+            self.train_loader, self.test_loader = init_fcnn_dataloaders(
                 self.X_train, self.y_train, self.X_test, self.y_test,
                 self.batch_size, self.num_classes)
 
@@ -267,14 +267,16 @@ class trainer:
                 'nb_filters': nb_filters,
                 'layers': layers,
                 'nb_classes': self.num_classes,
-                'weights': self.net.state_dict()
+                'weights': self.net.state_dict(),
+                'optimizer': self.optimizer
             }
             if "with_dilation" in locals():
                 self.meta_state_dict["with_dilation"] = with_dilation
         else:
             self.meta_state_dict = {
                 'nb_classes': self.num_classes,
-                'weights': self.net.state_dict()
+                'weights': self.net.state_dict(),
+                'optimizer': self.optimizer
             }
 
     def dataloader(self, batch_num: int, mode: str = 'train') -> Tuple[torch.Tensor]:
@@ -465,7 +467,7 @@ class trainer:
             if e == 0 or (e+1) % self.print_loss == 0:
                 self.print_statistics(e)
         # Save final model weights
-        self.save_model()
+        self.save_model(self.filename + "_metadict_final")
         if not self.full_epoch:
             self.eval_model()
         if self.swa:
@@ -483,7 +485,7 @@ class trainer:
         except IndexError:
             filename = self.filename
         torch.save(self.meta_state_dict,
-                   filename + '_metadict_final_weights.tar')
+                   filename + '.tar')
 
     def print_statistics(self, e: int) -> None:
         """

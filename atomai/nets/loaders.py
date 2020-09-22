@@ -35,10 +35,10 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
     if "with_dilation" in meta_dict.keys():
         (model_type, batchnorm, dropout, upsampling,
          nb_filters, layers, nb_classes, checkpoint,
-         with_dilation) = meta_dict.values()
+         _, with_dilation) = meta_dict.values()
     else:
         (model_type, batchnorm, dropout, upsampling,
-         nb_filters, layers, nb_classes, checkpoint) = meta_dict.values()
+         nb_filters, layers, nb_classes, checkpoint, _) = meta_dict.values()
     if model_type == 'dilUnet':
         model = dilUnet(
             nb_classes, nb_filters, dropout,
@@ -75,11 +75,11 @@ def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int
         meta_dict = torch.load(meta_state_dict, map_location='cpu')
     if "with_dilation" in meta_dict.keys():
         (model_type, batchnorm, dropout, upsampling,
-         nb_filters, layers, nb_classes, checkpoint,
+         nb_filters, layers, nb_classes, checkpoint, _,
          with_dilation) = meta_dict.values()
     else:
         (model_type, batchnorm, dropout, upsampling,
-         nb_filters, layers, nb_classes, checkpoint) = meta_dict.values()
+         nb_filters, layers, nb_classes, checkpoint, _) = meta_dict.values()
     if model_type == 'dilUnet':
         model = dilUnet(
             nb_classes, nb_filters, dropout,

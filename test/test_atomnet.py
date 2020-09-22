@@ -126,3 +126,15 @@ def test_atomfind(weights_, nb_classes, coord_expected):
     model_ = load_weights(nets.dilUnet(nb_classes), weights_)
     _, coordinates_ = atomnet.predictor(model_).run(test_img_)
     assert_allclose(coordinates_[0], coordinates_expected)
+
+
+def test_io():
+    X_train, y_train, X_test, y_test = gen_dummy_data(1)
+    m1 = atomnet.trainer(
+        X_train, y_train, X_test, y_test,
+        training_cycles=5, batch_size=4)
+    m1.run()
+    m1.save_model("my_model")
+    m2 = nets.load_model("my_model.tar")
+    for p1, p2 in zip(m1.net.parameters(), m2.parameters()):
+        assert_allclose(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
