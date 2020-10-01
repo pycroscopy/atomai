@@ -217,6 +217,7 @@ class BaseVAE:
             x_coord = x_coord.expand(z_sample.size(0), *x_coord.size())
             if torch.cuda.is_available():
                 x_coord = x_coord.cuda()
+        z_sample = z_sample.cuda() if torch.cuda.is_available() else z_sample
         if y is not None:
             if isinstance(y, int):
                 y = torch.tensor(y)
@@ -224,9 +225,7 @@ class BaseVAE:
                 y = torch.from_numpy(y)
             if y.dim() == 0:
                 y = y.unsqueeze(0)
-            y = y.cuda() if torch.cuda.is_available() else y
-            z_sample = z_sample.cuda() if torch.cuda.is_available() else z_sample
-            
+            y = y.cuda() if torch.cuda.is_available() else y            
             targets = to_onehot(y, self.num_classes)
             z_sample = torch.cat((z_sample, targets), dim=-1)
         if torch.cuda.is_available():
