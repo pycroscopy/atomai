@@ -72,7 +72,7 @@ class BaseVAE:
         numlayers_d = kwargs.get("numlayers_decoder", 2)
         numhidden_e = kwargs.get("numhidden_encoder", 128)
         numhidden_d = kwargs.get("numhidden_decoder", 128)
-        self.num_classes = kwargs.get("num_classes")
+        self.num_classes = kwargs.get("num_classes", 0)
         skip = kwargs.get("skip", False)
         if not coord:
             self.decoder_net = DecoderNet(
