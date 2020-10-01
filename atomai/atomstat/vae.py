@@ -402,6 +402,10 @@ class BaseVAE:
             **origin (str): plot origin (e.g. 'lower')
         """
         y = kwargs.get("label")
+        if y is None and self.num_classes != 0:
+            y = 0
+        elif y and self.num_classes == 0:
+            y = None
         l1, l2 = kwargs.get("l1"), kwargs.get("l2")
         d = kwargs.get("d", 9)
         cmap = kwargs.get("cmap", "gnuplot")
