@@ -209,7 +209,8 @@ class DecoderNet(nn.Module):
                  num_layers: int,
                  hidden_dim: int,
                  out_dim: Tuple[int],
-                 mlp: bool = False,) -> None:
+                 mlp: bool = False,
+                 num_classes: int = 0) -> None:
         """
         Initializes network parameters
         """
@@ -226,7 +227,7 @@ class DecoderNet(nn.Module):
         else:
             decoder = []
             for i in range(num_layers):
-                hidden_dim_ = latent_dim if i == 0 else hidden_dim
+                hidden_dim_ = latent_dim + num_classes if i == 0 else hidden_dim
                 decoder.extend([nn.Linear(hidden_dim_, hidden_dim), nn.Tanh()])
             self.decoder = nn.Sequential(*decoder)
             self.out = nn.Linear(hidden_dim, np.product(out_dim))

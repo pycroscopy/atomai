@@ -181,23 +181,36 @@ def init_fcnn_dataloaders(X_train: Union[List, np.ndarray],
     return train_loader, test_loader
 
 
-def init_vae_dataloaders(X_train: Union[List, np.ndarray],
-                         X_test: Union[List, np.ndarray],
-                         batch_size: int
-                          ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+def init_vae_dataloaders(X_train: np.ndarray,
+                         X_test: np.ndarray,
+                         y_train: Optional[np.ndarray] = None,
+                         y_test: Optional[np.ndarray] = None,
+                         batch_size: int = 100,
+                         ) -> Tuple[Type[torch.utils.data.DataLoader]]:
     """
     Returns train and test dataloaders for training images
     in a native PyTorch format
     """
+    labels_ = y_train is not None and y_test is not None
     X_train = torch.from_numpy(X_train).float()
     X_test = torch.from_numpy(X_test).float()
+    if labels_:
+        y_train = torch.from_numpy(y_train)
+        y_test = torch.from_numpy(y_test)
 
     if torch.cuda.is_available():
         X_train = X_train.cuda()
         X_test = X_test.cuda()
+    if labels_:
+        y_train = y_train.cuda()
+        y_test = y_test.cuda()
 
-    data_train = torch.utils.data.TensorDataset(X_train)
-    data_test = torch.utils.data.TensorDataset(X_test)
+    if labels_:
+        data_train = torch.utils.data.TensorDataset(X_train, y_train)
+        data_test = torch.utils.data.TensorDataset(X_test, y_test)
+    else:
+        data_train = torch.utils.data.TensorDataset(X_train)
+        data_test = torch.utils.data.TensorDataset(X_test)
     train_iterator = torch.utils.data.DataLoader(
         data_train, batch_size=batch_size, shuffle=True)
     test_iterator = torch.utils.data.DataLoader(
