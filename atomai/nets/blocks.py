@@ -13,12 +13,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class conv2dblock(nn.Module):
+class convblock(nn.Module):
     """
     Creates block of layers each consisting of convolution operation,
     leaky relu and (optionally) dropout and batch normalization
 
     Args:
+        ndim (int):
+            Data dimensionality (1D or 2D)
         nb_layers (int):
             Number of layers in the block
         input_channels (int):
@@ -39,7 +41,7 @@ class conv2dblock(nn.Module):
         dropout_ (float):
             Dropout value for each layer in the block
     """
-    def __init__(self, nb_layers: int, input_channels: int,
+    def __init__(self, ndim: int, nb_layers: int, input_channels: int,
                  output_channels: int, kernel_size: int = 3,
                  stride: int = 1, padding: int = 1,
                  use_batchnorm: bool = False, lrelu_a: float = 0.01,
@@ -47,20 +49,26 @@ class conv2dblock(nn.Module):
         """
         Initializes module parameters
         """
-        super(conv2dblock, self).__init__()
+        super(convblock, self).__init__()
+        if not 0 < ndim < 3:
+            raise AssertionError("ndim must be equal to 1 or 2")
+        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
         block = []
         for idx in range(nb_layers):
             input_channels = output_channels if idx > 0 else input_channels
-            block.append(nn.Conv2d(input_channels,
-                                   output_channels,
-                                   kernel_size=kernel_size,
-                                   stride=stride,
-                                   padding=padding))
+            block.append(conv(input_channels,
+                         output_channels,
+                         kernel_size=kernel_size,
+                         stride=stride,
+                         padding=padding))
             if dropout_ > 0:
                 block.append(nn.Dropout(dropout_))
             block.append(nn.LeakyReLU(negative_slope=lrelu_a))
             if use_batchnorm:
-                block.append(nn.BatchNorm2d(output_channels))
+                if ndim == 2:
+                    block.append(nn.BatchNorm2d(output_channels))
+                else:
+                    block.append(nn.BatchNorm1d(output_channels))
         self.block = nn.Sequential(*block)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -78,6 +86,8 @@ class upsample_block(nn.Module):
     (the latter can be used to reduce a number of feature channels)
 
     Args:
+        ndim (int):
+            Data dimensionality (1D or 2D)
         input_channels (int):
             Number of input channels for the block
         output_channels (int):
@@ -88,6 +98,7 @@ class upsample_block(nn.Module):
             Upsampling mode. Select between "bilinear" and "nearest"
     """
     def __init__(self,
+                 ndim: int,
                  input_channels: int,
                  output_channels: int,
                  scale_factor: int = 2,
@@ -99,9 +110,12 @@ class upsample_block(nn.Module):
         if not any([mode == 'bilinear', mode == 'nearest']):
             raise NotImplementedError(
                 "use 'bilinear' or 'nearest' for upsampling mode")
+        if not 0 < ndim < 3:
+            raise AssertionError("ndim must be equal to 1 or 2")
+        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
         self.scale_factor = scale_factor
-        self.mode = mode
-        self.conv = nn.Conv2d(
+        self.mode = mode if ndim == 2 else "nearest"
+        self.conv = conv(
             input_channels, output_channels,
             kernel_size=1, stride=1, padding=0)
 
@@ -120,6 +134,8 @@ class dilated_block(nn.Module):
     layers (aka atrous convolutions)
 
     Args:
+        ndim (int):
+            Data dimensionality (1D or 2D)
         input_channels (int):
             Number of input channels for the block
         output_channels (int):
@@ -143,9 +159,8 @@ class dilated_block(nn.Module):
             for each layer in the block
         dropout_ (float):
             Dropout value for each layer in the block
-
     """
-    def __init__(self, input_channels: int, output_channels: int,
+    def __init__(self, ndim: int, input_channels: int, output_channels: int,
                  dilation_values: List[int], padding_values: List[int],
                  kernel_size: int = 3, stride: int = 1, lrelu_a: float = 0.01,
                  use_batchnorm: bool = False, dropout_: float = 0) -> None:
@@ -153,21 +168,27 @@ class dilated_block(nn.Module):
         Initializes module parameters
         """
         super(dilated_block, self).__init__()
+        if not 0 < ndim < 3:
+            raise AssertionError("ndim must be equal to 1 or 2")
+        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
         atrous_module = []
         for idx, (dil, pad) in enumerate(zip(dilation_values, padding_values)):
             input_channels = output_channels if idx > 0 else input_channels
-            atrous_module.append(nn.Conv2d(input_channels,
-                                           output_channels,
-                                           kernel_size=kernel_size,
-                                           stride=stride,
-                                           padding=pad,
-                                           dilation=dil,
-                                           bias=True))
+            atrous_module.append(conv(input_channels,
+                                      output_channels,
+                                      kernel_size=kernel_size,
+                                      stride=stride,
+                                      padding=pad,
+                                      dilation=dil,
+                                      bias=True))
             if dropout_ > 0:
                 atrous_module.append(nn.Dropout(dropout_))
             atrous_module.append(nn.LeakyReLU(negative_slope=lrelu_a))
             if use_batchnorm:
-                atrous_module.append(nn.BatchNorm2d(output_channels))
+                if ndim == 2:
+                    atrous_module.append(nn.BatchNorm2d(output_channels))
+                else:
+                    atrous_module.append(nn.BatchNorm1d(output_channels))
         self.atrous_module = nn.Sequential(*atrous_module)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

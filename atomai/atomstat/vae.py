@@ -8,7 +8,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import os
-from typing import Dict, List, Tuple, Type, Union
+from typing import Dict, List, Tuple, Type, Union, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -72,10 +72,12 @@ class BaseVAE:
         numlayers_d = kwargs.get("numlayers_decoder", 2)
         numhidden_e = kwargs.get("numhidden_encoder", 128)
         numhidden_d = kwargs.get("numhidden_decoder", 128)
+        self.num_classes = kwargs.get("num_classes", 0)
         skip = kwargs.get("skip", False)
         if not coord:
             self.decoder_net = DecoderNet(
-                latent_dim, numlayers_d, numhidden_d, self.im_dim, mlp_d)
+                latent_dim, numlayers_d, numhidden_d,
+                self.im_dim, mlp_d, self.num_classes)
         else:
             self.decoder_net = rDecoderNet(
                 latent_dim, numlayers_d, numhidden_d, self.im_dim,
@@ -98,7 +100,8 @@ class BaseVAE:
             "numlayers_decoder": numlayers_d,
             "numhidden_encoder": numhidden_e,
             "numhidden_decoder": numhidden_d,
-            "skip": skip
+            "skip": skip,
+            "num_classes": self.num_classes
         }
         if not coord:
             self.metadict["conv_decoder"] = not mlp_d
@@ -187,9 +190,11 @@ class BaseVAE:
 
         return z_mean_all, z_sd_all
 
-    def decode(self, z_sample: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+    def decode(self, z_sample: Union[np.ndarray, torch.Tensor],
+               y: Optional[Union[int, np.ndarray, torch.Tensor]] = None
+               ) -> np.ndarray:
         """
-        Takes a point in latent space and and maps it to data space
+        Takes a point in latent space and maps it to data space
         via the learned generative model
 
         Args:
@@ -212,8 +217,18 @@ class BaseVAE:
             x_coord = x_coord.expand(z_sample.size(0), *x_coord.size())
             if torch.cuda.is_available():
                 x_coord = x_coord.cuda()
+        z_sample = z_sample.cuda() if torch.cuda.is_available() else z_sample
+        if y is not None:
+            if isinstance(y, int):
+                y = torch.tensor(y)
+            elif isinstance(y, np.ndarray):
+                y = torch.from_numpy(y)
+            if y.dim() == 0:
+                y = y.unsqueeze(0)
+            y = y.cuda() if torch.cuda.is_available() else y            
+            targets = to_onehot(y, self.num_classes)
+            z_sample = torch.cat((z_sample, targets), dim=-1)
         if torch.cuda.is_available():
-            z_sample = z_sample.cuda()
             self.decoder_net.cuda()
         self.decoder_net.eval()
         with torch.no_grad():
@@ -384,7 +399,13 @@ class BaseVAE:
             l2 (list): range of 2nd latent variable
             **cmap (str): color map (Default: gnuplot)
             **draw_grid (bool): plot semi-transparent grid
+            **origin (str): plot origin (e.g. 'lower')
         """
+        y = kwargs.get("label")
+        if y is None and self.num_classes != 0:
+            y = 0
+        elif y and self.num_classes == 0:
+            y = None
         l1, l2 = kwargs.get("l1"), kwargs.get("l2")
         d = kwargs.get("d", 9)
         cmap = kwargs.get("cmap", "gnuplot")
@@ -402,14 +423,17 @@ class BaseVAE:
         for i, yi in enumerate(grid_x):
             for j, xi in enumerate(grid_y):
                 z_sample = np.array([[xi, yi]])
-                imdec = self.decode(z_sample)
+                if y is not None:
+                    imdec = self.decode(z_sample, y)
+                else:
+                    imdec = self.decode(z_sample)
                 figure[i * self.im_dim[0]: (i + 1) * self.im_dim[0],
                        j * self.im_dim[1]: (j + 1) * self.im_dim[1]] = imdec
         if figure.min() < 0:
             figure = (figure - figure.min()) / figure.ptp()
 
         fig, ax = plt.subplots(figsize=(10, 10))
-        ax.imshow(figure, cmap=cmap, origin="lower")
+        ax.imshow(figure, cmap=cmap, origin=kwargs.get("origin", "lower"))
         draw_grid = kwargs.get("draw_grid")
         if draw_grid:
             major_ticks_x = np.arange(0, d * self.im_dim[0], self.im_dim[0])
@@ -471,9 +495,14 @@ class BaseVAE:
         self.encoder_net.train()
         c = 0
         elbo_epoch = 0
-        for x, in self.train_iterator:
+        for x in self.train_iterator:
+            if len(x) == 1:
+                x = x[0]
+                y = None
+            else:
+                x, y = x
             b = x.size(0)
-            elbo = self.step(x)
+            elbo = self.step(x) if y is None else self.step(x, y)
             loss = -elbo
             loss.backward()
             self.optim.step()
@@ -492,9 +521,17 @@ class BaseVAE:
         self.encoder_net.eval()
         c = 0
         elbo_epoch_test = 0
-        for x, in self.test_iterator:
+        for x in self.test_iterator:
+            if len(x) == 1:
+                x = x[0]
+                y = None
+            else:
+                x, y = x
             b = x.size(0)
-            elbo = self.step(x, mode="eval")
+            if y is None:
+                elbo = self.step(x, mode="eval")
+            else:
+                elbo = self.step(x, y, mode="eval")
             elbo = elbo.item()
             c += b
             delta = b * (elbo - elbo_epoch_test)
@@ -576,7 +613,7 @@ class rVAE(BaseVAE):
 
         X_train, X_test = train_test_split(
             X_train, test_size=test_size, shuffle=True, random_state=seed)
-        iterators = init_vae_dataloaders(X_train, X_test, batch_size)
+        iterators = init_vae_dataloaders(X_train, X_test, batch_size=batch_size)
         self.train_iterator, self.test_iterator = iterators
 
         if torch.cuda.is_available():
@@ -611,7 +648,9 @@ class rVAE(BaseVAE):
                 (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
         else:
             px_size = np.product(self.im_dim)
-            rs = (self.im_dim[0] * self.im_dim[1], self.im_dim[-1])
+            rs = (self.im_dim[0] * self.im_dim[1],)
+            if len(self.im_dim) == 3:
+                rs = rs + (self.im_dim[-1],)
             reconstr_error = -F.binary_cross_entropy_with_logits(
                 x_reconstr.view(-1, *rs), x.view(-1, *rs)) * px_size
         kl_rot = (-phi_logsd + np.log(self.phi_prior) +
@@ -703,14 +742,15 @@ class VAE(BaseVAE):
             file name/path for saving model at the end of training
     """
     def __init__(self,
-                 X_train: np.ndarray,
+                 X_train: Union[np.ndarray, Tuple[np.ndarray]],
                  latent_dim: int = 2,
                  training_cycles: int = 300,
                  batch_size: int = 200,
                  test_size: float = 0.15,
                  seed: int = 0,
                  **kwargs: Union[int, bool]) -> None:
-        dim = X_train.shape[1:]
+        dim = X_train[0].shape[1:] if isinstance(X_train, tuple) else X_train.shape[1:]
+        kwargs["num_classes"] = len(np.unique(X_train[1])) if isinstance(X_train, tuple) else 0
         coord = 0
         super(VAE, self).__init__(dim, latent_dim, coord, seed, **kwargs)
 
@@ -719,11 +759,20 @@ class VAE(BaseVAE):
         set_train_rng(seed)
         np.random.seed(seed)
 
+        if isinstance(X_train, tuple):
+            self.num_classes = kwargs.get("num_classes")
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train[0], X_train[1], test_size=test_size,
+                shuffle=True, random_state=seed)
+            iterators = init_vae_dataloaders(
+                X_train, X_test, y_train, y_test, batch_size)
+        else:
+            X_train, X_test = train_test_split(
+                X_train, test_size=test_size, shuffle=True,
+                random_state=seed) 
+            iterators = init_vae_dataloaders(X_train, X_test, batch_size=batch_size)
         self.im_dim = X_train.shape[1:]
-        X_train, X_test = train_test_split(
-            X_train, test_size=test_size, shuffle=True, random_state=seed)
 
-        iterators = init_vae_dataloaders(X_train, X_test, batch_size)
         self.train_iterator, self.test_iterator = iterators
 
         if torch.cuda.is_available():
@@ -753,7 +802,9 @@ class VAE(BaseVAE):
                 (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1).mean()
         else:
             px_size = np.product(self.im_dim)
-            rs = (self.im_dim[0] * self.im_dim[1], self.im_dim[-1])
+            rs = (self.im_dim[0] * self.im_dim[1],)
+            if len(self.im_dim) == 3:
+                rs = rs + (self.im_dim[-1],)
             reconstr_error = -F.binary_cross_entropy_with_logits(
                 x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs)) * px_size
         kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
@@ -762,10 +813,14 @@ class VAE(BaseVAE):
 
     def step(self,
              x: torch.Tensor,
+             y: Optional[torch.Tensor] = None,
              mode: str = "train") -> torch.Tensor:
         """
         Single training/test step
         """
+        if y is not None and not hasattr(self, "num_classes"):
+            raise AssertionError(
+                "Please provide total number of classes as 'num_classes'")
         if torch.cuda.is_available():
             x = x.cuda()
         if mode == "eval":
@@ -775,6 +830,9 @@ class VAE(BaseVAE):
             z_mean, z_logsd = self.encoder_net(x)
         z_sd = torch.exp(z_logsd)
         z = self.reparameterize(z_mean, z_sd)
+        if y is not None:
+            targets = to_onehot(y, self.num_classes)
+            z = torch.cat((z, targets), -1)
 
         if mode == "eval":
             with torch.no_grad():
@@ -796,6 +854,22 @@ class VAE(BaseVAE):
                   -elbo_epoch, -elbo_epoch_test))
         self.save_model(self.savename)
         return
+
+
+def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor: # move to utils!
+    """
+    One-hot encoding of label
+    """
+    if torch.max(idx).item() >= n:
+        raise AssertionError(
+            "Labelling must start from 0 and "
+            "maximum label value must be less than total number of classes")
+    if idx.dim() == 1:
+        idx = idx.unsqueeze(1)
+    device_ = 'cuda' if torch.cuda.is_available() else 'cpu'
+    onehot = torch.zeros(idx.size(0), n, device=device_)
+    onehot.scatter_(1, idx, 1)
+    return onehot
 
 
 def load_vae_model(meta_dict: str) -> Type[BaseVAE]:
