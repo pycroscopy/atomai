@@ -613,7 +613,7 @@ class rVAE(BaseVAE):
 
         X_train, X_test = train_test_split(
             X_train, test_size=test_size, shuffle=True, random_state=seed)
-        iterators = init_vae_dataloaders(X_train, X_test, batch_size)
+        iterators = init_vae_dataloaders(X_train, X_test, batch_size=batch_size)
         self.train_iterator, self.test_iterator = iterators
 
         if torch.cuda.is_available():
@@ -770,7 +770,7 @@ class VAE(BaseVAE):
             X_train, X_test = train_test_split(
                 X_train, test_size=test_size, shuffle=True,
                 random_state=seed) 
-            iterators = init_vae_dataloaders(X_train, X_test, batch_size)
+            iterators = init_vae_dataloaders(X_train, X_test, batch_size=batch_size)
         self.im_dim = X_train.shape[1:]
 
         self.train_iterator, self.test_iterator = iterators
