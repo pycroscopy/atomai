@@ -32,7 +32,7 @@ if __name__ == "__main__":
             'scikit-learn>=0.22.1',
             'scikit-image==0.16.2',
             'opencv-python>=4.1.0,<=4.3.0',
-            'networkx>=2.5'
+            'mendeleev>=0.6.0'
         ],
         classifiers=['Programming Language :: Python',
                      'Development Status :: 3 - Alpha',
