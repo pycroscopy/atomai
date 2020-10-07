@@ -214,17 +214,17 @@ class Graph:
             goal (Node object): ending node for path
             max_depth (int): maximum search depth
         """
-        if depth < max_depth:         # start searching
-            depth += 1                  # go one layer below
-            visited.append(v)           # add this point to visited points
+        if depth < max_depth:
+            depth += 1
+            visited.append(v)
             if v == goal:
                 lp = len(self.path)
-                if depth < lp or not lp:  # current path shorter or first path found
+                if depth < lp or not lp:
                     self.path = copy(visited)
                     max_depth = depth
             else:
-                for n in v.neighborscopy: # search all neighbors
-                    if n.ingraph:           # not already searched
+                for n in v.neighborscopy:
+                    if n.ingraph:
                         n.ingraph = False
                         self.shortest_path(n, goal, max_depth, visited, depth)
                         n.ingraph = True
