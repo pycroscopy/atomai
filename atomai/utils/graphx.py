@@ -51,7 +51,7 @@ class Graph:
     Class for constructing and analyzing a graph from atomic coordinates
 
     Args:
-        coordinate (numpy array):
+        coordinates (numpy array):
             3D or 4D numpy array where the last column is atom class (0, 1, ...)
             and all the columns before last are atomic coordinates in angstroms
         map_dict (dict):
