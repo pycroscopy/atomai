@@ -9,10 +9,11 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ao4microscopy.com)
 """
 
 import itertools
-from copy import copy
+from copy import copy, deepcopy
 from typing import Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
+import networkx as nx
 from mendeleev import element
 from scipy import spatial
 
@@ -50,7 +51,7 @@ class Graph:
     Class for constructing and analyzing a graph from atomic coordinates
 
     Args:
-        coordinates (numpy array):
+        coordinate (numpy array):
             3D or 4D numpy array where the last column is atom class (0, 1, ...)
             and all the columns before last are atomic coordinates in angstroms
         map_dict (dict):
@@ -230,6 +231,38 @@ class Graph:
                         n.ingraph = True
             visited.pop()
 
+    def rings_to_nx_graph(self, ring_size: int):
+        """
+        Transform detected rings into networkx graph object
+        """
+        g_nx = nx.Graph()
+        for ring in self.rings:
+            if len(ring) not in ring_size:
+                continue
+            for v in ring:
+                g_nx.add_node(v.id, pos=tuple(v.pos))
+                for nn in v.neighbors:
+                    g_nx.add_node(nn.id, pos=tuple(nn.pos))
+                for nn in v.neighbors:
+                    g_nx.add_edge(v.id, nn.id)
+        return g_nx
+
+    def nx_graph(self):
+        """
+        Transforms the entire graph to networkx object
+        """
+        g_nx = nx.Graph()
+        d = False
+        if np.all(self.coordinates[0, 2] == self.coordinates[:, 2]):
+            d = True
+        for v in g.vertices:
+            g_nx.add_node(v.id, pos=tuple(v.pos[:2] if d else v.pos))
+            for nn in v.neighbors:
+                g_nx.add_node(nn.id, pos=tuple(v.pos[:2] if d else v.pos))
+            for nn in v.neighbors:
+                g_nx.add_edge(v.id, nn.id)
+        return g_nx
+
 
 def get_interatomic_r(atoms: Union[Tuple[str], List[str]],
                       expand: Optional[float] = None) -> float:
@@ -255,7 +288,7 @@ def get_interatomic_r(atoms: Union[Tuple[str], List[str]],
     return r12
 
 
-def find_cycles(coordinates: np.ndarray,
+def find_cycles(coordinate_data: np.ndarray,
                 cycles: Union[int, List[int]],
                 map_dict: Dict[int, str],
                 px2ang: float,
@@ -265,7 +298,7 @@ def find_cycles(coordinates: np.ndarray,
     (can be used for identifying e.g. non-hexagonal rings in graphene)
 
     Args:
-        coordinates (numpy array):
+        coordinate_data (numpy array):
             3D or 4D numpy array where the last column is atom class (0, 1, ...)
             and all the columns before last are atomic coordinates in angstroms
         cycles (list or int):
@@ -288,6 +321,7 @@ def find_cycles(coordinates: np.ndarray,
     """
     if isinstance(cycles, int):
         cycles = [cycles]
+    coordinates = deepcopy(coordinate_data)
     coordinates[:, :-1] = coordinates[:, :-1] * px2ang
     e = kwargs.get("expand", 1.2)
     G = Graph(coordinates, map_dict)
@@ -300,3 +334,65 @@ def find_cycles(coordinates: np.ndarray,
     coordinates_ = np.concatenate(coordinates_)
     coordinates_[:, :-1] = coordinates_[:, :-1] * (1 / px2ang)
     return coordinates_
+
+
+def find_cycle_clusters(coordinate_data: np.ndarray,
+                        cycles: Union[int, List[int]],
+                        map_dict: Dict[int, str],
+                        px2ang: float,
+                        **kwargs: float) -> np.ndarray:
+    """
+    Finds clusters of cycles with a specific number of elements
+    (can be used for identifying e.g. topological defects in graphene)
+    
+    Args:
+        coordinate_data (numpy array):
+            3D or 4D numpy array where the last column is atom class (0, 1, ...)
+            and all the columns before last are atomic coordinates in angstroms
+        cycles (list or int):
+            List with lengths of rings to be identified;
+            can also be a single integer
+        map_dict (dict):
+            dictionary which maps atomic classes from the NN output (keys)
+            to strings corresponding to chemical elements (values)
+        px2ang (float):
+            coefficient used to convert pixel values to angstrom values as
+            coordinates_in_angstroms = px2ang * coordiantes_in_pixels
+        **expand (float):
+                coefficient determining the maximum allowable expansion of
+                atomic bonds when constructing a graph. For example, the two
+                C atoms separated by 1.7 ang will be connected only if the
+                expansion coefficient is 1.2 or larger. The default value is 1.2
+
+    Returns
+        List of coordinates of the clusters with requested cycle types
+
+    Examples:
+
+        >>> # Dictionary for mapping classes from NN output to atomic elements
+        >>> map_dict = {0: "C", 1: "Si"}
+        >>> # conversion coefficent (pixels to angstroms)
+        >>> px2ang = 0.104
+        >>> # Identify coordinates of clusters with 5-member and 7-member rings
+        >>> coords_clusters = graphx.find_cycle_clusters(
+        >>>        coordinates, cycles=[5, 7], map_dict=map_dict, px2ang=px2ang)
+    """
+    if isinstance(cycles, int):
+        cycles = [cycles]
+    coordinates = deepcopy(coordinate_data)
+    coordinates[:, :-1] = coordinates[:, :-1] * px2ang
+    e = kwargs.get("expand", 1.2)
+    G = Graph(coordinates, map_dict)
+    G.find_neighbors(expand=e)
+    G.polycount(max_depth=max(cycles))
+    G.remove_filled_polygons()
+    g_nx = G.rings_to_nx_graph(cycles)
+    sub_graphs = list(
+        g_nx.subgraph(c).copy() for c in nx.connected_components(g_nx))
+    coordinates_filtered_all = []
+    for sg in sub_graphs:
+        atom_idx = [i for i in sg.nodes.keys()]
+        coordinates_filtered = coordinates[atom_idx]
+        coordinates_filtered = coordinates_filtered[:, :-1] * (1 / px2ang)
+        coordinates_filtered_all.append(coordinates_filtered)
+    return coordinates_filtered_all
