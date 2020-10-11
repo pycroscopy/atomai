@@ -245,6 +245,8 @@ class Graph:
                     g_nx.add_node(nn.id, pos=tuple(nn.pos))
                 for nn in v.neighbors:
                     g_nx.add_edge(v.id, nn.id)
+        nodes_to_remove = [node for node, degree in g_nx.degree() if degree < 2]
+        g_nx.remove_nodes_from(nodes_to_remove)
         return g_nx
 
     def nx_graph(self):
