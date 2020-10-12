@@ -231,7 +231,7 @@ class Graph:
                         n.ingraph = True
             visited.pop()
 
-    def rings_to_nx_graph(self, ring_size: int):
+    def rings_to_nx_graph(self, ring_size: int) -> Type[nx.Graph]:
         """
         Transform detected rings into networkx graph object
         """
@@ -249,7 +249,7 @@ class Graph:
         g_nx.remove_nodes_from(nodes_to_remove)
         return g_nx
 
-    def nx_graph(self):
+    def nx_graph(self) -> Type[nx.Graph]:
         """
         Transforms the entire graph to networkx object
         """
@@ -342,7 +342,7 @@ def find_cycle_clusters(coordinate_data: np.ndarray,
                         cycles: Union[int, List[int]],
                         map_dict: Dict[int, str],
                         px2ang: float,
-                        **kwargs: float) -> np.ndarray:
+                        **kwargs: float) -> List[np.ndarray]:
     """
     Finds clusters of cycles with a specific number of elements
     (can be used for identifying e.g. topological defects in graphene)
