@@ -109,11 +109,9 @@ class rDecoderNet(nn.Module):
         if len(out_dim) == 2:
             c = 1
             self.reshape_ = (out_dim[0], out_dim[1])
-            self.apply_softplus = True
         else:
             c = out_dim[-1]
             self.reshape_ = (out_dim[0], out_dim[1], c)
-            self.apply_softplus = False
         self.skip = skip
         self.coord_latent = coord_latent(
             latent_dim+num_classes, hidden_dim, not skip)
@@ -139,8 +137,6 @@ class rDecoderNet(nn.Module):
             h = self.fc_decoder(h)
         h = self.out(h)
         h = h.reshape(batch_dim, *self.reshape_)
-        if self.apply_softplus:
-            return F.softplus(h)
         return h
 
 
