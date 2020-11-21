@@ -81,7 +81,7 @@ class BaseVAE:
         else:
             self.decoder_net = rDecoderNet(
                 latent_dim, numlayers_d, numhidden_d, self.im_dim,
-                skip)
+                skip, self.num_classes)
         self.encoder_net = EncoderNet(
             self.im_dim, self.z_dim, numlayers_e, numhidden_e, mlp_e)
 
@@ -596,7 +596,8 @@ class rVAE(BaseVAE):
         """
         Initialize rVAE trainer
         """
-        dim = X_train.shape[1:]
+        dim = X_train[0].shape[1:] if isinstance(X_train, tuple) else X_train.shape[1:]
+        kwargs["num_classes"] = len(np.unique(X_train[1])) if isinstance(X_train, tuple) else 0
         coord = 3 if translation else 1  # xy translations and/or rotation
         super(rVAE, self).__init__(dim, latent_dim, coord, seed, **kwargs)
 
@@ -605,16 +606,27 @@ class rVAE(BaseVAE):
         set_train_rng(seed)
         np.random.seed(seed)
 
+        if isinstance(X_train, tuple):
+            self.num_classes = kwargs.get("num_classes")
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train[0], X_train[1], test_size=test_size,
+                shuffle=True, random_state=seed)
+            iterators = init_vae_dataloaders(
+                X_train, X_test, y_train, y_test, batch_size)
+        else:
+            X_train, X_test = train_test_split(
+                X_train, test_size=test_size, shuffle=True,
+                random_state=seed) 
+            iterators = init_vae_dataloaders(X_train, X_test, batch_size=batch_size)
+        self.im_dim = X_train.shape[1:]
+
+        self.train_iterator, self.test_iterator = iterators
+
         self.im_dim = X_train.shape[1:]
         self.x_coord = imcoordgrid(X_train.shape[1:])
         self.translation = translation
         if torch.cuda.is_available():
             self.x_coord = self.x_coord.cuda()
-
-        X_train, X_test = train_test_split(
-            X_train, test_size=test_size, shuffle=True, random_state=seed)
-        iterators = init_vae_dataloaders(X_train, X_test, batch_size=batch_size)
-        self.train_iterator, self.test_iterator = iterators
 
         if torch.cuda.is_available():
             self.decoder_net.cuda()
@@ -661,10 +673,15 @@ class rVAE(BaseVAE):
 
     def step(self,
              x: torch.Tensor,
+             y: Optional[torch.Tensor] = None,
              mode: str = "train") -> torch.Tensor:
         """
         Single training/test step
         """
+        if y is not None and not hasattr(self, "num_classes"):
+            raise AssertionError(
+                "Please provide total number of classes as 'num_classes'")
+
         x_coord_ = self.x_coord.expand(x.size(0), *self.x_coord.size())
         if torch.cuda.is_available():
             x = x.cuda()
@@ -683,6 +700,11 @@ class rVAE(BaseVAE):
         else:
             dx = 0  # no translation
             z = z[:, 1:]  # image content
+
+        if y is not None:
+            targets = to_onehot(y, self.num_classes)
+            z = torch.cat((z, targets), -1)
+
         x_coord_ = transform_coordinates(x_coord_, phi, dx)
         if mode == "eval":
             with torch.no_grad():
