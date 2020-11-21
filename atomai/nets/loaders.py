@@ -11,7 +11,7 @@ from typing import Type, Tuple, Dict
 
 import torch
 from .fcnn import dilnet, dilUnet
-from ..utils import average_weights
+from atomai.utils import average_weights
 
 
 def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
@@ -32,6 +32,8 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
         meta_dict = torch.load(meta_state_dict)
     else:
         meta_dict = torch.load(meta_state_dict, map_location='cpu')
+    if "optimizer" in meta_dict.keys():
+        _ = meta_dict.pop("optimizer")
     if "with_dilation" in meta_dict.keys():
         (model_type, batchnorm, dropout, upsampling,
          nb_filters, layers, nb_classes, checkpoint,
@@ -73,6 +75,8 @@ def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int
         meta_dict = torch.load(meta_state_dict)
     else:
         meta_dict = torch.load(meta_state_dict, map_location='cpu')
+    if "optimizer" in meta_dict.keys():
+        _ = meta_dict.pop("optimizer")
     if "with_dilation" in meta_dict.keys():
         (model_type, batchnorm, dropout, upsampling,
          nb_filters, layers, nb_classes, checkpoint,

@@ -4,8 +4,8 @@ ReadMe
 .. image:: https://badge.fury.io/py/atomai.svg
         :target: https://badge.fury.io/py/atomai
         :alt: PyPI version
-.. image:: https://travis-ci.com/ziatdinovmax/atomai.svg?branch=master
-        :target: https://travis-ci.com/ziatdinovmax/atomai
+.. image:: https://travis-ci.com/pycroscopy/atomai.svg?branch=master
+        :target: https://travis-ci.com/pycroscopy/atomai
         :alt: Build Status
 .. image:: https://readthedocs.org/projects/atomai/badge/?version=latest
         :target: https://atomai.readthedocs.io/en/latest/?badge=latest
@@ -19,10 +19,10 @@ ReadMe
 
 
 .. image:: https://colab.research.google.com/assets/colab-badge.svg
-        :target: https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb
+        :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb
         :alt: Colab
 .. image:: https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod
-        :target: https://gitpod.io/#https://github.com/ziatdinovmax/atomai
+        :target: https://gitpod.io/#https://github.com/pycroscopy/atomai
         :alt: Gitpod ready-to-code
 
 What is AtomAI
@@ -40,13 +40,13 @@ Quickstart: AtomAI in the Cloud
 
 The easiest way to start using AtomAI is via `Google Colab <https://colab.research.google.com/notebooks/intro.ipynb>`_
 
-1) `Train a deep fully convolutional neural network for atom finding <https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb>`_
+1) `Train a deep fully convolutional neural network for atom finding <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb>`_
 
-2) `Multivariate statistical analysis of distortion domains in a single atomic image <https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb>`_
+2) `Multivariate statistical analysis of distortion domains in a single atomic image <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb>`_
 
-3) `Variational autoenocders for analysis of structural transformations <https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_vae.ipynb>`_
+3) `Variational autoenocders for analysis of structural transformations <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb>`_
 
-4) `Prepare training data from experimental image with atomic coordinates <https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
+4) `Prepare training data from experimental image with atomic coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
 
 Model training
 ^^^^^^^^^^^^^^

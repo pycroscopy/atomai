@@ -8,7 +8,7 @@ for model training and prediction and generation of stack of subimages
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
-from typing import Tuple, Optional, Dict, Union, List
+from typing import Tuple, Optional, Dict, Union, List, Type
 from collections import OrderedDict
 import warnings
 import numpy as np
@@ -141,6 +141,81 @@ def preprocess_training_data(images_all: input_data_types,
     return (images_all, labels_all,
             images_test_all, labels_test_all,
             num_classes)
+
+
+def init_fcnn_dataloaders(X_train: Union[List, np.ndarray],
+                          y_train: Union[List, np.ndarray],
+                          X_test: Union[List, np.ndarray],
+                          y_test: Union[List, np.ndarray],
+                          batch_size: int, num_classes: int
+                          ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+    """
+    Returns train and test dataloaders for images and labels
+    in a native PyTorch format
+    """
+    if not (type(X_train) == type(y_train) ==
+            type(X_test) == type(y_test)):
+        raise AssertionError(
+            "Provide all training and test data in the same format")
+    if isinstance(X_train, list):
+        tor = lambda x: torch.from_numpy(np.concatenate(x))
+        X_train, y_train = tor(X_train).float(), tor(y_train)
+        X_test, y_test = tor(X_test).float(), tor(y_test)
+    if num_classes > 1:
+        y_train = y_train.long()
+        y_test = y_test.long()
+    else:
+        y_train = y_train.float()
+        y_test = y_test.float()
+    if torch.cuda.is_available():
+        X_train = X_train.cuda()
+        y_train = y_train.cuda()
+        X_test = X_test.cuda()
+        y_test = y_test.cuda()
+    train_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(X_train, y_train),
+        batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(X_test, y_test),
+        batch_size=batch_size)
+    return train_loader, test_loader
+
+
+def init_vae_dataloaders(X_train: np.ndarray,
+                         X_test: np.ndarray,
+                         y_train: Optional[np.ndarray] = None,
+                         y_test: Optional[np.ndarray] = None,
+                         batch_size: int = 100,
+                         ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+    """
+    Returns train and test dataloaders for training images
+    in a native PyTorch format
+    """
+    labels_ = y_train is not None and y_test is not None
+    X_train = torch.from_numpy(X_train).float()
+    X_test = torch.from_numpy(X_test).float()
+    if labels_:
+        y_train = torch.from_numpy(y_train)
+        y_test = torch.from_numpy(y_test)
+
+    if torch.cuda.is_available():
+        X_train = X_train.cuda()
+        X_test = X_test.cuda()
+    if labels_:
+        y_train = y_train.cuda()
+        y_test = y_test.cuda()
+
+    if labels_:
+        data_train = torch.utils.data.TensorDataset(X_train, y_train)
+        data_test = torch.utils.data.TensorDataset(X_test, y_test)
+    else:
+        data_train = torch.utils.data.TensorDataset(X_train)
+        data_test = torch.utils.data.TensorDataset(X_test)
+    train_iterator = torch.utils.data.DataLoader(
+        data_train, batch_size=batch_size, shuffle=True)
+    test_iterator = torch.utils.data.DataLoader(
+        data_test, batch_size=batch_size)
+    return train_iterator, test_iterator
 
 
 def torch_format(image_data: np.ndarray) -> torch.Tensor:

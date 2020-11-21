@@ -12,7 +12,7 @@ from typing import List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .blocks import conv2dblock, dilated_block, upsample_block
+from .blocks import convblock, dilated_block, upsample_block
 
 
 class dilUnet(nn.Module):
@@ -58,53 +58,53 @@ class dilUnet(nn.Module):
         dilation_values = torch.arange(2, 2*nbl[-1]+1, 2).tolist()
         padding_values = dilation_values.copy()
         dropout_vals = [.1, .2, .1] if use_dropout else [0, 0, 0]
-        self.c1 = conv2dblock(
-            nbl[0], 1, nb_filters,
+        self.c1 = convblock(
+            2, nbl[0], 1, nb_filters,
             use_batchnorm=batch_norm
         )
-        self.c2 = conv2dblock(
-            nbl[1], nb_filters, nb_filters*2,
+        self.c2 = convblock(
+            2, nbl[1], nb_filters, nb_filters*2,
             use_batchnorm=batch_norm
         )
-        self.c3 = conv2dblock(
-            nbl[2], nb_filters*2, nb_filters*4,
+        self.c3 = convblock(
+            2, nbl[2], nb_filters*2, nb_filters*4,
             use_batchnorm=batch_norm,
             dropout_=dropout_vals[0]
         )
         if with_dilation:
             self.bn = dilated_block(
-                nb_filters*4, nb_filters*8,
+                2, nb_filters*4, nb_filters*8,
                 dilation_values=dilation_values,
                 padding_values=padding_values,
                 use_batchnorm=batch_norm,
                 dropout_=dropout_vals[1]
             )
         else:
-            self.bn = conv2dblock(
-                nbl[3], nb_filters*4, nb_filters*8,
+            self.bn = convblock(
+                2, nbl[3], nb_filters*4, nb_filters*8,
                 use_batchnorm=batch_norm,
                 dropout_=dropout_vals[1]
             )
         self.upsample_block1 = upsample_block(
-            nb_filters*8, nb_filters*4,
+            2, nb_filters*8, nb_filters*4,
             mode=upsampling_mode)
-        self.c4 = conv2dblock(
-            nbl[2], nb_filters*8, nb_filters*4,
+        self.c4 = convblock(
+            2, nbl[2], nb_filters*8, nb_filters*4,
             use_batchnorm=batch_norm,
             dropout_=dropout_vals[2]
         )
         self.upsample_block2 = upsample_block(
-            nb_filters*4, nb_filters*2,
+            2, nb_filters*4, nb_filters*2,
             mode=upsampling_mode)
-        self.c5 = conv2dblock(
-            nbl[1], nb_filters*4, nb_filters*2,
+        self.c5 = convblock(
+            2, nbl[1], nb_filters*4, nb_filters*2,
             use_batchnorm=batch_norm
         )
         self.upsample_block3 = upsample_block(
-            nb_filters*2, nb_filters,
+            2, nb_filters*2, nb_filters,
             mode=upsampling_mode)
-        self.c6 = conv2dblock(
-            nbl[0], nb_filters*2, nb_filters,
+        self.c6 = convblock(
+            2, nbl[0], nb_filters*2, nb_filters,
             use_batchnorm=batch_norm
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
@@ -178,30 +178,30 @@ class dilnet(nn.Module):
         dilation_values_2 = torch.arange(2, 2*nbl[2]+1, 2).tolist()
         padding_values_2 = dilation_values_2.copy()
         dropout_vals = [.3, .3] if use_dropout else [0, 0]
-        self.c1 = conv2dblock(
-                    nbl[0], 1, nb_filters,
+        self.c1 = convblock(
+                    2, nbl[0], 1, nb_filters,
                     use_batchnorm=batch_norm
         )
         self.at1 = dilated_block(
-                    nb_filters, nb_filters*2,
+                    2, nb_filters, nb_filters*2,
                     dilation_values=dilation_values_1,
                     padding_values=padding_values_1,
                     use_batchnorm=batch_norm,
                     dropout_=dropout_vals[0]
         )
         self.at2 = dilated_block(
-                    nb_filters*2, nb_filters*2,
+                    2, nb_filters*2, nb_filters*2,
                     dilation_values=dilation_values_2,
                     padding_values=padding_values_2,
                     use_batchnorm=batch_norm,
                     dropout_=dropout_vals[1]
         )
         self.up1 = upsample_block(
-                    nb_filters*2, nb_filters,
+                    2, nb_filters*2, nb_filters,
                     mode=upsampling_mode
         )
-        self.c2 = conv2dblock(
-                    nbl[3], nb_filters*2, nb_filters,
+        self.c2 = convblock(
+                    2, nbl[3], nb_filters*2, nb_filters,
                     use_batchnorm=batch_norm
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)

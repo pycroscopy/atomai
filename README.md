@@ -1,12 +1,12 @@
 [![PyPI version](https://badge.fury.io/py/atomai.svg)](https://badge.fury.io/py/atomai)
-[![Build Status](https://travis-ci.com/ziatdinovmax/atomai.svg?branch=master)](https://travis-ci.com/ziatdinovmax/atomai)
+[![Build Status](https://travis-ci.com/pycroscopy/atomai.svg?branch=master)](https://travis-ci.com/pycroscopy/atomai)
 [![Documentation Status](https://readthedocs.org/projects/atomai/badge/?version=latest)](https://atomai.readthedocs.io/en/latest/?badge=latest)
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/8fa8829627f040dda46e2dc30e48aca1)](https://app.codacy.com/manual/ziatdinovmax/atomai?utm_source=github.com&utm_medium=referral&utm_content=ziatdinovmax/atomai&utm_campaign=Badge_Grade_Dashboard)
 [![Downloads](https://pepy.tech/badge/atomai/month)](https://pepy.tech/project/atomai/month)
 
-[![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/ziatdinovmax/atomai)
+[![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/pycroscopy/atomai)
 
 # AtomAI
 
@@ -16,51 +16,49 @@ AtomAI is a simple Python package for machine learning-based analysis of experim
 
 ## How to use it
 
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which also takes  a single line of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
+AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data. The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
 
 ### Quickstart: AtomAI in the Cloud
 
 The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
 
-1) [Train a deep fully convolutional neural network for atom finding](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+1) [Train a deep fully convolutional neural network for atom finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
 
-2) [Multivariate statistical analysis of distortion domains in a single atomic image](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+2) [Multivariate statistical analysis of distortion domains in a single atomic image](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
 
-3) [Variational autoencoders for analysis of structural transformations](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+3) [Variational autoencoders for analysis of structural transformations](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
 
-4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ### Model training
-Below is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
+Below is an example of how one can train a neural network for atom/particle/defect finding with essentially one line of code:
 
 ```python
 from atomai import atomnet
 
-# Here you load your training data
+# Load your training/test data (as numpy arrays or lists of numpy arrays)
 dataset = np.load('training_data.npz')
-images_all = dataset['X_train']
-labels_all = dataset['y_train']
-images_test_all = dataset['X_test']
-labels_test_all = dataset['y_test']
+images_all, labels_all, images_test_all, labels_test_all = dataset.values()
 
 # Train a model
 trained_model = atomnet.train_single_model(
-    images_all, labels_all, images_test_all, labels_test_all,
+    images_all, labels_all, images_test_all, labels_test_all,  # train and test data
     gauss_noise=True, zoom=True,  # on-the-fly data augmentation
-    training_cycles=500)  
+    training_cycles=500, swa=True)  # train for 500 iterations with stochastic weights averaging at the end  
 ```
 
 One can also train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel.
 
 ```python
 # Initialize ensemble trainer
-trainer = atomnet.ensemble_trainer(images_all, labels_all, images_test_all, labels_test_all,
-                                   rotation=True, zoom=True, contrast=True, # On-the fly data augmentation
-                                   gauss=True, blur=True, background=True, # On-the fly data augmentation
-                                   n_models=12, model="dilUnet", training_cycles_base=1000,
-                                   training_cycles_ensemble=100, filename='ensemble')
-# train deep ensemble of models
-basemodel, ensemble, ensemble_aver = trainer.run()
+etrainer = atomnet.ensemble_trainer(
+    images_all, labels_all, images_test_all, labels_test_all,
+    rotation=True, zoom=True, gauss_noise=True, # On-the fly data augmentation
+    strategy="from_baseline", swa=True, n_models=30, model="dilUnet",
+    training_cycles_base=1000, training_cycles_ensemble=100)
+    
+# Train deep ensemble of models
+ensemble, amodel = etrainer.run()
 ```
 
 ### Prediction with trained model(s)
@@ -69,21 +67,21 @@ Trained model is used to find atoms/particles/defects in the previously unseen (
 
 ```python
 # Here we load new experimental data (as 2D or 3D numpy array)
-expdata = np.load('expdata-test.npy')
+expdata = np.load('expdata.npy')
 
-# Initialize oredictive object (can be reused for other datasets)
+# Initialize predictive object (can be reused for other datasets)
 spredictor = atomnet.predictor(trained_model, use_gpu=True, refine=False)
 # Get model's "raw" prediction, atomic coordinates and classes
-nn_input, (nn_output, coord_class) = spredictor.run(expdata)
+nn_output, coord_class = spredictor.run(expdata)
 ```
 
 One can also make a prediction with uncertainty estimates using the ensemble of models:
 ```python
-epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
+epredictor = atomnet.ensemble_predictor(amodel, ensemble, calculate_coordinates=True, eps=0.5)
 (out_mu, out_var), (coord_mu, coord_var) = epredictor.run(expdata)
 ```
 
-(Note: The deep ensemble-based prediction of mean and variance of coordinates uses DBSCAN method to arrange predictions from different models into clusters and the result is quite sensitive to the value of ```eps``` (passed as ```**kwargs```, default value is 0.5). In some cases, it may be better/easier to simply run ```atomnet.locator(*args, *kwargs).run(out_mu)``` (thresholding followed by finding blob centers) on the "raw" mean prediction of the ensemble)
+(Note: In some cases, it may be easier to get coordinates by simply running ```atomnet.locator(*args, *kwargs).run(out_mu)``` on the mean "raw" prediction of the ensemble)
 
 ### Statistical analysis
 
