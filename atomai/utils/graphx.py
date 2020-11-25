@@ -404,9 +404,9 @@ def find_cycle_clusters(coordinate_data: np.ndarray,
 
 
 def plot_graph(G: Type[nx.Graph],
-               img: np.ndarray,
+               img: Optional[np.ndarray] = None,
                fsize: Union[int, Tuple[int, int]] = 8,
-               show_labels: bool = True,
+               show_labels: bool = False,
                **kwargs: Union[int, str, float]) -> None:
 
     """
@@ -414,28 +414,37 @@ def plot_graph(G: Type[nx.Graph],
 
     Args:
         G (networkx object): Graph object
-        img (numpy array): 2D image (used to construct graph)
+        img (numpy array): 2D image (used to find coordinates for constructing graph)
         fsize (int or tuple): figure size
-        show_labels (bool): display node labels (e.g. C_1, C_13)
+        show_labels (bool): display node labels (e.g. '1', '13' or 'C', 'Si')
         **kwargs: additional plotting parameters
+            (node_size, node_color, edge_color, label_size, label_color, cmap, alpha)
     """
     fsize = fsize if isinstance(fsize, tuple) else (fsize, fsize)
-    plt.figure(figsize=fsize)
-    if not isinstance(G, nx.Graph):
-        raise TypeError("Pass graph as NetworkX graph object (e.g. using G.nx_graph())")
+    _, ax = plt.subplots(1, 1, figsize=fsize)
+    if isinstance(G, Graph):
+        G = G.nx_graph()
+    for k, v in nx.get_node_attributes(G, 'pos').items():
+        G.nodes[k]['pos'] = v[::-1]
     pos = nx.get_node_attributes(G, 'pos')
-    plt.imshow(img, origin="lower", cmap=kwargs.get("cmap", "gnuplot2"))
+    if img is not None:
+        ax.imshow(img, origin="lower", cmap=kwargs.get("cmap", "gray"))
     nx.draw_networkx_nodes(
-        G, pos=pos, nodelist=G.nodes(),
+        G, pos=pos, nodelist=G.nodes(), ax=ax,
         node_size=kwargs.get("node_size", 30),
         node_color=kwargs.get("node_color", "#1f78b4"),
         alpha=kwargs.get("alpha", None))
     nx.draw_networkx_edges(
-        G, pos, width=1,
+        G, pos, width=1, ax=ax,
         edge_color=kwargs.get("edge_color", "orange"),
         alpha=kwargs.get("alpha", None))
     if show_labels:
-        nx.draw_networkx_labels(G, pos, font_size=14, font_color='black')
+        atomic_labels = None
+        if kwargs.get("show_elements"):
+            atomic_labels = nx.get_node_attributes(G, 'atom')
+        nx.draw_networkx_labels(G, pos, labels=atomic_labels, ax=ax,
+                                font_size=kwargs.get("label_size", 7),
+                                font_color= kwargs.get("label_color", "black"))
     plt.show()
 
 
