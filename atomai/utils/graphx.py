@@ -241,7 +241,7 @@ class Graph:
             if len(ring) not in ring_size:
                 continue
             for v in ring:
-                g_nx.add_node(v.id, pos=tuple(v.pos))
+                g_nx.add_node(v.id, pos=tuple(v.pos), atom=v.atom)
                 for nn in v.neighbors:
                     g_nx.add_node(nn.id, pos=tuple(nn.pos), atom=nn.atom)
                 for nn in v.neighbors:
@@ -259,10 +259,11 @@ class Graph:
         if np.all(self.coordinates[0, 2] == self.coordinates[:, 2]):
             d = True
         for v in self.vertices:
-            g_nx.add_node(v.id, pos=tuple(v.pos[:2] if d else v.pos))
+            g_nx.add_node(
+                v.id, pos=tuple(v.pos[:2] if d else v.pos), atom=v.atom)
             for nn in v.neighbors:
                 g_nx.add_node(
-                    nn.id, pos=tuple(v.pos[:2] if d else v.pos), atom=nn.atom)
+                    nn.id, pos=tuple(nn.pos[:2] if d else nn.pos), atom=nn.atom)
             for nn in v.neighbors:
                 g_nx.add_edge(v.id, nn.id)
         return g_nx
