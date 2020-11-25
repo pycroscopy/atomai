@@ -243,7 +243,7 @@ class Graph:
             for v in ring:
                 g_nx.add_node(v.id, pos=tuple(v.pos))
                 for nn in v.neighbors:
-                    g_nx.add_node(nn.id, pos=tuple(nn.pos))
+                    g_nx.add_node(nn.id, pos=tuple(nn.pos), atom=nn.atom)
                 for nn in v.neighbors:
                     g_nx.add_edge(v.id, nn.id)
         nodes_to_remove = [node for node, degree in g_nx.degree() if degree < 2]
@@ -261,7 +261,8 @@ class Graph:
         for v in self.vertices:
             g_nx.add_node(v.id, pos=tuple(v.pos[:2] if d else v.pos))
             for nn in v.neighbors:
-                g_nx.add_node(nn.id, pos=tuple(v.pos[:2] if d else v.pos))
+                g_nx.add_node(
+                    nn.id, pos=tuple(v.pos[:2] if d else v.pos), atom=nn.atom)
             for nn in v.neighbors:
                 g_nx.add_edge(v.id, nn.id)
         return g_nx
@@ -470,14 +471,15 @@ def filter_subgraphs_(coordinate_arr: np.ndarray,
     G.find_neighbors(expand=e)
     G_nx = G.nx_graph()
     map_dict_inv = {v: k for (k, v) in map_dict.items()}
-    sub_graphs = list(G.subgraph(c).copy() for c in nx.connected_components(G_nx))
+    sub_graphs = list(G_nx.subgraph(c).copy() for c in nx.connected_components(G_nx))
     i = np.argmax([len(sg) for sg in sub_graphs])
     main_graph = sub_graphs[i]
     pos = nx.get_node_attributes(main_graph, 'pos')
+    names = nx.get_node_attributes(main_graph, 'atom')
     coordinates_filtered = []
-    for k, c in pos.items():
-        cls = map_dict_inv[k.split('_')[0]]
-        c_arr = np.array([c[1], c[0], cls]).reshape(1, -1)
+    for n, c in zip(names.values(), pos.values()):
+        cls = map_dict_inv[n]
+        c_arr = np.array([c[0]/px2ang, c[1]/px2ang, cls]).reshape(1, -1)
         coordinates_filtered.append(c_arr)
     coordinates_filtered = np.concatenate(coordinates_filtered)
 
