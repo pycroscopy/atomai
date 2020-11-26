@@ -906,8 +906,10 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
             )
         s = imlocal(nn_input, coordinates_, window_size, coord_class)
         _, _, com_frames = s.gmm(n_components, plot_results=True)
-        for i in range(len(coordinates_)):
+        for i in coordinates_.keys():
             coordinates_[i] = com_frames[com_frames[:, -1] == float(i)][:, :3]
+        for i in coordinates_.keys():
+            coordinates_[i][:, -1] = coordinates_[i][:, -1] - 1
     else:
         raise NotImplementedError(
             "Choose between 'threshold', 'kmeans', 'meanshift' and 'gmm_local' methods")

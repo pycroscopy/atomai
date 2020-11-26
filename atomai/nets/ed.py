@@ -100,7 +100,8 @@ class rDecoderNet(nn.Module):
                  num_layers: int,
                  hidden_dim: int,
                  out_dim: Tuple[int],
-                 skip: bool = False) -> None:
+                 skip: bool = False,
+                 num_classes: int = 0) -> None:
         """
         Initializes network parameters
         """
@@ -108,13 +109,12 @@ class rDecoderNet(nn.Module):
         if len(out_dim) == 2:
             c = 1
             self.reshape_ = (out_dim[0], out_dim[1])
-            self.apply_softplus = True
         else:
             c = out_dim[-1]
             self.reshape_ = (out_dim[0], out_dim[1], c)
-            self.apply_softplus = False
         self.skip = skip
-        self.coord_latent = coord_latent(latent_dim, hidden_dim, not skip)
+        self.coord_latent = coord_latent(
+            latent_dim+num_classes, hidden_dim, not skip)
         fc_decoder = []
         for i in range(num_layers):
             fc_decoder.extend([nn.Linear(hidden_dim, hidden_dim), nn.Tanh()])
@@ -137,8 +137,6 @@ class rDecoderNet(nn.Module):
             h = self.fc_decoder(h)
         h = self.out(h)
         h = h.reshape(batch_dim, *self.reshape_)
-        if self.apply_softplus:
-            return F.softplus(h)
         return h
 
 
