@@ -170,11 +170,19 @@ def mock_forward(model: Type[torch.nn.Module],
     """
     Passes a dummy variable throuh a network
     """
-    x = torch.randn(1, dims[0], dims[1], dims[2])
+
+    x = torch.randn(1, *dims)
     if next(model.parameters()).is_cuda:
         x = x.cuda()
     out = model(x)
     return out
+
+
+def dummy_optimizer() -> Type[torch.optim.Optimizer]:
+    """
+    Returns initialized "dummy" optimizer
+    """
+    return torch.optim.Optimizer([torch.zeros(1)], dict())
 
 
 def nb_filters_classes(weights_path: str) -> Tuple[int]:

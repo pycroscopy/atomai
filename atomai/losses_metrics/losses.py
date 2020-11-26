@@ -86,3 +86,23 @@ class dice_loss(torch.nn.Module):
         cardinality = torch.sum(probas + true_1_hot, dims)
         dice_loss = (2. * intersection / (cardinality + self.eps)).mean()
         return (1 - dice_loss)
+
+
+def select_seg_loss(loss, num_classes):
+    """
+    Selects loss for a semantic segmentation model training
+    """
+    if loss == 'dice':
+        criterion = dice_loss()
+    elif loss == 'focal':
+        criterion = focal_loss()
+    elif loss == 'ce' and num_classes == 1:
+        criterion = torch.nn.BCEWithLogitsLoss()
+    elif loss == 'ce' and num_classes > 2:
+        criterion = torch.nn.CrossEntropyLoss()
+    else:
+        raise NotImplementedError(
+            "Select Dice loss ('dice'), focal loss ('focal') or"
+            " cross-entropy loss ('ce')"
+        )
+    return criterion

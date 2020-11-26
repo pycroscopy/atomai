@@ -21,7 +21,7 @@ from atomai import losses_metrics
 from atomai.nets import dilnet, dilUnet
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (gpu_usage_map, plot_losses, set_train_rng,
-                          preprocess_training_data, sample_weights,
+                          preprocess_training_image_data, sample_weights,
                           average_weights, init_fcnn_dataloaders)
 from sklearn.model_selection import train_test_split
 

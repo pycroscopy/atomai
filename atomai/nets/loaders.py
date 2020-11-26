@@ -35,20 +35,19 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
     if "optimizer" in meta_dict.keys():
         _ = meta_dict.pop("optimizer")
     if "with_dilation" in meta_dict.keys():
-        (model_type, batchnorm, dropout, upsampling,
-         nb_filters, layers, nb_classes, checkpoint,
-         with_dilation) = meta_dict.values()
+        (model_type, num_classes, batchnorm, dropout, upsampling,
+         with_dilation, nb_filters, layers, checkpoint) = meta_dict.values()
     else:
-        (model_type, batchnorm, dropout, upsampling,
-         nb_filters, layers, nb_classes, checkpoint) = meta_dict.values()
+        (model_type, num_classes, batchnorm, dropout, upsampling,
+         nb_filters, layers, checkpoint) = meta_dict.values()
     if model_type == 'dilUnet':
         model = dilUnet(
-            nb_classes, nb_filters, dropout,
+            num_classes, nb_filters, dropout,
             batchnorm, upsampling, with_dilation,
             layers=layers)
     elif model_type == 'dilnet':
         model = dilnet(
-            nb_classes, nb_filters, dropout,
+            num_classes, nb_filters, dropout,
             batchnorm, upsampling, layers=layers)
     else:
         raise NotImplementedError(
@@ -78,20 +77,19 @@ def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int
     if "optimizer" in meta_dict.keys():
         _ = meta_dict.pop("optimizer")
     if "with_dilation" in meta_dict.keys():
-        (model_type, batchnorm, dropout, upsampling,
-         nb_filters, layers, nb_classes, checkpoint,
-         with_dilation) = meta_dict.values()
+        (model_type, num_classes, batchnorm, dropout, upsampling,
+         with_dilation, nb_filters, layers, checkpoint) = meta_dict.values()
     else:
-        (model_type, batchnorm, dropout, upsampling,
-         nb_filters, layers, nb_classes, checkpoint) = meta_dict.values()
+        (model_type, num_classes, batchnorm, dropout, upsampling,
+         nb_filters, layers, checkpoint) = meta_dict.values()
     if model_type == 'dilUnet':
         model = dilUnet(
-            nb_classes, nb_filters, dropout,
+            num_classes, nb_filters, dropout,
             batchnorm, upsampling, with_dilation,
             layers=layers)
     elif model_type == 'dilnet':
         model = dilnet(
-            nb_classes, nb_filters, dropout,
+            num_classes, nb_filters, dropout,
             batchnorm, upsampling, layers=layers)
     else:
         raise NotImplementedError(

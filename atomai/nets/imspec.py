@@ -23,7 +23,7 @@ class signal_encoder(nn.Module):
     """
     def __init__(self, signal_dim: Tuple[int],
                  z_dim: int, nb_layers: int, nb_filters: int,
-                 ) -> None:
+                 **kwargs: int) -> None:
         """
         Initialize NN parameters
         """
@@ -33,17 +33,28 @@ class signal_encoder(nn.Module):
         if not 0 < len(signal_dim) < 3:
             raise AssertionError("signal dimensionality must be to 1D or 2D")
         ndim = 2 if len(signal_dim) == 2 else 1
+        self.downsample = kwargs.get("downsampling", 0)
+        bn = kwargs.get('use_batchnorm', True)
+        if self.downsample:
+            signal_dim = [s // self.downsample for s in signal_dim]
         n = np.product(signal_dim)
         self.reshape_ = nb_filters * n
         self.conv = convblock(
             ndim, nb_layers, 1, nb_filters,
-            lrelu_a=0.1, use_batchnorm=True)
+            lrelu_a=0.1, use_batchnorm=bn)
         self.fc = nn.Linear(nb_filters * n, z_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Embeddes the input signal into a latent vector
         """
+        if self.downsample:
+            if x.ndim == 3:
+                x = F.avg_pool1d(
+                    x, self.downsample, self.downsample)
+            else:
+                x = F.avg_pool2d(
+                    x, self.downsample, self.downsample)
         x = self.conv(x)
         x = x.reshape(-1, self.reshape_)
         return self.fc(x)
@@ -60,6 +71,7 @@ class signal_decoder(nn.Module):
         """
         super(signal_decoder, self).__init__()
         self.upsampling = kwargs.get("upsampling", False)
+        bn = kwargs.get('use_batchnorm', True)
         if isinstance(signal_dim, int):
             signal_dim = (signal_dim,)
         if not 0 < len(signal_dim) < 3:
@@ -73,18 +85,18 @@ class signal_decoder(nn.Module):
         if self.upsampling:
             self.deconv1 = convblock(
                 ndim, 1, nb_filters, nb_filters,
-                lrelu_a=0.1, use_batchnorm=True)
+                lrelu_a=0.1, use_batchnorm=bn)
             self.deconv2 = convblock(
                 ndim, 1, nb_filters, nb_filters,
-                lrelu_a=0.1, use_batchnorm=True)
+                lrelu_a=0.1, use_batchnorm=bn)
         self.dilblock = dilated_block(
             ndim, nb_filters, nb_filters,
             dilation_values=torch.arange(1, nb_layers + 1).tolist(),
             padding_values=torch.arange(1, nb_layers + 1).tolist(),
-            lrelu_a=0.1, use_batchnorm=True)
+            lrelu_a=0.1, use_batchnorm=bn)
         self.conv = convblock(
             ndim, 1, nb_filters, 1,
-            lrelu_a=0.1, use_batchnorm=True)
+            lrelu_a=0.1, use_batchnorm=bn)
         if ndim == 2:
             self.out = nn.Conv2d(1, 1, 1)
         else:
@@ -112,36 +124,65 @@ class signal_ed(nn.Module):
     """
     def __init__(self, feature_dim: Tuple[int],
                  target_dim: Tuple[int], latent_dim: int,
-                 *args: Type[nn.Module], **kwargs: Union[int, bool]
-                 ) -> None:
+                 nblayers_encoder: int = 2, nblayers_decoder: int = 2,
+                 nbfilters_encoder: int = 64, nbfilters_decoder: int = 2,
+                 use_batchnorm: bool = True, encoder_downsampling: int = 0,
+                 decoder_upsampling: bool = False) -> None:
         """
         Initializes im2spec/spec2im parameters
         """
         super(signal_ed, self).__init__()
-        numlayers_e = kwargs.get("numlayers_encoder", 2)
-        numlayers_d = kwargs.get("numlayers_decoder", 2)
-        numfilters_e = kwargs.get("numhidden_encoder", 64)
-        numfilters_d = kwargs.get("numhidden_decoder", 64)
-        self.signal_encoder = signal_encoder(
-            feature_dim, latent_dim, numlayers_e, numfilters_e)
-        self.signal_decoder = signal_decoder(
-            target_dim, latent_dim, numlayers_d, numfilters_d, **kwargs)
+        self.encoder = signal_encoder(
+            feature_dim, latent_dim, nblayers_encoder, nbfilters_encoder,
+            use_batchnorm=use_batchnorm, downsampling=encoder_downsampling)
+        self.decoder = signal_decoder(
+            target_dim, latent_dim, nblayers_decoder, nbfilters_decoder,
+            use_batchnorm=use_batchnorm, upsampling=decoder_upsampling)
 
-    def encode_signal(self, features: torch.Tensor) -> torch.Tensor:
+    def encode(self, features: torch.Tensor) -> torch.Tensor:
         """
         Embeddes the input image into a latent vector
         """
-        return self.signal_encoder(features)
+        return self.encoder(features)
 
-    def decode_signal(self, latent: torch.Tensor) -> torch.Tensor:
+    def decode(self, latent: torch.Tensor) -> torch.Tensor:
         """
         Generates signal from the embedded features
         """
-        return self.signal_decoder(latent)
+        return self.decoder(latent)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass
         """
-        x = self.encode_signal(x)
-        return self.decode_signal(x)
+        x = self.encode(x)
+        return self.decode(x)
+
+
+def init_imspec_model(in_dim, out_dim, latent_dim, **kwargs):
+    """
+    """
+    nblayers_encoder = kwargs.get("nblayers_encoder", 3)
+    nblayers_decoder = kwargs.get("nblayers_decoder", 4)
+    nbfilters_encoder = kwargs.get("nbfilters_encoder", 64)
+    nbfilters_decoder = kwargs.get("nbfilters_decoder", 64)
+    batchnorm = kwargs.get("use_batchnorm", True)
+    encoder_downsampling = kwargs.get("encoder_downsampling", 0)
+    decoder_upsampling = kwargs.get("decoder_upsampling", False)
+    net = signal_ed(
+        in_dim, out_dim, latent_dim, nblayers_encoder, nblayers_decoder,
+        nbfilters_encoder, nbfilters_decoder, batchnorm, encoder_downsampling,
+        decoder_upsampling)
+    meta_state_dict = {
+        "in_dim": in_dim,
+        "out_dim": out_dim,
+        "latent_dim": latent_dim,
+        "nblayers_encoder": nblayers_encoder,
+        "nblayers_decoder": nblayers_decoder,
+        "nbfilters_encoder": nbfilters_encoder,
+        "nbfilters_decoder": nbfilters_decoder,
+        "batchnorm": batchnorm,
+        "encoder_downsampling": encoder_downsampling,
+        "decoder_upsampling": decoder_upsampling
+    }
+    return net, meta_state_dict

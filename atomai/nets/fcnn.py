@@ -7,7 +7,7 @@ Fully convolutional neural networks
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
-from typing import List
+from typing import List, Union, Type
 
 import torch
 import torch.nn as nn
@@ -219,3 +219,50 @@ class dilnet(nn.Module):
         u1 = self.c2(u1)
         px = self.px(u1)
         return px
+
+
+def init_fcnn_model(model: Union[Type[nn.Module], str],
+                    num_classes: int, **kwargs: [bool, int, List]
+                    ) -> Type[nn.Module]:
+    """
+    Initializes a fully convolutional neural network
+    """
+    if not isinstance(model, str) and hasattr(model, "state_dict"):
+        meta_state_dict = {
+            'model_type': 'custom', 'num_classes': num_classes}
+        return model, meta_state_dict
+    use_batchnorm = kwargs.get('use_batchnorm', True)
+    use_dropouts = kwargs.get('use_dropouts', False)
+    upsampling = kwargs.get('upsampling', "bilinear")
+    meta_state_dict = {
+                'model_type': model,
+                'num_classes': num_classes,
+                'batchnorm': use_batchnorm,
+                'dropout': use_dropouts,
+                'upsampling': upsampling,
+            }
+    if isinstance(model, str) and model == 'dilUnet':
+        with_dilation = kwargs.get('with_dilation', True)
+        nb_filters = kwargs.get('nb_filters', 16)
+        layers = kwargs.get("layers", [1, 2, 2, 3])
+        net = dilUnet(
+            num_classes, nb_filters, use_dropouts,
+            use_batchnorm, upsampling, with_dilation,
+            layers=layers
+        )
+        meta_state_dict["with_dilation"] = with_dilation
+    elif isinstance(model, str) and model == 'dilnet':
+        nb_filters = kwargs.get('nb_filters', 25)
+        layers = kwargs.get("layers", [1, 3, 3, 3])
+        net = dilnet(
+            num_classes, nb_filters,
+            use_dropouts, use_batchnorm, upsampling,
+            layers=layers
+        )
+    else:
+        raise NotImplementedError(
+            "Currently implemented models are 'dilUnet' and 'dilnet'"
+        )
+    meta_state_dict["nb_filters"] = nb_filters
+    meta_state_dict["layers"] = layers
+    return net, meta_state_dict
