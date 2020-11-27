@@ -286,7 +286,7 @@ def init_vae_dataloaders(X_train: np.ndarray,
     return train_iterator, test_iterator
 
 
-def torch_format(image_data: np.ndarray) -> torch.Tensor:
+def torch_format_image(image_data: np.ndarray) -> torch.Tensor:
     """
     Reshapes (if needed), normalizes and converts image data
     to pytorch format for model training and prediction
@@ -309,3 +309,43 @@ def torch_format(image_data: np.ndarray) -> torch.Tensor:
     image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
     image_data = torch.from_numpy(image_data).float()
     return image_data
+
+
+def torch_format_spectra(spectra: np.ndarray) -> torch.Tensor:
+    """
+    Reshapes (if needed), normalizes and converts image data
+    to pytorch format for model training and prediction
+
+    Args:
+        image_data (3D or 4D numpy array):
+            Image stack with dimensions (n_batches x height x width)
+            or (n_batches x 1 x height x width)
+    """
+    if spectra.ndim not in [2, 3]:
+        raise AssertionError(
+            "Provide spectrum(s) as 2D (n, length) or 3D (n, 1, length) tensor")
+    if np.ndim(spectra) == 2:
+        spectra = np.expand_dims(spectra, axis=1)
+    elif np.ndim(spectra) == 3 and spectra.shape[1] != 1:
+        raise AssertionError(
+            "3D spectra tensor must have (n, 1, length) dimensions")
+    else:
+        pass
+    spectra = (spectra - np.amin(spectra))/np.ptp(spectra)
+    spectra = torch.from_numpy(spectra).float()
+    return spectra
+
+
+def torch_format(image_data: np.ndarray) -> torch.Tensor:
+    """
+    Reshapes (if needed), normalizes and converts image data
+    to pytorch format for model training and prediction
+
+    Args:
+        image_data (3D or 4D numpy array):
+            Image stack with dimensions (n_batches x height x width)
+            or (n_batches x 1 x height x width)
+    """
+    warnings.warn("torch_format is deprecated. Use torch_format_image instead",
+                  UserWarning)
+    return torch_format_image(image_data)

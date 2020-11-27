@@ -169,7 +169,7 @@ class trainer:
         self.full_epoch = kwargs.get("full_epoch", False)
         (self.X_train, self.y_train,
          self.X_test, self.y_test,
-         self.num_classes) = preprocess_training_data(
+         self.num_classes) = preprocess_training_image_data(
                                 X_train, y_train,
                                 X_test, y_test, self.batch_size)
         if self.full_epoch:
