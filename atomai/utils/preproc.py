@@ -127,7 +127,7 @@ def check_signal_dims(X_train: np.ndarray,
     return X_train, y_train, X_test, y_test
 
 
-def ndarray2list(X_train: np.ndarray, y_train: np.ndarray,
+def array2list(X_train: np.ndarray, y_train: np.ndarray,
                  X_test: np.ndarray, y_test: np.ndarray,
                  batch_size: int) -> Tuple[List[np.ndarray]]:
     """
@@ -186,7 +186,7 @@ def preprocess_training_image_data(images_all: np.ndarray,
     num_classes = num_classes_from_labels(labels_all)
     (images_all, labels_all,
      images_test_all, labels_test_all) = check_image_dims(*all_data, num_classes)
-    images_all, labels_all, images_test_all, labels_test_all = ndarray2list(
+    images_all, labels_all, images_test_all, labels_test_all = array2list(
         images_all, labels_all, images_test_all, labels_test_all, batch_size)
 
     return (images_all, labels_all, images_test_all,
@@ -199,7 +199,7 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
                           y_test: np.ndarray,
                           batch_size: int,
                           num_classes: Optional[int] = None,
-                          ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+                          ) -> Tuple[Type[torch.utils.data.DataLoader], int]:
     """
     Returns two pytorch dataloaders for training and test data
     """
@@ -221,7 +221,7 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
     test_loader = torch.utils.data.DataLoader(
         torch.utils.data.TensorDataset(X_test, y_test),
         batch_size=batch_size, drop_last=True)
-    return train_loader, test_loader
+    return train_loader, test_loader, num_classes
 
 
 def init_imspec_dataloaders(X_train: np.ndarray,

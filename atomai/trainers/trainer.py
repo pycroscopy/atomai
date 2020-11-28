@@ -23,7 +23,7 @@ from atomai.nets import init_fcnn_model, init_imspec_model
 from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (average_weights, check_signal_dims, dummy_optimizer,
                           gpu_usage_map, init_fcnn_dataloaders,
-                          init_imspec_dataloaders, ndarray2list, plot_losses,
+                          init_imspec_dataloaders, array2list, plot_losses,
                           preprocess_training_image_data, set_train_rng)
 from sklearn.model_selection import train_test_split
 
@@ -39,21 +39,117 @@ class BaseTrainer:
         """
         Initializes trainer parameters
         """
+        set_train_rng(1)
         self.net = torch.nn.Module()
-        self.criterion = torch.nn.Module()
-        self.optimizer = dummy_optimizer()
+        self.criterion = None
+        self.optimizer = None
         self.compute_accuracy = False
-        self.full_epoch = False
+        self.full_epoch = True
         self.swa = False
+        self.perturb_weights = False
         self.running_weights = {}
         self.training_cycles = 0
         self.batch_idx_train, self.batch_idx_test = [], []
+        self.batch_size = 1
+        self.nb_classes = None
+        self.X_train, self.y_train = None, None
+        self.X_test, self.y_test = None, None
         self.train_loader = torch.utils.data.TensorDataset()
         self.test_loader = torch.utils.data.TensorDataset()
+        self.augdict = None
         self.filename = "model"
+        self.print_loss = 1
         self.meta_state_dict = dict()
         self.loss_acc = {"train_loss": [], "test_loss": [],
                          "train_accuracy": [], "test_accuracy": []}
+
+    def set_model(self,
+                  model: Type[torch.nn.Module],
+                  nb_classes: int = None) -> None:
+        self.net = model
+        self.nb_classes = nb_classes
+
+    def set_optimizer(self,
+                      optimizer: Optional[Type[torch.optim.Optimizer]] = None
+                      ) -> None:
+        if optimizer is None:
+            self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
+        else:
+            self.optimizer = optimizer
+    
+    def set_data(self,
+                 X_train: torch.Tensor,
+                 y_train: torch.Tensor,
+                 X_test: torch.Tensor,
+                 y_test: torch.Tensor,
+                 batch_size: int = 32) -> None:
+
+        for x in [X_train, y_train, X_test, y_test]:
+            if not isinstance(x, torch.Tensor):
+                raise TypeError("Training data must be torch tensors")
+
+        if self.full_epoch:
+            self.train_loader = torch.utils.data.DataLoader(
+                torch.utils.data.TensorDataset(X_train, y_train),
+                batch_size=batch_size, shuffle=True, drop_last=True)
+            self.test_loader = torch.utils.data.DataLoader(
+                torch.utils.data.TensorDataset(X_test, y_test),
+                batch_size=batch_size, drop_last=True)
+        else:
+            (self.X_train, self.y_train,
+             self.X_test, self.y_test) = array2list(
+                X_train, y_train, X_test, y_test, batch_size)
+
+    def loss_fn(self, loss: str = 'mse', nb_classes: int = None) -> None:
+        return losses_metrics.select_seg_loss(loss, nb_classes)
+
+    def compile_trainer(self,
+                        train_data: Tuple[np.ndarray],
+                        loss: str = 'ce',
+                        optimizer: Type[torch.optim.Optimizer] = None,
+                        training_cycles: int = 1000,
+                        batch_size: int = 32,
+                        compute_accuracy: bool = False,
+                        full_epoch: bool = True,
+                        swa: bool = False,
+                        perturb_weights: bool = False,
+                        **kwargs):
+        """
+        Compile model for training
+        """
+        self.full_epoch = full_epoch
+        self.training_cycles = training_cycles
+        self.compute_accuracy = compute_accuracy
+        self.swa = swa
+        self.set_data(*train_data, batch_size)
+
+        self.perturb_weights = perturb_weights
+        if self.perturb_weights:
+            if self.meta_state_dict["batchnorm"]:
+                raise AssertionError(
+                    "To use time-dependent weights perturbation, " +
+                    "turn off the batch normalization layes")
+            if isinstance(self.perturb_weights, bool):
+                e_p = 1 if self.full_epoch else 50
+                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
+
+        self.set_optimizer(optimizer)
+        self.criterion = self.loss_fn(loss, self.nb_classes)
+
+        if not self.full_epoch:
+            self.batch_idx_train = np.random.randint(
+                0, len(self.X_train), self.training_cycles)
+            self.batch_idx_test = np.random.randint(
+                0, len(self.X_test), self.training_cycles)
+
+        self.print_loss = kwargs.get("print_loss")
+        if self.print_loss is None:
+            if not self.full_epoch:
+                self.print_loss = 100
+            else:
+                self.print_loss = 1
+        self.filename = kwargs.get("filename", "./model")
+        self.plot_training_history = kwargs.get("plot_training_history", True)
 
     def train_step(self, feat: torch.Tensor, tar: torch.Tensor) -> Tuple[float]:
         """
@@ -216,12 +312,21 @@ class BaseTrainer:
         """
         pass
 
-    def dataloader(self):
+    def dataloader(self, batch_num: int,
+                   mode: str = 'train') -> Tuple[torch.Tensor]:
         """
         Generates input training data with images/spectra
         and the associated labels (spectra/images)
         """
-        pass
+        if mode == 'test':
+            features = self.X_test[batch_num][:self.batch_size]
+            targets = self.y_test[batch_num][:self.batch_size]
+        else:
+            features = self.X_train[batch_num][:self.batch_size]
+            targets = self.y_train[batch_num][:self.batch_size]
+        if torch.cuda.is_available():
+            features, targets = features.cuda(), targets.cuda()
+        return features, targets
 
     def weight_perturbation(self, e: int) -> None:
         raise NotImplementedError
@@ -238,6 +343,38 @@ class BaseTrainer:
                 state_dict_[k] = copy.deepcopy(v).cpu()
             self.running_weights[i_] = state_dict_
         return
+
+    def fit(self, **kwargs) -> Type[torch.nn.Module]:
+        """
+        Trains a neural network, prints the statistics,
+        saves the final model weights.
+        """
+        auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
+                   "poisson_noise", "contrast", "salt_and_pepper", "blur",
+                   "resize", "rotation", "background"]
+        self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
+
+        for e in range(self.training_cycles):
+            if self.full_epoch:
+                self.step_full()
+            else:
+                self.step(e)
+            if self.swa:
+                self.save_running_weights(e)
+            if self.perturb_weights:
+                self.weight_perturbation(e)
+            if e == 0 or (e+1) % self.print_loss == 0:
+                self.print_statistics(e, accuracy_metrics="IoU")
+        self.save_model(self.filename + "_metadict_final")
+        if not self.full_epoch:
+            self.eval_model()
+        if self.swa:
+            print("Performing stochastic weights averaging...")
+            self.net.load_state_dict(average_weights(self.running_weights))
+            self.eval_model()
+        if self.plot_training_history:
+            plot_losses(self.loss_acc["train_loss"],
+                        self.loss_acc["test_loss"])
 
 
 class SegTrainer(BaseTrainer):
@@ -343,13 +480,8 @@ class SegTrainer(BaseTrainer):
     >>> trained_model = t.run()
     """
     def __init__(self,
-                 X_train: np.ndarray,
-                 y_train: np.ndarray,
-                 X_test: Optional[np.ndarray] = None,
-                 y_test: Optional[np.ndarray] = None,
-                 training_cycles: int = 1000,
                  model: str = 'dilUnet',
-                 compute_accuracy: bool = False,
+                 nb_classes: int = 1,
                  seed: int = 1,
                  batch_seed: Optional[int] = None,
                  **kwargs: Union[int, List, str, bool]) -> None:
@@ -357,38 +489,17 @@ class SegTrainer(BaseTrainer):
         Initialize a single FCNN model trainer
         """
         super(SegTrainer, self).__init__()
+        
+        # Set random seeds and determinism
         set_train_rng(seed)
         if batch_seed is None:
             np.random.seed(seed)
         else:
             np.random.seed(batch_seed)
 
-        if X_test is None or y_test is None:
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_train, y_train, test_size=kwargs.get("test_size", .15),
-                shuffle=True, random_state=seed)
-
-        self.batch_size = kwargs.get("batch_size", 32)
-        self.full_epoch = kwargs.get("full_epoch", False)
-        (self.X_train, self.y_train,
-         self.X_test, self.y_test,
-         self.num_classes) = preprocess_training_image_data(
-                                X_train, y_train, X_test, y_test,
-                                self.batch_size)
-        if self.full_epoch:
-            self.train_loader, self.test_loader = init_fcnn_dataloaders(
-                X_train, y_train, X_test, y_test, self.batch_size)
-
-        self.swa = kwargs.get("swa", False)
-        self.perturb_weights = kwargs.get("perturb_weights", False)
-        if self.perturb_weights:
-            kwargs["use_batchnorm"] = False
-            if isinstance(self.perturb_weights, bool):
-                e_p = 1 if self.full_epoch else 50
-                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
-
+        self.nb_classes = nb_classes
         self.net, self.meta_state_dict = init_fcnn_model(
-                                model, self.num_classes, **kwargs)
+                                model, self.nb_classes, **kwargs)
         if torch.cuda.is_available():
             self.net.cuda()
         else:
@@ -396,34 +507,43 @@ class SegTrainer(BaseTrainer):
                 "No GPU found. The training can be EXTREMELY slow",
                 UserWarning
             )
-        loss = kwargs.get('loss', "ce")
-        self.criterion = losses_metrics.select_seg_loss(loss, self.num_classes)
-        if not self.full_epoch:
-            self.batch_idx_train = np.random.randint(
-                0, len(self.X_train), training_cycles)
-            self.batch_idx_test = np.random.randint(
-                0, len(self.X_test), training_cycles)
-
-            auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
-                       "poisson_noise", "contrast", "salt_and_pepper", "blur",
-                       "resize", "rotation", "background"]
-            self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
-
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
-        self.training_cycles = training_cycles
-        self.compute_accuracy = compute_accuracy
-        self.print_loss = kwargs.get("print_loss")
-        if self.print_loss is None:
-            if not self.full_epoch:
-                self.print_loss = 100
-            else:
-                self.print_loss = 1
-        self.filename = kwargs.get("filename", "./model")
-        self.plot_training_history = kwargs.get("plot_training_history", True)
+        #self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
         self.meta_state_dict["weights"] = self.net.state_dict()
         self.meta_state_dict["optimizer"] = self.optimizer
 
-    def dataloader(self, batch_num: int, mode: str = 'train') -> Tuple[torch.Tensor]:
+    def set_data(self,
+                 X_train: np.ndarray,
+                 y_train: np.ndarray,
+                 X_test: Optional[np.ndarray] = None,
+                 y_test: Optional[np.ndarray] = None,
+                 **kwargs) -> None:
+
+        if X_test is None or y_test is None:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=kwargs.get("test_size", .15),
+                shuffle=True, random_state=kwargs.get("seed", 1))
+
+        self.batch_size = kwargs.get("batch_size", 32)
+
+        if self.full_epoch:
+            loaders = init_fcnn_dataloaders(
+                X_train, y_train, X_test, y_test, self.batch_size)
+            self.train_loader, self.test_loader, nb_classes = loaders
+        else:
+            (self.X_train, self.y_train,
+             self.X_test, self.y_test,
+             nb_classes) = preprocess_training_image_data(
+                                    X_train, y_train, X_test, y_test,
+                                    self.batch_size)
+        
+        if self.nb_classes != nb_classes:
+            raise AssertionError("Number of classes in initialized model" +
+                                 " is different from the number of classes" +
+                                 " contained in training data")
+
+    def dataloader(self,
+                   batch_num: int,
+                   mode: str = 'train') -> Tuple[torch.Tensor]:
         """
         Generates 2 batches of 4D tensors (images and masks)
         """
@@ -440,10 +560,10 @@ class SegTrainer(BaseTrainer):
                 self.num_classes, "channel_first", 'channel_first',
                 True, len(self.loss_acc["train_loss"]), **self.augdict)
             images, labels = dt.run(
-                images[:, 0, ...], unsqueeze_channels(labels, self.num_classes))
+                images[:, 0, ...], unsqueeze_channels(labels, self.nb_classes))
         # Transform images and ground truth to torch tensors and move to GPU
         images = torch.from_numpy(images).float()
-        if self.num_classes == 1:
+        if self.nb_classes == 1:
             labels = torch.from_numpy(labels).float()
         else:
             labels = torch.from_numpy(labels).long()
@@ -453,7 +573,7 @@ class SegTrainer(BaseTrainer):
 
     def accuracy_fn(self, y, y_prob, *args):
         iou_score = losses_metrics.IoU(
-                y, y_prob, self.num_classes).evaluate()
+                y, y_prob, self.nb_classes).evaluate()
         return iou_score
 
     def weight_perturbation(self, e: int) -> None:
@@ -471,17 +591,38 @@ class SegTrainer(BaseTrainer):
                 self.net.state_dict()[k].copy_(v_prime)
         return
 
-    def run(self) -> Type[torch.nn.Module]:
+    '''def fit_(self,
+            X_train: np.ndarray,
+            y_train: np.ndarray,
+            X_test: Optional[np.ndarray] = None,
+            y_test: Optional[np.ndarray] = None,
+            training_cycles: int = 1000,
+            loss: str = "ce",
+            compute_accuracy: bool = False,
+            full_epoch: bool = False,
+            swa: bool = False,
+            **kwargs) -> Type[torch.nn.Module]:
         """
         Trains a neural network, prints the statistics,
         saves the final model weights.
         """
+        train_data = (X_train, y_train, X_test, y_test)
+        loss = losses_metrics.select_seg_loss(loss, self.nb_classes)
+        self.compile_trainer(
+            train_data, loss, self.optimizer, training_cycles, compute_accuracy,
+            full_epoch, swa, **kwargs)
+
+        auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
+                       "poisson_noise", "contrast", "salt_and_pepper", "blur",
+                       "resize", "rotation", "background"]
+        self.augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
+
         for e in range(self.training_cycles):
             if self.full_epoch:
                 self.step_full()
             else:
                 self.step(e)
-            if self.swa:
+            if swa:
                 self.save_running_weights(e)
             if self.perturb_weights:
                 self.weight_perturbation(e)
@@ -490,14 +631,14 @@ class SegTrainer(BaseTrainer):
         self.save_model(self.filename + "_metadict_final")
         if not self.full_epoch:
             self.eval_model()
-        if self.swa:
+        if swa:
             print("Performing stochastic weights averaging...")
             self.net.load_state_dict(average_weights(self.running_weights))
             self.eval_model()
         if self.plot_training_history:
             plot_losses(self.loss_acc["train_loss"],
                         self.loss_acc["test_loss"])
-        return self.net
+        return self.net'''
 
 
 class ImSpecTrainer(BaseTrainer):

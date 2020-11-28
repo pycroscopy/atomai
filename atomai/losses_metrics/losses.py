@@ -36,14 +36,14 @@ class focal_loss(torch.nn.Module):
         self.gamma = gamma
         self.logits = with_logits
 
-    def forward(self, images: torch.Tensor, labels: torch.Tensor):
+    def forward(self, prediction: torch.Tensor, labels: torch.Tensor):
         """
         Calculates loss
         """
         if self.logits:
-            CE_loss = F.binary_cross_entropy_with_logits(images, labels)
+            CE_loss = F.binary_cross_entropy_with_logits(prediction, labels)
         else:
-            CE_loss = F.binary_cross_entropy(images, labels)
+            CE_loss = F.binary_cross_entropy(prediction, labels)
         pt = torch.exp(-CE_loss)
         F_loss = self.alpha * (1-pt)**self.gamma * CE_loss
         return F_loss
@@ -88,21 +88,26 @@ class dice_loss(torch.nn.Module):
         return (1 - dice_loss)
 
 
-def select_seg_loss(loss, num_classes):
+def select_seg_loss(loss, nb_classes=None):
     """
     Selects loss for a semantic segmentation model training
     """
+    if loss == 'ce' and nb_classes is None:
+        raise ValueError("For cross-entropy loss function, you must" +
+                         " specify the number of classes")
     if loss == 'dice':
         criterion = dice_loss()
     elif loss == 'focal':
         criterion = focal_loss()
-    elif loss == 'ce' and num_classes == 1:
+    elif loss == 'ce' and nb_classes == 1:
         criterion = torch.nn.BCEWithLogitsLoss()
-    elif loss == 'ce' and num_classes > 2:
+    elif loss == 'ce' and nb_classes > 2:
         criterion = torch.nn.CrossEntropyLoss()
+    elif loss == 'mse':
+        criterion = torch.nn.MSELoss()
     else:
         raise NotImplementedError(
-            "Select Dice loss ('dice'), focal loss ('focal') or"
-            " cross-entropy loss ('ce')"
+            "Select Dice loss ('dice'), focal loss ('focal') "
+            " cross-entropy loss ('ce') or means-squared error ('mse')"
         )
     return criterion
