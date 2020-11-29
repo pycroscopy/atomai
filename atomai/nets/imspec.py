@@ -174,6 +174,7 @@ def init_imspec_model(in_dim, out_dim, latent_dim, **kwargs):
         nbfilters_encoder, nbfilters_decoder, batchnorm, encoder_downsampling,
         decoder_upsampling)
     meta_state_dict = {
+        "model_type": "imspec",
         "in_dim": in_dim,
         "out_dim": out_dim,
         "latent_dim": latent_dim,

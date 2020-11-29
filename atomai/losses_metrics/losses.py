@@ -88,7 +88,7 @@ class dice_loss(torch.nn.Module):
         return (1 - dice_loss)
 
 
-def select_seg_loss(loss, nb_classes=None):
+def select_loss(loss, nb_classes=None):
     """
     Selects loss for a semantic segmentation model training
     """

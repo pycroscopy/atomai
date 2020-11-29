@@ -33,7 +33,7 @@ class convblock(nn.Module):
             Stride of convolutional filter
         padding (int):
             Value for edge padding
-        use_batchnorm (bool):
+        batch_norm (bool):
             Add batch normalization to each layer in the block
         lrelu_a (float)
             Value of alpha parameter in leaky ReLU activation
@@ -44,7 +44,7 @@ class convblock(nn.Module):
     def __init__(self, ndim: int, nb_layers: int, input_channels: int,
                  output_channels: int, kernel_size: int = 3,
                  stride: int = 1, padding: int = 1,
-                 use_batchnorm: bool = False, lrelu_a: float = 0.01,
+                 batch_norm: bool = False, lrelu_a: float = 0.01,
                  dropout_: float = 0) -> None:
         """
         Initializes module parameters
@@ -64,7 +64,7 @@ class convblock(nn.Module):
             if dropout_ > 0:
                 block.append(nn.Dropout(dropout_))
             block.append(nn.LeakyReLU(negative_slope=lrelu_a))
-            if use_batchnorm:
+            if batch_norm:
                 if ndim == 2:
                     block.append(nn.BatchNorm2d(output_channels))
                 else:
@@ -152,7 +152,7 @@ class dilated_block(nn.Module):
             Size of convolutional filter (in pixels)
         stride (int):
             Stride of convolutional filter
-        use_batchnorm (bool):
+        batch_norm (bool):
             Add batch normalization to each layer in the block
         lrelu_a (float)
             Value of alpha parameter in leaky ReLU activation
@@ -163,7 +163,7 @@ class dilated_block(nn.Module):
     def __init__(self, ndim: int, input_channels: int, output_channels: int,
                  dilation_values: List[int], padding_values: List[int],
                  kernel_size: int = 3, stride: int = 1, lrelu_a: float = 0.01,
-                 use_batchnorm: bool = False, dropout_: float = 0) -> None:
+                 batch_norm: bool = False, dropout_: float = 0) -> None:
         """
         Initializes module parameters
         """
@@ -184,7 +184,7 @@ class dilated_block(nn.Module):
             if dropout_ > 0:
                 atrous_module.append(nn.Dropout(dropout_))
             atrous_module.append(nn.LeakyReLU(negative_slope=lrelu_a))
-            if use_batchnorm:
+            if batch_norm:
                 if ndim == 2:
                     atrous_module.append(nn.BatchNorm2d(output_channels))
                 else:

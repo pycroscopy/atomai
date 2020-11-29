@@ -25,7 +25,7 @@ class dilUnet(nn.Module):
         nb_filters (int):
             Number of filters in 1st convolutional block
             (gets multibplied by 2 in each next block)
-        use_dropout (bool):
+        dropout (bool):
             Use / not use dropout in the 3 inner layers
         batch_norm (bool):
             Use / not use batch normalization after each convolutional layer
@@ -45,7 +45,7 @@ class dilUnet(nn.Module):
     def __init__(self,
                  nb_classes: int = 1,
                  nb_filters: int = 16,
-                 use_dropout: bool = False,
+                 dropout: bool = False,
                  batch_norm: bool = True,
                  upsampling_mode: str = "bilinear",
                  with_dilation: bool = True,
@@ -57,18 +57,18 @@ class dilUnet(nn.Module):
         nbl = kwargs.get("layers", [1, 2, 2, 3])
         dilation_values = torch.arange(2, 2*nbl[-1]+1, 2).tolist()
         padding_values = dilation_values.copy()
-        dropout_vals = [.1, .2, .1] if use_dropout else [0, 0, 0]
+        dropout_vals = [.1, .2, .1] if dropout else [0, 0, 0]
         self.c1 = convblock(
             2, nbl[0], 1, nb_filters,
-            use_batchnorm=batch_norm
+            batch_norm=batch_norm
         )
         self.c2 = convblock(
             2, nbl[1], nb_filters, nb_filters*2,
-            use_batchnorm=batch_norm
+            batch_norm=batch_norm
         )
         self.c3 = convblock(
             2, nbl[2], nb_filters*2, nb_filters*4,
-            use_batchnorm=batch_norm,
+            batch_norm=batch_norm,
             dropout_=dropout_vals[0]
         )
         if with_dilation:
@@ -76,13 +76,13 @@ class dilUnet(nn.Module):
                 2, nb_filters*4, nb_filters*8,
                 dilation_values=dilation_values,
                 padding_values=padding_values,
-                use_batchnorm=batch_norm,
+                batch_norm=batch_norm,
                 dropout_=dropout_vals[1]
             )
         else:
             self.bn = convblock(
                 2, nbl[3], nb_filters*4, nb_filters*8,
-                use_batchnorm=batch_norm,
+                batch_norm=batch_norm,
                 dropout_=dropout_vals[1]
             )
         self.upsample_block1 = upsample_block(
@@ -90,7 +90,7 @@ class dilUnet(nn.Module):
             mode=upsampling_mode)
         self.c4 = convblock(
             2, nbl[2], nb_filters*8, nb_filters*4,
-            use_batchnorm=batch_norm,
+            batch_norm=batch_norm,
             dropout_=dropout_vals[2]
         )
         self.upsample_block2 = upsample_block(
@@ -98,14 +98,14 @@ class dilUnet(nn.Module):
             mode=upsampling_mode)
         self.c5 = convblock(
             2, nbl[1], nb_filters*4, nb_filters*2,
-            use_batchnorm=batch_norm
+            batch_norm=batch_norm
         )
         self.upsample_block3 = upsample_block(
             2, nb_filters*2, nb_filters,
             mode=upsampling_mode)
         self.c6 = convblock(
             2, nbl[0], nb_filters*2, nb_filters,
-            use_batchnorm=batch_norm
+            batch_norm=batch_norm
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
@@ -148,7 +148,7 @@ class dilnet(nn.Module):
         nb_filters (int):
             Number of filters in 1st convolutional block
             (gets multiplied by 2 in each next block)
-        use_dropout (bool):
+        dropout (bool):
             Use / not use dropout in the 3 inner layers
         batch_norm (bool):
             Use / not use batch normalization after each convolutional layer
@@ -164,7 +164,7 @@ class dilnet(nn.Module):
     def __init__(self,
                  nb_classes: int = 1,
                  nb_filters: int = 25,
-                 use_dropout: bool = False,
+                 dropout: bool = False,
                  batch_norm: bool = True,
                  upsampling_mode: str = "bilinear",
                  **kwargs: List[int]) -> None:
@@ -177,23 +177,23 @@ class dilnet(nn.Module):
         padding_values_1 = dilation_values_1.copy()
         dilation_values_2 = torch.arange(2, 2*nbl[2]+1, 2).tolist()
         padding_values_2 = dilation_values_2.copy()
-        dropout_vals = [.3, .3] if use_dropout else [0, 0]
+        dropout_vals = [.3, .3] if dropout else [0, 0]
         self.c1 = convblock(
                     2, nbl[0], 1, nb_filters,
-                    use_batchnorm=batch_norm
+                    batch_norm=batch_norm
         )
         self.at1 = dilated_block(
                     2, nb_filters, nb_filters*2,
                     dilation_values=dilation_values_1,
                     padding_values=padding_values_1,
-                    use_batchnorm=batch_norm,
+                    batch_norm=batch_norm,
                     dropout_=dropout_vals[0]
         )
         self.at2 = dilated_block(
                     2, nb_filters*2, nb_filters*2,
                     dilation_values=dilation_values_2,
                     padding_values=padding_values_2,
-                    use_batchnorm=batch_norm,
+                    batch_norm=batch_norm,
                     dropout_=dropout_vals[1]
         )
         self.up1 = upsample_block(
@@ -202,7 +202,7 @@ class dilnet(nn.Module):
         )
         self.c2 = convblock(
                     2, nbl[3], nb_filters*2, nb_filters,
-                    use_batchnorm=batch_norm
+                    batch_norm=batch_norm
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
@@ -222,23 +222,24 @@ class dilnet(nn.Module):
 
 
 def init_fcnn_model(model: Union[Type[nn.Module], str],
-                    num_classes: int, **kwargs: [bool, int, List]
+                    nb_classes: int, **kwargs: [bool, int, List]
                     ) -> Type[nn.Module]:
     """
     Initializes a fully convolutional neural network
     """
     if not isinstance(model, str) and hasattr(model, "state_dict"):
         meta_state_dict = {
-            'model_type': 'custom', 'num_classes': num_classes}
+            'model_type': 'Seg', model: 'custom', 'nb_classes': nb_classes}
         return model, meta_state_dict
-    use_batchnorm = kwargs.get('use_batchnorm', True)
-    use_dropouts = kwargs.get('use_dropouts', False)
+    batch_norm = kwargs.get('batch_norm', True)
+    dropout = kwargs.get('dropout', False)
     upsampling = kwargs.get('upsampling', "bilinear")
     meta_state_dict = {
-                'model_type': model,
-                'num_classes': num_classes,
-                'batchnorm': use_batchnorm,
-                'dropout': use_dropouts,
+                'model_type': 'seg',
+                'model': model,
+                'nb_classes': nb_classes,
+                'batchnorm': batch_norm,
+                'dropout': dropout,
                 'upsampling': upsampling,
             }
     if isinstance(model, str) and model == 'dilUnet':
@@ -246,8 +247,8 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 16)
         layers = kwargs.get("layers", [1, 2, 2, 3])
         net = dilUnet(
-            num_classes, nb_filters, use_dropouts,
-            use_batchnorm, upsampling, with_dilation,
+            nb_classes, nb_filters, dropout,
+            batch_norm, upsampling, with_dilation,
             layers=layers
         )
         meta_state_dict["with_dilation"] = with_dilation
@@ -255,8 +256,8 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 25)
         layers = kwargs.get("layers", [1, 3, 3, 3])
         net = dilnet(
-            num_classes, nb_filters,
-            use_dropouts, use_batchnorm, upsampling,
+            nb_classes, nb_filters,
+            dropout, batch_norm, upsampling,
             layers=layers
         )
     else:
