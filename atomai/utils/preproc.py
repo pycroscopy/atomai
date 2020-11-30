@@ -85,44 +85,44 @@ def check_signal_dims(X_train: np.ndarray,
             warnings.warn(
                 'Adding a channel dimension of 1 to training images',
                 UserWarning)
-            X_train = np.expand_dims(X_train, axis=1)
+            X_train = X_train[:, np.newaxis]
         if X_test.ndim == 3:
             warnings.warn(
                 'Adding a channel dimension of 1 to test images',
                 UserWarning)
-            X_test = np.expand_dims(X_test, axis=1)
+            X_test = X_test[:, np.newaxis]
         if y_train.ndim == 2:
             warnings.warn(
                 'Adding a channel dimension of 1 to training spectra',
                 UserWarning)
-            y_train = np.expand_dims(y_train, axis=1)
+            y_train = y_train[:, np.newaxis]
         if y_test.ndim == 2:
             warnings.warn(
                 'Adding a channel dimension of 1 to test spectra',
                 UserWarning)
-            y_test = np.expand_dims(y_test, axis=1)
+            y_test = y_test[:, np.newaxis]
 
     elif X_train.ndim < y_train.ndim:
         if X_train.ndim == 2:
             warnings.warn(
                 'Adding a channel dimension of 1 to training images',
                 UserWarning)
-            X_train = np.expand_dims(X_train, axis=1)
+            X_train = X_train[:, np.newaxis]
         if X_test.ndim == 2:
             warnings.warn(
                 'Adding a channel dimension of 1 to test images',
                 UserWarning)
-            X_test = np.expand_dims(X_test, axis=1)
+            X_test = X_test[:, np.newaxis]
         if y_train.ndim == 3:
             warnings.warn(
                 'Adding a channel dimension of 1 to training spectra',
                 UserWarning)
-            y_train = np.expand_dims(y_train, axis=1)
+            y_train = y_train[:, np.newaxis]
         if y_test.ndim == 3:
             warnings.warn(
                 'Adding a channel dimension of 1 to test spectra',
                 UserWarning)
-            y_test = np.expand_dims(y_test, axis=1)
+            y_test = y_test[:, np.newaxis]
 
     return X_train, y_train, X_test, y_test
 
@@ -147,12 +147,12 @@ def array2list(X_train: np.ndarray, y_train: np.ndarray,
     return X_train, y_train, X_test, y_test
 
 
-def preprocess_training_image_data(images_all: np.ndarray,
-                                   labels_all: np.ndarray,
-                                   images_test_all: np.ndarray,
-                                   labels_test_all: np.ndarray,
+def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
+                                   labels_all: Union[np.ndarray, torch.Tensor],
+                                   images_test_all: Union[np.ndarray, torch.Tensor],
+                                   labels_test_all: Union[np.ndarray, torch.Tensor],
                                    batch_size: int
-                                   ) -> Tuple[List[np.ndarray], int]:
+                                   ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], int]:
     """
     Preprocess training and test data
 
@@ -175,9 +175,9 @@ def preprocess_training_image_data(images_all: np.ndarray,
             Size of training and test batches
 
     Returns:
-        5-element tuple containing lists of numpy arrays with
-        training and test data, and an integer corresponding to
-        the number of classes inferred from the data.
+        5-element tuple containing lists of numpy arrays ot torch tensors with
+        training and test data, and an integer corresponding to the number of
+        classes inferred from the data.
     """
     all_data = (images_all, labels_all, images_test_all, labels_test_all)
     all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
@@ -205,6 +205,71 @@ def preprocess_training_image_data(images_all: np.ndarray,
     return (images_all, labels_all, images_test_all,
             labels_test_all, num_classes)
 
+
+def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
+                                    y_train: Union[np.ndarray, torch.Tensor],
+                                    X_test: Union[np.ndarray, torch.Tensor],
+                                    y_test: Union[np.ndarray, torch.Tensor],
+                                    batch_size: int
+                                    ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], int]:
+        """
+        Preprocesses training and test data for im2spec/spec2im models
+
+        Args:
+            X_train (numpy array):
+                4D numpy array with image data (n_samples x 1 x height x width)
+                or 3D numpy array with spectral data (n_samples x 1 x signal_length).
+                It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
+                which will be added automatically.
+            y_train (numpy array):
+                3D numpy array with spectral data (n_samples x 1 x signal_length)
+                or 4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
+                which will be added automatically. Note that if your X_train data are images,
+                then your y_train must be spectra and vice versa.
+            X_test (numpy array):
+                4D numpy array with image data (n_samples x 1 x height x width)
+                or 3D numpy array with spectral data (n_samples x 1 x signal_length).
+                It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
+                which will be added automatically.
+            y_test (numpy array):
+                3D numpy array with spectral data (n_samples x 1 x signal_length)
+                or 4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
+                which will be added automatically. Note that if your X_train data are images,
+                then your y_train must be spectra and vice versa.
+
+        Returns:
+        4-element tuple containing lists of numpy arrays or torch tensors
+        with training and test data
+        """
+        all_data = (X_train, y_train, X_test, y_test)
+        all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
+        all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
+        if not all_numpy and not all_torch:
+            raise TypeError(
+                "Provide training and test data in the form" +
+                " of numpy arrays or torch tensors")
+
+        X_train, y_train, X_test, y_test = check_signal_dims(
+            X_train, y_train, X_test, y_test)
+
+        if all_numpy:
+            X_train = torch.from_numpy(X_train).float()
+            y_train = torch.from_numpy(y_train).float()
+            X_test = torch.from_numpy(X_test).float()
+            y_test = torch.from_numpy(y_test).float()
+        else:
+            X_train = X_train.float()
+            y_train = y_train.float()
+            X_test = X_test.float()
+            y_test = y_test.float()
+
+        X_train, y_train, X_test, y_test = array2list(
+                X_train, y_train, X_test, y_test, batch_size)
+
+        return X_train, y_train, X_test, y_test
+        
 
 def init_dataloaders(X_train: torch.Tensor,
                      y_train: torch.Tensor,

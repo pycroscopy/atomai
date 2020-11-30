@@ -1,248 +1,189 @@
 """
-ed.py
-=====
+imspec.py
+=========
 
-Encoder/decoder modules for variational autoencoders
+Encoder and decoder modules for im2spec and spec2im models
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 
 """
 
-from typing import Tuple
+from typing import Tuple, Type, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .blocks import convblock
+from .blocks import convblock, dilated_block
 
 
-class EncoderNet(nn.Module):
+class signal_encoder(nn.Module):
     """
-    Encoder/inference network (for variational autoencoder)
-
-    Args:
-        dim (tuple):
-            image dimensions: (height, width) or (height, width, channels)
-        latent_dim (int):
-            number of latent dimensions
-            (the first 3 latent dimensions are angle & translations by default)
-        num_layers (int):
-            number of NN layers
-        hidden_dim (int):
-            number of neurons in each fully connnected layer (for mlp=True)
-            or number of filters in each convolutional layer (for mlp=False)
-        mlp (bool):
-            use a simple multi-layer perceptron instead of convolutional layers
-            (Default: False)
-
+    Encodes 1D/2D signal into a latent vector
     """
-    def __init__(self,
-                 dim: Tuple[int],
-                 latent_dim: int = 5,
-                 num_layers: int = 2,
-                 hidden_dim: int = 32,
-                 mlp: bool = False) -> None:
+    def __init__(self, signal_dim: Tuple[int],
+                 z_dim: int, nb_layers: int, nb_filters: int,
+                 **kwargs: int) -> None:
         """
-        Initializes network parameters
+        Initialize NN parameters
         """
-        super(EncoderNet, self).__init__()
-        c = 1 if len(dim) == 2 else dim[-1]
-        self.mlp = mlp
-        if not self.mlp:
-            self.econv = convblock(2, num_layers, c, hidden_dim, lrelu_a=0.1)
-            self.reshape_ = hidden_dim * dim[0] * dim[1]
-        else:
-            edense = []
-            for i in range(num_layers):
-                input_dim = np.product(dim) if i == 0 else hidden_dim
-                edense.extend([nn.Linear(input_dim, hidden_dim), nn.Tanh()])
-            self.edense = nn.Sequential(*edense)
-            self.reshape_ = hidden_dim
-        self.fc11 = nn.Linear(self.reshape_, latent_dim)
-        self.fc12 = nn.Linear(self.reshape_, latent_dim)
+        super(signal_encoder, self).__init__()
+        if isinstance(signal_dim, int):
+            signal_dim = (signal_dim,)
+        if not 0 < len(signal_dim) < 3:
+            raise AssertionError("signal dimensionality must be to 1D or 2D")
+        ndim = 2 if len(signal_dim) == 2 else 1
+        self.downsample = kwargs.get("downsampling", 0)
+        bn = kwargs.get('batch_norm', True)
+        if self.downsample:
+            signal_dim = [s // self.downsample for s in signal_dim]
+        n = np.product(signal_dim)
+        self.reshape_ = nb_filters * n
+        self.conv = convblock(
+            ndim, nb_layers, 1, nb_filters,
+            lrelu_a=0.1, batch_norm=bn)
+        self.fc = nn.Linear(nb_filters * n, z_dim)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Forward pass
+        Embeddes the input signal into a latent vector
         """
-        if not self.mlp:
-            x = x.unsqueeze(1) if x.ndim == 3 else x.permute(0, -1, 1, 2)
-            x = self.econv(x)
-        else:
-            x = x.reshape(-1, np.product(x.size()[1:]))
-            x = self.edense(x)
+        if self.downsample:
+            if x.ndim == 3:
+                x = F.avg_pool1d(
+                    x, self.downsample, self.downsample)
+            else:
+                x = F.avg_pool2d(
+                    x, self.downsample, self.downsample)
+        x = self.conv(x)
         x = x.reshape(-1, self.reshape_)
-        z_mu = self.fc11(x)
-        z_logstd = self.fc12(x)
-        return z_mu, z_logstd
+        return self.fc(x)
 
 
-class rDecoderNet(nn.Module):
+class signal_decoder(nn.Module):
     """
-    Spatial decoder network with skip connections
-
-    Args:
-        latent_dim (int):
-            number of latent dimensions associated with images content
-        num_layers (int):
-            number of fully connected layers
-        hidden_dim (int):
-            number of neurons in each fully connected layer
-        out_dim (tuple):
-            output dimensions: (height, width) or (height, width, channels)
-        skip (bool):
-            Use skip connections to propagate latent variables
-            through decoder network (Default: False)
+    Decodes a ltent vector into 1D/2D signal
     """
-    def __init__(self,
-                 latent_dim: int,
-                 num_layers: int,
-                 hidden_dim: int,
-                 out_dim: Tuple[int],
-                 skip: bool = False,
-                 num_classes: int = 0) -> None:
+    def __init__(self, signal_dim: Tuple[int],
+                 z_dim: int, nb_layers: int, nb_filters: int,
+                 **kwargs: bool) -> None:
         """
-        Initializes network parameters
         """
-        super(rDecoderNet, self).__init__()
-        if len(out_dim) == 2:
-            c = 1
-            self.reshape_ = (out_dim[0], out_dim[1])
+        super(signal_decoder, self).__init__()
+        self.upsampling = kwargs.get("upsampling", False)
+        bn = kwargs.get('batch_norm', True)
+        if isinstance(signal_dim, int):
+            signal_dim = (signal_dim,)
+        if not 0 < len(signal_dim) < 3:
+            raise AssertionError("signal dimensionality must be to 1D or 2D")
+        ndim = 2 if len(signal_dim) == 2 else 1
+        if self.upsampling:
+            signal_dim = [s // 4 for s in signal_dim]
+        n = np.product(signal_dim)
+        self.reshape_ = (nb_filters, *signal_dim)
+        self.fc = nn.Linear(z_dim, nb_filters*n)
+        if self.upsampling:
+            self.deconv1 = convblock(
+                ndim, 1, nb_filters, nb_filters,
+                lrelu_a=0.1, batch_norm=bn)
+            self.deconv2 = convblock(
+                ndim, 1, nb_filters, nb_filters,
+                lrelu_a=0.1, batch_norm=bn)
+        self.dilblock = dilated_block(
+            ndim, nb_filters, nb_filters,
+            dilation_values=torch.arange(1, nb_layers + 1).tolist(),
+            padding_values=torch.arange(1, nb_layers + 1).tolist(),
+            lrelu_a=0.1, batch_norm=bn)
+        self.conv = convblock(
+            ndim, 1, nb_filters, 1,
+            lrelu_a=0.1, batch_norm=bn)
+        if ndim == 2:
+            self.out = nn.Conv2d(1, 1, 1)
         else:
-            c = out_dim[-1]
-            self.reshape_ = (out_dim[0], out_dim[1], c)
-        self.skip = skip
-        self.coord_latent = coord_latent(
-            latent_dim+num_classes, hidden_dim, not skip)
-        fc_decoder = []
-        for i in range(num_layers):
-            fc_decoder.extend([nn.Linear(hidden_dim, hidden_dim), nn.Tanh()])
-        self.fc_decoder = nn.Sequential(*fc_decoder)
-        self.out = nn.Linear(hidden_dim, c)
+            self.out = nn.Conv1d(1, 1, 1)
 
-    def forward(self, x_coord: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Generates a signal from embedded features (latent vector)
+        """
+        x = self.fc(x)
+        x = x.reshape(-1, *self.reshape_)
+        if self.upsampling:
+            x = self.deconv1(x)
+            x = F.interpolate(x, scale_factor=2, mode="nearest")
+            x = self.deconv2(x)
+            x = F.interpolate(x, scale_factor=2, mode="nearest")
+        x = self.dilblock(x)
+        x = self.conv(x)
+        return self.out(x)
+
+
+class signal_ed(nn.Module):
+    """
+    Transforms image into spectra (im2spec) and vice versa (spec2im)
+    """
+    def __init__(self, feature_dim: Tuple[int],
+                 target_dim: Tuple[int], latent_dim: int,
+                 nblayers_encoder: int = 2, nblayers_decoder: int = 2,
+                 nbfilters_encoder: int = 64, nbfilters_decoder: int = 2,
+                 batch_norm: bool = True, encoder_downsampling: int = 0,
+                 decoder_upsampling: bool = False) -> None:
+        """
+        Initializes im2spec/spec2im parameters
+        """
+        super(signal_ed, self).__init__()
+        self.encoder = signal_encoder(
+            feature_dim, latent_dim, nblayers_encoder, nbfilters_encoder,
+            batch_norm=batch_norm, downsampling=encoder_downsampling)
+        self.decoder = signal_decoder(
+            target_dim, latent_dim, nblayers_decoder, nbfilters_decoder,
+            batch_norm=batch_norm, upsampling=decoder_upsampling)
+
+    def encode(self, features: torch.Tensor) -> torch.Tensor:
+        """
+        Embeddes the input image into a latent vector
+        """
+        return self.encoder(features)
+
+    def decode(self, latent: torch.Tensor) -> torch.Tensor:
+        """
+        Generates signal from the embedded features
+        """
+        return self.decoder(latent)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass
         """
-        batch_dim = x_coord.size()[0]
-        h = self.coord_latent(x_coord, z)
-        if self.skip:
-            residual = h
-            for i, fc_block in enumerate(self.fc_decoder):
-                h = fc_block(h)
-                if (i + 1) % 2 == 0:
-                    h = h.add(residual)
-        else:
-            h = self.fc_decoder(h)
-        h = self.out(h)
-        h = h.reshape(batch_dim, *self.reshape_)
-        return h
+        x = self.encode(x)
+        return self.decode(x)
 
 
-class coord_latent(nn.Module):
+def init_imspec_model(in_dim, out_dim, latent_dim, **kwargs):
     """
-    The "spatial" part of the rVAE's decoder that allows for translational
-    and rotational invariance (based on https://arxiv.org/abs/1909.11663)
-
-    Args:
-        latent_dim (int):
-            number of latent dimensions associated with images content
-        out_dim (int):
-            number of output dimensions
-            (usually equal to number of hidden units
-             in the first layer of the corresponding VAE's decoder)
-        activation (bool):
-            Applies tanh activation to the output (Default: False)
     """
-    def __init__(self,
-                 latent_dim: int,
-                 out_dim: int,
-                 activation: bool = False) -> None:
-        """
-        Initiate parameters
-        """
-        super(coord_latent, self).__init__()
-        self.fc_coord = nn.Linear(2, out_dim)
-        self.fc_latent = nn.Linear(latent_dim, out_dim, bias=False)
-        self.activation = nn.Tanh() if activation else None
-
-    def forward(self,
-                x_coord: torch.Tensor,
-                z: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass
-        """
-        batch_dim, n = x_coord.size()[:2]
-        x_coord = x_coord.reshape(batch_dim * n, -1)
-        h_x = self.fc_coord(x_coord)
-        h_x = h_x.reshape(batch_dim, n, -1)
-        h_z = self.fc_latent(z)
-        h = h_x.add(h_z.unsqueeze(1))
-        h = h.reshape(batch_dim * n, -1)
-        if self.activation is not None:
-            h = self.activation(h)
-        return h
-
-
-class DecoderNet(nn.Module):
-    """
-    Decoder network (for variational autoencoder)
-
-    Args:
-        latent_dim (int):
-            number of latent dimensions associated with images content
-        num_layers (int):
-            number of fully connected layers
-        hidden_dim (int):
-            number of neurons in each fully connected layer
-        out_dim (tuple):
-            image dimensions: (height, width) or (height, width, channels)
-        mlp (bool):
-            using a simple multi-layer perceptron instead of convolutional layers
-            (Default: False)
-    """
-    def __init__(self,
-                 latent_dim: int,
-                 num_layers: int,
-                 hidden_dim: int,
-                 out_dim: Tuple[int],
-                 mlp: bool = False,
-                 num_classes: int = 0) -> None:
-        """
-        Initializes network parameters
-        """
-        super(DecoderNet, self).__init__()
-        c = 1 if len(out_dim) == 2 else out_dim[-1]
-        self.mlp = mlp
-        if not self.mlp:
-            self.fc_linear = nn.Linear(
-                latent_dim, hidden_dim * out_dim[0] * out_dim[1], bias=False)
-            self.reshape_ = (hidden_dim, out_dim[0], out_dim[1])
-            self.decoder = convblock(
-                2, num_layers, hidden_dim, hidden_dim, lrelu_a=0.1)
-            self.out = nn.Conv2d(hidden_dim, c, 1, 1, 0)
-        else:
-            decoder = []
-            for i in range(num_layers):
-                hidden_dim_ = latent_dim + num_classes if i == 0 else hidden_dim
-                decoder.extend([nn.Linear(hidden_dim_, hidden_dim), nn.Tanh()])
-            self.decoder = nn.Sequential(*decoder)
-            self.out = nn.Linear(hidden_dim, np.product(out_dim))
-        self.out_dim = (c, out_dim[0], out_dim[1])
-
-    def forward(self, z: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass
-        """
-        if not self.mlp:
-            z = self.fc_linear(z)
-            z = z.reshape(-1, *self.reshape_)
-        h = self.decoder(z)
-        h = self.out(h)
-        h = h.reshape(-1, *self.out_dim)
-        if h.size(1) == 1:
-            h = h.squeeze(1)
-        else:
-            h = h.permute(0, 2, 3, 1)
-        return h
+    nblayers_encoder = kwargs.get("nblayers_encoder", 3)
+    nblayers_decoder = kwargs.get("nblayers_decoder", 4)
+    nbfilters_encoder = kwargs.get("nbfilters_encoder", 64)
+    nbfilters_decoder = kwargs.get("nbfilters_decoder", 64)
+    batch_norm = kwargs.get("batch_norm", True)
+    encoder_downsampling = kwargs.get("encoder_downsampling", 0)
+    decoder_upsampling = kwargs.get("decoder_upsampling", False)
+    net = signal_ed(
+        in_dim, out_dim, latent_dim, nblayers_encoder, nblayers_decoder,
+        nbfilters_encoder, nbfilters_decoder, batch_norm, encoder_downsampling,
+        decoder_upsampling)
+    meta_state_dict = {
+        "model_type": "imspec",
+        "in_dim": in_dim,
+        "out_dim": out_dim,
+        "latent_dim": latent_dim,
+        "nblayers_encoder": nblayers_encoder,
+        "nblayers_decoder": nblayers_decoder,
+        "nbfilters_encoder": nbfilters_encoder,
+        "nbfilters_decoder": nbfilters_decoder,
+        "batchnorm": batch_norm,
+        "encoder_downsampling": encoder_downsampling,
+        "decoder_upsampling": decoder_upsampling
+    }
+    return net, meta_state_dict

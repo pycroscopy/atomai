@@ -14,17 +14,18 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 import copy
 import warnings
 from collections import OrderedDict
-from typing import List, Optional, Tuple, Type, Union, Callable
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
 from atomai import losses_metrics
 from atomai.nets import init_fcnn_model, init_imspec_model
 from atomai.transforms import datatransform, unsqueeze_channels
-from atomai.utils import (average_weights, check_signal_dims, dummy_optimizer,
-                          gpu_usage_map, init_dataloaders, init_fcnn_dataloaders,
-                          init_imspec_dataloaders, array2list, plot_losses,
-                          preprocess_training_image_data, set_train_rng)
+from atomai.utils import (array2list, average_weights, gpu_usage_map,
+                          init_dataloaders, init_fcnn_dataloaders,
+                          init_imspec_dataloaders, plot_losses,
+                          preprocess_training_image_data,
+                          preprocess_training_imspec_data, set_train_rng)
 from sklearn.model_selection import train_test_split
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
@@ -36,6 +37,26 @@ class BaseTrainer:
     """
     Base trainer class for training semantic segmentation
     and image-to-spectrum/spectrum-to-image deep learning models
+
+    Example:
+
+    >>> # Load 4 numpy arrays with training and test data
+    >>> dataset = np.load('training_data.npz')
+    >>> images = dataset['X_train']
+    >>> labels = dataset['y_train']
+    >>> images_test = dataset['X_test']
+    >>> labels_test = dataset['y_test']
+    >>> # Initialize a trainer
+    >>> t = BaseTrainer()
+    >>> # Set a model
+    >>> t.set_model(atomai.nets.dilUnet(), nb_classes=1)
+    >>> # Compile trainer
+    >>> t.compile_trainer(
+    >>>     (images, labels, images_test_1, labels_test_1),
+    >>>     loss="ce", full_epoch=True, training_cycles=25, swa=True)
+    >>> # Train and save model's weights
+    >>> t.fit()
+    >>> t.save_model("my_model")
     """
     def __init__(self):
         set_train_rng(1)
@@ -115,98 +136,6 @@ class BaseTrainer:
         and 'dice' (dice loss; for semantic segmentation problems)
         """
         return losses_metrics.select_loss(loss, nb_classes)
-
-    def compile_trainer(self,
-                        train_data: Union[Tuple[torch.Tensor], Tuple[np.ndarray]],
-                        loss: str = 'ce',
-                        optimizer: Optional[Type[torch.optim.Optimizer]] = None,
-                        training_cycles: int = 1000,
-                        batch_size: int = 32,
-                        compute_accuracy: bool = False,
-                        full_epoch: bool = True,
-                        swa: bool = False,
-                        perturb_weights: bool = False,
-                        **kwargs):
-        """
-        Compile model for training
-
-        Args:
-            train_data (tuple):
-                4-element tuple of ndarrays or torch tensors
-                (train_data, train_labels, test_data, test_labels)
-            loss (str):
-                loss function. Available loss functions are: 'mse' (MSE),
-                'ce' (cross-entropy), 'focal' (focal loss; single class only),
-                and 'dice' (dice loss; for semantic segmentation problems)
-            optimizer:
-                weights optimizer (defaults to Adam optimizer with lr=1e-3)
-            training_cycles (int): Number of training 'epochs'.
-                If full_epoch argument is set to False, 1 epoch == 1 batch.
-                Otherwise, each cycle corresponds to all mini-batches of data
-                passing through a NN.
-            batch_size (int): Size of training and test batches
-            compute_accuracy (bool):
-                Computes accuracy function at each training cycle
-            full_epoch (bool):
-                If True, passes all mini-batches of training/test data
-                at each training cycle and computes the average loss. If False,
-                passes a single (randomly chosen) mini-batch at each cycle.
-            swa (bool):
-                Saves the recent stochastic weights and averages
-                them at the end of training
-            perturb_weights (bool or dict):
-                Time-dependent weight perturbation, :math:`w\\leftarrow w + a / (1 + e)^\\gamma`,
-                where parameters *a* and *gamma* can be passed as a dictionary,
-                together with parameter *e_p* determining every n-th epoch at
-                which a perturbation is applied
-            **print_loss (int):
-                Prints loss every *n*-th epoch
-            **accuracy_metrics (str):
-                Accuracy metrics (used only for printing training statistics)
-            **filename (str):
-                Filename for model weights
-                (appended with "_test_weights_best.pt" and "_weights_final.pt")
-            **plot_training_history (bool):
-                Plots training and test curves vs epochs at the end of training   
-        """
-        self.full_epoch = full_epoch
-        self.training_cycles = training_cycles
-        self.batch_size = batch_size
-        self.compute_accuracy = compute_accuracy
-        self.swa = swa
-        self.set_data(*train_data)
-
-        self.perturb_weights = perturb_weights
-        if self.perturb_weights:
-            if self.meta_state_dict["batchnorm"]:
-                raise AssertionError(
-                    "To use time-dependent weights perturbation, " +
-                    "turn off the batch normalization layes")
-            if isinstance(self.perturb_weights, bool):
-                e_p = 1 if self.full_epoch else 50
-                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
-
-        if optimizer is None:
-            self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
-        else:
-            self.optimizer = optimizer
-        self.criterion = self.get_loss_fn(loss, self.nb_classes)
-
-        if not self.full_epoch:
-            self.batch_idx_train = np.random.randint(
-                0, len(self.X_train), self.training_cycles)
-            self.batch_idx_test = np.random.randint(
-                0, len(self.X_test), self.training_cycles)
-
-        self.print_loss = kwargs.get("print_loss")
-        if self.print_loss is None:
-            if not self.full_epoch:
-                self.print_loss = 100
-            else:
-                self.print_loss = 1
-        self.accuracy_metrics = kwargs.get("accuracy_metrics")
-        self.filename = kwargs.get("filename", "./model")
-        self.plot_training_history = kwargs.get("plot_training_history", True)
 
     def train_step(self,
                    feat: torch.Tensor,
@@ -308,6 +237,9 @@ class BaseTrainer:
             running_acc_test = 0
         if self.full_epoch:
             for features_, targets_ in self.test_loader:
+                if self.augment_fn is not None:
+                    features, targets = self.augment_fn(
+                        features_, targets_, seed=c)
                 loss_ = self.test_step(features_, targets_)
                 running_loss_test += loss_[0]
                 if self.compute_accuracy:
@@ -331,6 +263,25 @@ class BaseTrainer:
             if self.compute_accuracy:
                 print('Model (final state) IoU:',
                       np.around(running_acc_test / len(self.X_test), 4))
+
+    def dataloader(self,
+                   batch_num: int,
+                   mode: str = 'train') -> Tuple[torch.Tensor]:
+        """
+        Generates input training data with images/spectra
+        and the associated labels (spectra/images)
+        """
+        if mode == 'test':
+            features = self.X_test[batch_num][:self.batch_size]
+            targets = self.y_test[batch_num][:self.batch_size]
+        else:
+            features = self.X_train[batch_num][:self.batch_size]
+            targets = self.y_train[batch_num][:self.batch_size]
+        if self.augment_fn is not None:
+            features, targets = self.augment_fn(
+                features, targets, seed=len(self.loss_acc["train_loss"]))
+        features, targets = features.to(self.device), targets.to(self.device)
+        return features, targets
 
     def save_model(self, *args: str) -> None:
         try:
@@ -381,25 +332,6 @@ class BaseTrainer:
         """
         raise NotImplementedError
 
-    def dataloader(self,
-                   batch_num: int,
-                   mode: str = 'train') -> Tuple[torch.Tensor]:
-        """
-        Generates input training data with images/spectra
-        and the associated labels (spectra/images)
-        """
-        if mode == 'test':
-            features = self.X_test[batch_num][:self.batch_size]
-            targets = self.y_test[batch_num][:self.batch_size]
-        else:
-            features = self.X_train[batch_num][:self.batch_size]
-            targets = self.y_train[batch_num][:self.batch_size]
-        if self.augment_fn is not None:
-            features, targets = self.augment_fn(
-                features, targets, seed=len(self.loss_acc["train_loss"]))
-        features, targets = features.to(self.device), targets.to(self.device)
-        return features, targets
-
     def weight_perturbation(self, e: int) -> None:
         """
         Time-dependent weights perturbation
@@ -430,10 +362,107 @@ class BaseTrainer:
 
     def data_augmentation(self,
                           augment_fn: augfn_type) -> None:
-        
+        """
+        Set up data augmentation. To use it, pass a function that takes
+        two torch tensors (features and targets), peforms some transforms,
+        and returns the transformed tensors. The dimensions of the transformed
+        tensors must be the same as the dimensions of the original ones.
+        """
         self.augment_fn = augment_fn
-            
-    def fit(self) -> Type[torch.nn.Module]:
+
+    def compile_trainer(self,
+                        train_data: Union[Tuple[torch.Tensor], Tuple[np.ndarray]],
+                        loss: str = 'ce',
+                        optimizer: Optional[Type[torch.optim.Optimizer]] = None,
+                        training_cycles: int = 1000,
+                        batch_size: int = 32,
+                        compute_accuracy: bool = False,
+                        full_epoch: bool = True,
+                        swa: bool = False,
+                        perturb_weights: bool = False,
+                        **kwargs):
+        """
+        Compile a trainer
+
+        Args:
+            train_data (tuple):
+                4-element tuple of ndarrays or torch tensors
+                (train_data, train_labels, test_data, test_labels)
+            loss (str):
+                loss function. Available loss functions are: 'mse' (MSE),
+                'ce' (cross-entropy), 'focal' (focal loss; single class only),
+                and 'dice' (dice loss; for semantic segmentation problems)
+            optimizer:
+                weights optimizer (defaults to Adam optimizer with lr=1e-3)
+            training_cycles (int): Number of training 'epochs'.
+                If full_epoch argument is set to False, 1 epoch == 1 batch.
+                Otherwise, each cycle corresponds to all mini-batches of data
+                passing through a NN.
+            batch_size (int): Size of training and test batches
+            compute_accuracy (bool):
+                Computes accuracy function at each training cycle
+            full_epoch (bool):
+                If True, passes all mini-batches of training/test data
+                at each training cycle and computes the average loss. If False,
+                passes a single (randomly chosen) mini-batch at each cycle.
+            swa (bool):
+                Saves the recent stochastic weights and averages
+                them at the end of training
+            perturb_weights (bool or dict):
+                Time-dependent weight perturbation, :math:`w\\leftarrow w + a / (1 + e)^\\gamma`,
+                where parameters *a* and *gamma* can be passed as a dictionary,
+                together with parameter *e_p* determining every n-th epoch at
+                which a perturbation is applied
+            **print_loss (int):
+                Prints loss every *n*-th epoch
+            **accuracy_metrics (str):
+                Accuracy metrics (used only for printing training statistics)
+            **filename (str):
+                Filename for model weights
+                (appended with "_test_weights_best.pt" and "_weights_final.pt")
+            **plot_training_history (bool):
+                Plots training and test curves vs epochs at the end of training   
+        """
+        self.full_epoch = full_epoch
+        self.training_cycles = training_cycles
+        self.batch_size = batch_size
+        self.compute_accuracy = compute_accuracy
+        self.swa = swa
+        self.set_data(*train_data)
+
+        self.perturb_weights = perturb_weights
+        if self.perturb_weights:
+            if self.meta_state_dict["batchnorm"]:
+                raise AssertionError(
+                    "To use time-dependent weights perturbation, " +
+                    "turn off the batch normalization layes")
+            if isinstance(self.perturb_weights, bool):
+                e_p = 1 if self.full_epoch else 50
+                self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
+
+        if optimizer is None:
+            self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
+        else:
+            self.optimizer = optimizer
+        self.criterion = self.get_loss_fn(loss, self.nb_classes)
+
+        if not self.full_epoch:
+            self.batch_idx_train = np.random.randint(
+                0, len(self.X_train), self.training_cycles)
+            self.batch_idx_test = np.random.randint(
+                0, len(self.X_test), self.training_cycles)
+
+        self.print_loss = kwargs.get("print_loss")
+        if self.print_loss is None:
+            if not self.full_epoch:
+                self.print_loss = 100
+            else:
+                self.print_loss = 1
+        self.accuracy_metrics = kwargs.get("accuracy_metrics")
+        self.filename = kwargs.get("filename", "./model")
+        self.plot_training_history = kwargs.get("plot_training_history", True)
+
+    def run(self) -> Type[torch.nn.Module]:
         """
         Trains a neural network, prints the statistics,
         saves the final model weights. One can also pass
@@ -461,6 +490,10 @@ class BaseTrainer:
         if self.plot_training_history:
             plot_losses(self.loss_acc["train_loss"],
                         self.loss_acc["test_loss"])
+        return self.net
+
+    def fit(self) -> None:
+        _ = self.run()
 
 
 class SegTrainer(BaseTrainer):
@@ -488,9 +521,6 @@ class SegTrainer(BaseTrainer):
         **dropout (bool):
             Apply dropouts in the three inner blocks in the middle of a network
             (Default: False)
-        **loss (str):
-            Type of loss for model training ('ce', 'dice' or 'focal')
-            (Default: 'ce')
         **upsampling (str):
             "bilinear" or "nearest" upsampling method (Default: "bilinear")
         **nb_filters (int):
@@ -507,21 +537,6 @@ class SegTrainer(BaseTrainer):
             in each block of the encoder (including bottleneck layer),
             and the number of layers in the decoder  is chosen accordingly
             (to maintain symmetry between encoder and decoder)
-
-    Example:
-
-    >>> # Load 4 numpy arrays with training and test data
-    >>> dataset = np.load('training_data.npz')
-    >>> images_all = dataset['X_train']
-    >>> labels_all = dataset['y_train']
-    >>> images_test_all = dataset['X_test']
-    >>> labels_test_all = dataset['y_test']
-    >>> # Train a model
-    >>> t = atomnet.trainer(
-    >>>     images_all, labels_all,
-    >>>     images_test_all, labels_test_all,
-    >>>     training_cycles=500)
-    >>> trained_model = t.run()
     """
     def __init__(self,
                  model: str = 'dilUnet',
@@ -565,7 +580,7 @@ class SegTrainer(BaseTrainer):
         X_train (numpy array):
             4D numpy array (3D image tensors stacked along the first dim)
             representing training images
-        y_train (list or dict or 4D numpy array):
+        y_train (numpy array):
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D images stacked along the first array dimension
             represent training labels (aka masks aka ground truth).
@@ -573,15 +588,13 @@ class SegTrainer(BaseTrainer):
             tensors and the labels are 3-dimensional tensors is because of how
             the cross-entropy loss is calculated in PyTorch
             (see https://pytorch.org/docs/stable/nn.html#nllloss).
-        X_test (list or dict or 4D numpy array):
+        X_test (numpy array):
             4D numpy array (3D image tensors stacked along the first dim)
             representing test images
-        y_test (list or dict or 4D numpy array):
+        y_test (numpy array):
             4D (binary) / 3D (multiclass) numpy array
             where 3D / 2D images stacked along the first array dimension
             represent test labels (aka masks aka ground truth)
-        batch_size (int):
-            size of mini-batch for training and test steps
         kwargs:
             Parameters for train_test_split ('test_size' and 'seed') when
             separate test set is not provided
@@ -648,22 +661,20 @@ class ImSpecTrainer(BaseTrainer):
     and spectrum-to-image transformations
 
     Args:
-        
+        in_dim (tuple):
+            Input data dimensions.
+            (height, width) for images or (length,) for spectra
+        out_dim (tuple):
+            output dimensions.
+            (length,) for spectra or (height, width) for images
         latent_dim (int):
             dimensionality of the latent space
             (number of neurons in a fully connected bottleneck layer)
-        training_cycles (int):
-            Number of training 'epochs' (1 epoch == 1 batch)
-        seed (int):
+        **seed (int):
             Deterministic mode for model training (Default: 1)
-        batch_seed (int):
+        **batch_seed (int):
             Separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
-        **batch_size (int):
-            Size of training and test batches
-        **test_size (float):
-            proportion of the dataset (X_train, y_train) for model evaluation;
-            used if X_test and/or y_test are not specified (Default: 0.15)
         **nblayers_encoder (int):
             number of convolutional layers in the encoder
         **nblayers_decoder (int):
@@ -672,7 +683,7 @@ class ImSpecTrainer(BaseTrainer):
             number of convolutional filters in each layer of the encoder
         **nbfilters_decoder (int):
             number of convolutional filters in each layer of the decoder
-        **use_batchnorm (bool):
+        **batch_norm (bool):
             Apply batch normalization after each convolutional layer
             (Default: True)
         **encoder_downsampling (int):
@@ -682,34 +693,10 @@ class ImSpecTrainer(BaseTrainer):
             performs upsampling+convolution operation twice on the reshaped latent
             vector (starting from image/spectra dims 4x smaller than the target dims)
             before passing  to the decoder
-        **swa (bool):
-            Saves the last 30 stochastic weights that can be averaged later on
-        **print_loss (int):
-            Prints loss every *n*-th epoch
-        **filename (str):
-            Filename for model weights
-            (appended with "_test_weights_best.pt" and "_weights_final.pt")
-        **plot_training_history (bool):
-            Plots training and test curves vs epochs at the end of training
-
-    Example:
-
-    >>> # Load 4 numpy arrays with training and test data
-    >>> dataset = np.load('training_data.npz')
-    >>> images_all = dataset['X_train']
-    >>> labels_all = dataset['y_train']
-    >>> images_test_all = dataset['X_test']
-    >>> labels_test_all = dataset['y_test']
-    >>> # Train a model
-    >>> t = atomnet.trainer(
-    >>>     images_all, labels_all,
-    >>>     images_test_all, labels_test_all,
-    >>>     training_cycles=500)
-    >>> trained_model = t.run()
     """
     def __init__(self,
-                 in_dim,
-                 out_dim,
+                 in_dim: Tuple[int],
+                 out_dim: Tuple[int],
                  latent_dim: int = 2,
                  **kwargs: Union[int, bool, str]) -> None:
         super(ImSpecTrainer, self).__init__()
@@ -729,7 +716,7 @@ class ImSpecTrainer(BaseTrainer):
          self.meta_state_dict) = init_imspec_model(in_dim, out_dim, latent_dim,
                                                    **kwargs)
         
-        self.net.cuda().to(self.device)
+        self.net.to(self.device)
         self.meta_state_dict["weights"] = self.net.state_dict()
         self.meta_state_dict["optimizer"] = self.optimizer
 
@@ -755,19 +742,17 @@ class ImSpecTrainer(BaseTrainer):
             It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
             which will be added automatically. Note that if your X_train data are images,
             then your y_train must be spectra and vice versa.
-        X_test (list or dict or 4D numpy array):
+        X_test (numpy array):
             4D numpy array with image data (n_samples x 1 x height x width)
             or 3D numpy array with spectral data (n_samples x 1 x signal_length).
             It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
             which will be added automatically.
-        y_test (list or dict or 4D numpy array):
+        y_test (numpy array):
             3D numpy array with spectral data (n_samples x 1 x signal_length)
             or 4D numpy array with image data (n_samples x 1 x height x width).
             It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
             which will be added automatically. Note that if your X_train data are images,
             then your y_train must be spectra and vice versa.
-        batch_size (int):
-            size of mini-batch for training and test steps
         kwargs:
             Parameters for train_test_split ('test_size' and 'seed') when
             separate test set is not provided
@@ -777,28 +762,25 @@ class ImSpecTrainer(BaseTrainer):
             X_train, X_test, y_train, y_test = train_test_split(
                 X_train, y_train, test_size=kwargs.get("test_size", .15),
                 shuffle=True, random_state=kwargs.get("seed", 1))
-
-        X_train, y_train, X_test, y_test = check_signal_dims(
-            X_train, y_train, X_test, y_test)
-        
-        in_dim = X_train.shape[2:]
-        out_dim = y_train.shape[2:]
-
-        if in_dim != self.in_dim or out_dim != self.out_dim:
-            raise AssertionError(
-                "The input/output dimensions of the model must match" +
-                " the height, width and length (for spectra) of training")
         
         if self.full_epoch:
             self.train_loader, self.test_loader = init_imspec_dataloaders(
                 X_train, y_train, X_test, y_test, self.batch_size)
         else:
             (self.X_train, self.y_train,
-             self.X_test, self.y_test) = array2list(
+             self.X_test, self.y_test) = preprocess_training_imspec_data(
                 X_train, y_train, X_test, y_test, self.batch_size)
+        
+        in_dim = self.X_train[0].shape[2:]
+        out_dim = self.y_train[0].shape[2:]
+
+        if in_dim != self.in_dim or out_dim != self.out_dim:
+            raise AssertionError(
+                "The input/output dimensions of the model must match" +
+                " the height, width and length (for spectra) of training")
 
     def dataloader_(self, batch_num: int,
-                   mode: str = 'train') -> Tuple[torch.Tensor]:
+                    mode: str = 'train') -> Tuple[torch.Tensor]:
         """
         Loads randomly chosen batches of training and test data
         """

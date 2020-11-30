@@ -15,9 +15,10 @@ from typing import Dict, List, Tuple, Type, Union
 import numpy as np
 import torch
 import torch.nn.functional as F
-from atomai.utils import (Hook, cv_thresh, find_com, img_pad, img_resize,
-                          mock_forward, peak_refinement, set_train_rng,
-                          torch_format_image, torch_format_spectra)
+from atomai.utils import (Hook, cv_thresh, find_com, get_downsample_factor,
+                          get_nb_classes, img_pad, img_resize, mock_forward,
+                          peak_refinement, set_train_rng, torch_format_image,
+                          torch_format_spectra)
 
 
 class BasePredictor:
@@ -59,11 +60,13 @@ class BasePredictor:
     def batch_predict(self,
                       data: torch.Tensor,
                       out_shape: Tuple[int],
-                      batch_size: int) -> torch.Tensor:
+                      num_batches: int) -> torch.Tensor:
         """
         Make a prediction batch-by-batch (for larger datasets)
         """
-        num_batches = out_shape // batch_size
+        batch_size = len(data) // num_batches
+        if batch_size < 1:
+            num_batches = batch_size = 1
         prediction_all = np.zeros(shape=out_shape)
         for i in range(num_batches):
             if self.verbose:
@@ -83,12 +86,9 @@ class BasePredictor:
         """
         Make a prediction on the new data with a trained model
         """
-        batch_size = len(data) // num_batches
-        if batch_size < 1:
-            num_batches = batch_size = 1
-            out_shape = (*data.shape, 1)
+        out_shape = (*data.shape, 1)
         data = self.preprocess(data)
-        prediction = self.batch_predict(data, out_shape, batch_size)
+        prediction = self.batch_predict(data, out_shape, num_batches)
         return prediction
 
 
@@ -109,8 +109,6 @@ class SegPredictor(BasePredictor):
             Indicates that the image data is passed through
             a softmax/sigmoid layer when set to False
             (logits=True for AtomAI models)
-        seed (int):
-            Sets seed for random number generators (for reproducibility)
         **thresh (float):
             value between 0 and 1 for thresholding the NN output
         **d (int):
@@ -119,7 +117,7 @@ class SegPredictor(BasePredictor):
             of average nearest neighbor atomic distance
         **nb_classes (int):
             Number of classes in the model
-        **downsampled (int or float):
+        **downsampling (int or float):
             Downsampling factor (equal to :math:`2^n` where *n* is a number
             of pooling operations)
 
@@ -148,15 +146,10 @@ class SegPredictor(BasePredictor):
         model = trained_model
         self.nb_classes = kwargs.get('nb_classes', None)
         if self.nb_classes is None:
-            hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
-            mock_forward(model)
-            self.nb_classes = [hook.output.shape for hook in hookF][-1][1]
+            self.nb_classes = get_nb_classes(model)
         self.downsampling = kwargs.get('downsampling', None)
         if self.downsampling is None:
-            hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
-            mock_forward(model)
-            imsize = [hook.output.shape[-1] for hook in hookF]
-            self.downsampling = max(imsize) / min(imsize)
+            self.downsampling = get_downsample_factor(model)
 
         self.resize = resize
         self.logits = logits
@@ -229,11 +222,8 @@ class SegPredictor(BasePredictor):
                 num_batches = len(image_data)
             else:
                 num_batches = 10
-        batch_size = len(image_data) // num_batches
-        if batch_size < 1:
-            num_batches = batch_size = 1
         segmented_imgs = self.batch_predict(
-            image_data, (n, w, h, self.nb_classes), batch_size)
+            image_data, (n, w, h, self.nb_classes), num_batches)
         if return_image:
             image_data = image_data.permute(0, 2, 3, 1).numpy()
             return image_data, segmented_imgs
@@ -304,11 +294,8 @@ class ImSpecPredictor:
         """
         signal = self.preprocess(signal)
         num_batches = kwargs.get("num_batches", 10)
-        batch_size = len(signal) // num_batches
-        if batch_size < 1:
-            num_batches = batch_size = 1
         output = self.batch_predict(
-            signal, (len(signal), 1, *self.output_dim), batch_size)
+            signal, (len(signal), 1, *self.output_dim), num_batches)
         return output[:, 0]
 
     def run(self,

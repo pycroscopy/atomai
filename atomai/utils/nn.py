@@ -178,6 +178,26 @@ def mock_forward(model: Type[torch.nn.Module],
     return out
 
 
+def get_nb_classes(model: Type[torch.nn.Module]) -> int:
+    """
+    Gets number of classes used in a fully convolutional NN
+    """
+    hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
+    mock_forward(model)
+    nb_classes = [hook.output.shape for hook in hookF][-1][1]
+    return nb_classes
+
+
+def get_downsample_factor(model: Type[torch.nn.Module]) -> int:
+    """
+    Gets a downsample factor for UNet-like architectures
+    """
+    hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
+    mock_forward(model)
+    imsize = [hook.output.shape[-1] for hook in hookF]
+    return max(imsize) / min(imsize)
+
+
 def dummy_optimizer() -> Type[torch.optim.Optimizer]:
     """
     Returns initialized "dummy" optimizer

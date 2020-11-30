@@ -1,3 +1,5 @@
+from .trainers import BaseTrainer, SegTrainer, ImSpecTrainer
+from .predictors import BasePredictor, SegPredictor, ImSpecPredictor
 from . import atomnet, atomstat, nets, utils, transforms
 from .nets import load_model, load_ensemble
 from .atomstat import load_vae_model
