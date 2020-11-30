@@ -145,11 +145,13 @@ class ImSpec(ImSpecTrainer):
 
         Args:
             signal (numpy array): Input image/spectrum or batch of images/spectra
-            **num_batches: number of batches (Default: 10)
+            **num_batches (int): number of batches (Default: 10)
+            **verbose (bool): verbosity (Default: True)            
         """
         use_gpu = self.device == 'cuda'
         nn_output = ImSpecPredictor(
-            self.net, self.out_dim, use_gpu, **kwargs).run(data)
+            self.net, self.out_dim, use_gpu,
+            **kwargs).run(data, **kwargs)
         return nn_output
 
     def load_weights(self, filepath: str) -> None:

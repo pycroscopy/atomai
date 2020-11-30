@@ -254,13 +254,13 @@ class SegPredictor(BasePredictor):
         return decoded_imgs, coordinates
 
 
-class ImSpecPredictor:
+class ImSpecPredictor(BasePredictor):
 
     def __init__(self,
                  model: Type[torch.nn.Module],
                  output_dim: Tuple[int],
-                 use_gpu: bool = False
-                 ) -> None:
+                 use_gpu: bool = False,
+                 **kwargs) -> None:
         """
         Initialize predictor
         """
@@ -270,17 +270,19 @@ class ImSpecPredictor:
         if len(output_dim) not in [1, 2]:
             raise ValueError("output_dim must be a two-value tuple for images" +
                              " and a single-value tuple for spectra")
+        set_train_rng(1)
         self.output_dim = output_dim
+        self.verbose = kwargs.get("verbose", True)
 
     def preprocess(self, signal):
         """
         Preprocess input signal (images or spectra)
         """
-        if self.output_dim == 1:
+        if len(self.output_dim) == 1:
             if signal.ndim == 2:
                 signal = signal[np.newaxis, ...]
             signal = torch_format_image(signal)
-        elif self.output_dim == 2:
+        elif len(self.output_dim) == 2:
             if signal.ndim == 1:
                 signal = signal[np.newaxis, ...]
             signal = torch_format_spectra(signal)
@@ -306,7 +308,7 @@ class ImSpecPredictor:
 
         Args:
             signal (numpy array): Input image/spectrum or batch of images/spectra
-            **num_batches: number of batches (Default: 10)
+            **num_batches (int): number of batches (Default: 10)
         """
         start_time = time.time()
         prediction = self.predict(signal, **kwargs)

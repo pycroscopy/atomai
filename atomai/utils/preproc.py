@@ -123,6 +123,12 @@ def check_signal_dims(X_train: np.ndarray,
                 'Adding a channel dimension of 1 to test spectra',
                 UserWarning)
             y_test = y_test[:, np.newaxis]
+        
+        same_dim1 = X_train.shape[1:] == X_test.shape[1:]
+        same_dim2 = y_train.shape[1:] == y_test.shape[1:]
+        if not all(same_dim1, same_dim2):
+            raise ValueError("The image/spectra dimensions must be" +
+                             " the same for training and test data")
 
     return X_train, y_train, X_test, y_test
 
@@ -211,7 +217,7 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
                                     X_test: Union[np.ndarray, torch.Tensor],
                                     y_test: Union[np.ndarray, torch.Tensor],
                                     batch_size: int
-                                    ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], int]:
+                                    ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], Tuple[Tuple[int]]]:
         """
         Preprocesses training and test data for im2spec/spec2im models
 
@@ -253,6 +259,8 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
 
         X_train, y_train, X_test, y_test = check_signal_dims(
             X_train, y_train, X_test, y_test)
+        in_dim = X_train.shape[2:]
+        out_dim = y_train.shape[2:]
 
         if all_numpy:
             X_train = torch.from_numpy(X_train).float()
@@ -268,7 +276,7 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
         X_train, y_train, X_test, y_test = array2list(
                 X_train, y_train, X_test, y_test, batch_size)
 
-        return X_train, y_train, X_test, y_test
+        return X_train, y_train, X_test, y_test, (in_dim, out_dim)
         
 
 def init_dataloaders(X_train: torch.Tensor,
@@ -325,11 +333,16 @@ def init_imspec_dataloaders(X_train: np.ndarray,
                             X_test: np.ndarray,
                             y_test: np.ndarray,
                             batch_size: int
-                            ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+                            ) -> Tuple[Type[torch.utils.data.DataLoader], Tuple[Tuple[int]]]:
     """
     Returns train and test dataloaders for training images
     in a native PyTorch format
     """
+
+    X_train, y_train, X_test, y_test = check_signal_dims(
+        X_train, y_train, X_test, y_test)
+    in_dim = X_train.shape[2:]
+    out_dim = y_train.shape[2:]
     X_train = torch.from_numpy(X_train).float()
     y_train = torch.from_numpy(y_train).float()
     X_test = torch.from_numpy(X_test).float()
@@ -337,7 +350,7 @@ def init_imspec_dataloaders(X_train: np.ndarray,
 
     train_loader, test_loader = init_dataloaders(
         X_train, y_train, X_test, y_test, batch_size)
-    return train_loader, test_loader
+    return train_loader, test_loader, (in_dim, out_dim)
 
 
 def init_vae_dataloaders(X_train: np.ndarray,

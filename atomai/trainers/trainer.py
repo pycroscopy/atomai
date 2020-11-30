@@ -621,34 +621,6 @@ class SegTrainer(BaseTrainer):
                                  " is different from the number of classes" +
                                  " contained in training data")
 
-    def dataloader_(self,
-                   batch_num: int,
-                   mode: str = 'train') -> Tuple[torch.Tensor]:
-        """
-        Generates 2 batches of 4D tensors (images and masks)
-        """
-        # Generate batch of training images with corresponding ground truth
-        if mode == 'test':
-            images = self.X_test[batch_num][:self.batch_size]
-            labels = self.y_test[batch_num][:self.batch_size]
-        else:
-            images = self.X_train[batch_num][:self.batch_size]
-            labels = self.y_train[batch_num][:self.batch_size]
-        # "Augment" data if applicable
-        if len(self.augdict) > 0:
-            dt = datatransform(
-                self.nb_classes, "channel_first", 'channel_first',
-                True, len(self.loss_acc["train_loss"]), **self.augdict)
-            images, labels = dt.run(
-                images[:, 0, ...], unsqueeze_channels(labels, self.nb_classes))
-        # Transform images and ground truth to torch tensors and move to GPU
-        images = torch.from_numpy(images).float().to(self.device)
-        if self.nb_classes == 1:
-            labels = torch.from_numpy(labels).float().to(self.device)
-        else:
-            labels = torch.from_numpy(labels).long().to(self.device)
-        return images, labels
-
     def accuracy_fn(self, y, y_prob, *args):
         iou_score = losses_metrics.IoU(
                 y, y_prob, self.nb_classes).evaluate()
@@ -764,38 +736,14 @@ class ImSpecTrainer(BaseTrainer):
                 shuffle=True, random_state=kwargs.get("seed", 1))
         
         if self.full_epoch:
-            self.train_loader, self.test_loader = init_imspec_dataloaders(
+            self.train_loader, self.test_loader, dims = init_imspec_dataloaders(
                 X_train, y_train, X_test, y_test, self.batch_size)
         else:
             (self.X_train, self.y_train,
-             self.X_test, self.y_test) = preprocess_training_imspec_data(
+             self.X_test, self.y_test, dims) = preprocess_training_imspec_data(
                 X_train, y_train, X_test, y_test, self.batch_size)
         
-        in_dim = self.X_train[0].shape[2:]
-        out_dim = self.y_train[0].shape[2:]
-
-        if in_dim != self.in_dim or out_dim != self.out_dim:
+        if dims[0] != self.in_dim or dims[1] != self.out_dim:
             raise AssertionError(
                 "The input/output dimensions of the model must match" +
                 " the height, width and length (for spectra) of training")
-
-    def dataloader_(self, batch_num: int,
-                    mode: str = 'train') -> Tuple[torch.Tensor]:
-        """
-        Loads randomly chosen batches of training and test data
-        """
-        if mode == 'test':
-            features = self.X_test[batch_num][:self.batch_size]
-            targets = self.y_test[batch_num][:self.batch_size]
-        else:
-            features = self.X_train[batch_num][:self.batch_size]
-            targets = self.y_train[batch_num][:self.batch_size]
-        # "Augment" data if applicable
-        if len(self.augdict) > 0:
-            dt = datatransform(
-                seed=len(self.loss_acc["train_loss"]), **self.augdict)
-            features, targets = dt.run(features[:, 0, ...], targets)
-        features = torch.from_numpy(features).float()
-        targets = torch.from_numpy(targets).float()
-        features, targets = features.to(self.device), targets.to(self.device)
-        return features, targets

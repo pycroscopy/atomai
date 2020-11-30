@@ -149,6 +149,7 @@ class Segmentor(SegTrainer):
                 half-side of a square around each atomic position used
                 for refinement with 2d Gaussian peak fitting. Defaults to 1/4
                 of average nearest neighbor atomic distance
+            **num_batches (int): number of batches (Default: 10)
             **verbose (bool): verbosity
 
         """
@@ -158,7 +159,7 @@ class Segmentor(SegTrainer):
         nn_output, coords = SegPredictor(
             self.net, refine, None, use_gpu, logits,
             nb_classes=self.nb_classes, downsampling=self.downsample_factor,
-            **kwargs).run(imgdata)
+            **kwargs).run(imgdata, **kwargs)
 
         return nn_output, coords
 
