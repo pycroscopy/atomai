@@ -390,7 +390,8 @@ def init_vae_dataloaders(X_train: np.ndarray,
     return train_loader, test_loader
 
 
-def torch_format_image(image_data: np.ndarray) -> torch.Tensor:
+def torch_format_image(image_data: np.ndarray,
+                       norm: bool = True) -> torch.Tensor:
     """
     Reshapes (if needed), normalizes and converts image data
     to pytorch format for model training and prediction
@@ -399,6 +400,8 @@ def torch_format_image(image_data: np.ndarray) -> torch.Tensor:
         image_data (3D or 4D numpy array):
             Image stack with dimensions (n_batches x height x width)
             or (n_batches x 1 x height x width)
+        norm (bool):
+            Normalize to (0, 1) (Default: True)
     """
     if image_data.ndim not in [3, 4]:
         raise AssertionError(
@@ -410,12 +413,14 @@ def torch_format_image(image_data: np.ndarray) -> torch.Tensor:
             "4D image tensor must have (n, 1, h, w) dimensions")
     else:
         pass
-    image_data = (image_data - np.amin(image_data))/np.ptp(image_data)
+    if norm:
+        image_data = (image_data - image_data.min()) / image_data.ptp()
     image_data = torch.from_numpy(image_data).float()
     return image_data
 
 
-def torch_format_spectra(spectra: np.ndarray) -> torch.Tensor:
+def torch_format_spectra(spectra: np.ndarray,
+                         norm: bool = False) -> torch.Tensor:
     """
     Reshapes (if needed), normalizes and converts image data
     to pytorch format for model training and prediction
@@ -424,6 +429,8 @@ def torch_format_spectra(spectra: np.ndarray) -> torch.Tensor:
         image_data (3D or 4D numpy array):
             Image stack with dimensions (n_batches x height x width)
             or (n_batches x 1 x height x width)
+        norm (bool):
+            Normalize data to (0, 1) (Default: False)
     """
     if spectra.ndim not in [2, 3]:
         raise AssertionError(
@@ -435,7 +442,8 @@ def torch_format_spectra(spectra: np.ndarray) -> torch.Tensor:
             "3D spectra tensor must have (n, 1, length) dimensions")
     else:
         pass
-    spectra = (spectra - np.amin(spectra))/np.ptp(spectra)
+    if norm:
+        spectra = (spectra - spectra.min()) / spectra.ptp()
     spectra = torch.from_numpy(spectra).float()
     return spectra
 

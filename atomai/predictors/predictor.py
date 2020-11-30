@@ -159,7 +159,9 @@ class SegPredictor(BasePredictor):
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
-    def preprocess(self, image_data: np.ndarray) -> torch.Tensor:
+    def preprocess(self,
+                   image_data: np.ndarray,
+                   norm: bool = True) -> torch.Tensor:
         """
         Prepares an input for a neural network
         """
@@ -173,7 +175,7 @@ class SegPredictor(BasePredictor):
         if self.resize is not None:
             image_data = img_resize(image_data, self.resize)
         image_data = img_pad(image_data, self.downsampling)
-        image_data = torch_format_image(image_data)
+        image_data = torch_format_image(image_data, norm)
         return image_data
 
     def forward_(self, images: torch.Tensor) -> np.ndarray:
@@ -213,8 +215,10 @@ class SegPredictor(BasePredictor):
             return_image (bool):
                 Returns images used as input into NN
             **num_batches: number of batches
+            **norm (bool): Normalize data to (0, 1) during pre-processing
         """
-        image_data = self.preprocess(image_data)
+        image_data = self.preprocess(
+            image_data, kwargs.get("norm"), True)
         n, _, w, h = image_data.shape
         num_batches = kwargs.get("num_batches")
         if num_batches is None:
@@ -239,6 +243,7 @@ class SegPredictor(BasePredictor):
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
             **num_batches: number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
         """
         start_time = time.time()
         images, decoded_imgs = self.predict(
@@ -274,27 +279,29 @@ class ImSpecPredictor(BasePredictor):
         self.output_dim = output_dim
         self.verbose = kwargs.get("verbose", True)
 
-    def preprocess(self, signal):
+    def preprocess(self,
+                   signal: np.ndarray,
+                   norm: bool = True) -> torch.Tensor:
         """
         Preprocess input signal (images or spectra)
         """
         if len(self.output_dim) == 1:
             if signal.ndim == 2:
                 signal = signal[np.newaxis, ...]
-            signal = torch_format_image(signal)
+            signal = torch_format_image(signal, norm)
         elif len(self.output_dim) == 2:
             if signal.ndim == 1:
                 signal = signal[np.newaxis, ...]
-            signal = torch_format_spectra(signal)
+            signal = torch_format_spectra(signal, norm)
         return signal
 
     def predict(self,
                 signal: np.ndarray,
-                **kwargs: int):
+                **kwargs: int) -> np.ndarray:
         """
         Predict spectra from images or vice versa
         """
-        signal = self.preprocess(signal)
+        signal = self.preprocess(signal, kwargs.get("norm", True))
         num_batches = kwargs.get("num_batches", 10)
         output = self.batch_predict(
             signal, (len(signal), 1, *self.output_dim), num_batches)
@@ -309,6 +316,7 @@ class ImSpecPredictor(BasePredictor):
         Args:
             signal (numpy array): Input image/spectrum or batch of images/spectra
             **num_batches (int): number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
         """
         start_time = time.time()
         prediction = self.predict(signal, **kwargs)

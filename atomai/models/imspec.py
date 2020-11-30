@@ -146,6 +146,7 @@ class ImSpec(ImSpecTrainer):
         Args:
             signal (numpy array): Input image/spectrum or batch of images/spectra
             **num_batches (int): number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
             **verbose (bool): verbosity (Default: True)            
         """
         use_gpu = self.device == 'cuda'

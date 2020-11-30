@@ -150,6 +150,7 @@ class Segmentor(SegTrainer):
                 for refinement with 2d Gaussian peak fitting. Defaults to 1/4
                 of average nearest neighbor atomic distance
             **num_batches (int): number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
             **verbose (bool): verbosity
 
         """
