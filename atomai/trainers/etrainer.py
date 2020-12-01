@@ -63,10 +63,14 @@ class BaseEnsembleTrainer(BaseTrainer):
                                     X_test: Optional[np.ndarray] = None,
                                     y_test: Optional[np.ndarray] = None,
                                     n_models: int = 10,
-                                    augment_fn: augfn_type = None):
+                                    augment_fn: augfn_type = None,
+                                    **kwargs):
+        batch_seed = kwargs.get("batch_seed")
         print("Training ensemble models (trategy = 'from_scratch'")
         for i in range(n_models):
             print("Ensemble model {}".format(i + 1))
+            if batch_seed is not None:
+                self.kdict["batch_seed"] = i
             model_i = self.train_baseline(
                 X_train, y_train, X_test, y_test, i, augment_fn)
             self.ensemble_state_dict[i] = dc(model_i.state_dict())
@@ -200,9 +204,6 @@ class EnsembleTrainer(BaseEnsembleTrainer):
 
         if self.net is None:
             raise AssertionError("You need to set a model first")
-        self._reset_rng(seed)
-        self._reset_weights()
-        self._reset_training_history()
 
         if self.meta_state_dict.get("model_type") == "seg":
             train_data = set_data_seg(
@@ -214,11 +215,15 @@ class EnsembleTrainer(BaseEnsembleTrainer):
                 (self.in_dim, self.out_dim))
         self.set_data(*train_data)
 
+        self._reset_rng(seed)
+        self._reset_weights()
+        self._reset_training_history()
+
         self.compile_trainer(
             (X_train, y_train, X_test, y_test), **self.kdict)
         self.data_augmentation(augment_fn)
         self.fit()
-        
+
         return self.net
 
 

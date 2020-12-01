@@ -26,6 +26,7 @@ from atomai.utils import (array2list, average_weights, gpu_usage_map,
                           preprocess_training_image_data, weights_init,
                           preprocess_training_imspec_data, set_train_rng)
 from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
@@ -437,6 +438,8 @@ class BaseTrainer:
                 where parameters *a* and *gamma* can be passed as a dictionary,
                 together with parameter *e_p* determining every n-th epoch at
                 which a perturbation is applied
+            **batch_seed (int):
+                Random state for generating sequence of training and test batches
             **overwrite_train_data (bool):
                 Overwrites the exising training data using self.set_data()
                 (Default: True)
@@ -481,10 +484,20 @@ class BaseTrainer:
         self.criterion = self.get_loss_fn(loss, self.nb_classes)
 
         if not self.full_epoch:
-            self.batch_idx_train = np.random.randint(
-                0, len(self.X_train), self.training_cycles)
-            self.batch_idx_test = np.random.randint(
-                0, len(self.X_test), self.training_cycles)
+            r = self.training_cycles // len(self.X_train)
+            batch_idx_train = np.arange(
+                len(self.X_train)).repeat(r+1)[:self.training_cycles]
+            r_ = self.training_cycles // len(self.X_test)
+            batch_idx_test = np.arange(
+                len(self.X_test)).repeat(r_+1)[:self.training_cycles] 
+            self.batch_idx_train = shuffle(
+                batch_idx_train, random_state=kwargs.get("batch_seed", 1))
+            self.batch_idx_test = shuffle(
+                batch_idx_test, random_state=kwargs.get("batch_seed", 1))
+            #self.batch_idx_train = np.random.randint(
+            #    0, len(self.X_train), self.training_cycles)
+            #self.batch_idx_test = np.random.randint(
+            #    0, len(self.X_test), self.training_cycles)
 
         self.print_loss = kwargs.get("print_loss")
         if self.print_loss is None:
