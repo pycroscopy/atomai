@@ -8,12 +8,14 @@ Includes utility function for monitoring GPU usage during NN training.
 Created by: Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 """
 
-from typing import Type, Dict, Tuple, List
-
 import copy
-import numpy as np
 import subprocess
+from typing import Dict, List, Tuple, Type
+
+import numpy as np
 import torch
+from torch.nn import (BatchNorm1d, BatchNorm2d, Conv1d, Conv2d,
+                      ConvTranspose1d, ConvTranspose2d, Linear)
 
 dc = copy.deepcopy
 
@@ -203,6 +205,20 @@ def dummy_optimizer() -> Type[torch.optim.Optimizer]:
     Returns initialized "dummy" optimizer
     """
     return torch.optim.Optimizer([torch.zeros(1)], dict())
+
+
+def weights_init(module):
+    imodules = (Conv1d, Conv2d, ConvTranspose1d, ConvTranspose2d, Linear)
+    if isinstance(module, imodules):
+        torch.nn.init.xavier_uniform_(module.weight.data)
+        torch.nn.init.zeros_(module.bias)
+
+
+def reset_bnorm(module):
+    imodules = (BatchNorm1d, BatchNorm2d)
+    if isinstance(module, imodules):
+        module.reset_running_stats()
+        module.reset_parameters()
 
 
 def nb_filters_classes(weights_path: str) -> Tuple[int]:

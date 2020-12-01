@@ -20,11 +20,10 @@ import numpy as np
 import torch
 from atomai import losses_metrics
 from atomai.nets import init_fcnn_model, init_imspec_model
-from atomai.transforms import datatransform, unsqueeze_channels
 from atomai.utils import (array2list, average_weights, gpu_usage_map,
                           init_dataloaders, init_fcnn_dataloaders,
-                          init_imspec_dataloaders, plot_losses,
-                          preprocess_training_image_data,
+                          init_imspec_dataloaders, plot_losses, reset_bnorm,
+                          preprocess_training_image_data, weights_init,
                           preprocess_training_imspec_data, set_train_rng)
 from sklearn.model_selection import train_test_split
 
@@ -61,7 +60,7 @@ class BaseTrainer:
     def __init__(self):
         set_train_rng(1)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.net = torch.nn.Module()
+        self.net = None
         self.criterion = None
         self.optimizer = None
         self.compute_accuracy = False
@@ -85,6 +84,28 @@ class BaseTrainer:
         self.loss_acc = {"train_loss": [], "test_loss": [],
                          "train_accuracy": [], "test_accuracy": []}
 
+    def _reset_rng(self, seed: int) -> None:
+        """
+        (re)sets seeds for pytorch and numpy random number generators
+        """
+        set_train_rng(seed)
+
+    def _reset_weights(self) -> None:
+        """
+        Resets weights of convolutional and linear NN layers
+        using Xavier initialization
+        """
+        self.net.apply(weights_init)
+        self.net.apply(reset_bnorm)
+
+    def _reset_training_history(self) -> None:
+        """
+        Empties training/test losses and accuracies
+        (can be useful for ensemble training)
+        """
+        self.loss_acc = {"train_loss": [], "test_loss": [],
+                         "train_accuracy": [], "test_accuracy": []}
+    
     def set_data(self,
                  X_train: Union[torch.Tensor, np.ndarray],
                  y_train: Union[torch.Tensor, np.ndarray],
@@ -126,7 +147,7 @@ class BaseTrainer:
         self.net = model
         self.net.to(self.device)
         self.nb_classes = nb_classes
-    
+
     def get_loss_fn(self,
                     loss: str = 'mse',
                     nb_classes: int = None) -> None:
@@ -421,7 +442,7 @@ class BaseTrainer:
                 Filename for model weights
                 (appended with "_test_weights_best.pt" and "_weights_final.pt")
             **plot_training_history (bool):
-                Plots training and test curves vs epochs at the end of training   
+                Plots training and test curves vs epochs at the end of training
         """
         self.full_epoch = full_epoch
         self.training_cycles = training_cycles
@@ -502,14 +523,14 @@ class SegTrainer(BaseTrainer):
     for semantic segmentation of noisy experimental data
 
     Args:
-    
+
         model (str):
             Type of model to train: 'dilUnet' or 'dilnet' (Default: 'dilUnet').
             See atomai.nets for more details. One can also pass a custom fully
             convolutional neural network model.
         nb_classes (int):
             Number of classes in the classification scheme adopted
-            (must match the number of classes in training data) 
+            (must match the number of classes in training data)
         **seed (int):
             Deterministic mode for model training (Default: 1)
         **batch_seed (int):
@@ -615,7 +636,7 @@ class SegTrainer(BaseTrainer):
              nb_classes) = preprocess_training_image_data(
                                     X_train, y_train, X_test, y_test,
                                     self.batch_size)
-        
+
         if self.nb_classes != nb_classes:
             raise AssertionError("Number of classes in initialized model" +
                                  " is different from the number of classes" +
@@ -687,7 +708,7 @@ class ImSpecTrainer(BaseTrainer):
         (self.net,
          self.meta_state_dict) = init_imspec_model(in_dim, out_dim, latent_dim,
                                                    **kwargs)
-        
+
         self.net.to(self.device)
         self.meta_state_dict["weights"] = self.net.state_dict()
         self.meta_state_dict["optimizer"] = self.optimizer
@@ -734,7 +755,7 @@ class ImSpecTrainer(BaseTrainer):
             X_train, X_test, y_train, y_test = train_test_split(
                 X_train, y_train, test_size=kwargs.get("test_size", .15),
                 shuffle=True, random_state=kwargs.get("seed", 1))
-        
+
         if self.full_epoch:
             self.train_loader, self.test_loader, dims = init_imspec_dataloaders(
                 X_train, y_train, X_test, y_test, self.batch_size)
@@ -742,7 +763,7 @@ class ImSpecTrainer(BaseTrainer):
             (self.X_train, self.y_train,
              self.X_test, self.y_test, dims) = preprocess_training_imspec_data(
                 X_train, y_train, X_test, y_test, self.batch_size)
-        
+
         if dims[0] != self.in_dim or dims[1] != self.out_dim:
             raise AssertionError(
                 "The input/output dimensions of the model must match" +
