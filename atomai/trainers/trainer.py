@@ -527,7 +527,7 @@ class BaseTrainer:
             if self.perturb_weights:
                 self.weight_perturbation(e)
             if any([e == 0, (e+1) % self.print_loss == 0,
-                    e == self.training_cycles]-1):
+                    e == self.training_cycles-1]):
                 self.print_statistics(e)
         self.save_model(self.filename + "_metadict_final")
         if not self.full_epoch:
