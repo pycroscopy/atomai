@@ -263,7 +263,8 @@ class BaseEnsembleTrainer(BaseTrainer):
             for k, v in kwargs.items():
                 if k in self.kdict.keys():
                     warnings.warn(
-                        warn_msg.format(self.kdict[k], k, kwargs[k]))
+                        warn_msg.format(self.kdict[k], k, kwargs[k]),
+                        UserWarning)
                 self.kdict[k] = v
 
     def save_ensemble_metadict(self) -> None:
