@@ -150,7 +150,8 @@ class BaseTrainer:
         """
         self.net = model
         self.net.to(self.device)
-        self.nb_classes = nb_classes
+        if self.nb_classes is None and nb_classes:
+            self.nb_classes = nb_classes
 
     def get_loss_fn(self,
                     loss: str = 'mse',
@@ -396,7 +397,7 @@ class BaseTrainer:
         self.augment_fn = augment_fn
 
     def compile_trainer(self,
-                        train_data: Union[Tuple[torch.Tensor], Tuple[np.ndarray]],
+                        train_data: Union[Tuple[torch.Tensor], Tuple[np.ndarray]] = None,
                         loss: str = 'ce',
                         optimizer: Optional[Type[torch.optim.Optimizer]] = None,
                         training_cycles: int = 1000,
@@ -525,7 +526,8 @@ class BaseTrainer:
                 self.save_running_weights(e)
             if self.perturb_weights:
                 self.weight_perturbation(e)
-            if e == 0 or (e+1) % self.print_loss == 0:
+            if any([e == 0, (e+1) % self.print_loss == 0,
+                    e == self.training_cycles]):
                 self.print_statistics(e)
         self.save_model(self.filename + "_metadict_final")
         if not self.full_epoch:

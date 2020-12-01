@@ -1,5 +1,6 @@
 from copy import deepcopy as dc
 from typing import Callable, Dict, Optional, Tuple, Type, Union
+import warnings
 
 import numpy as np
 import torch
@@ -14,6 +15,8 @@ from ..utils import (average_weights, check_image_dims, check_signal_dims,
 from .trainer import BaseTrainer
 
 augfn_type = Callable[[torch.Tensor, torch.Tensor, int], Tuple[torch.Tensor, torch.Tensor]]
+compile_kwargs_type = Union[Type[torch.optim.Optimizer], str, int, bool]
+ensemble_type = Dict[int, Dict[str, torch.Tensor]]
 
 
 class BaseEnsembleTrainer(BaseTrainer):
@@ -22,6 +25,9 @@ class BaseEnsembleTrainer(BaseTrainer):
                  model: Type[torch.nn.Module] = None,
                  nb_classes=None
                  ) -> None:
+        """
+        Initialize base ensemble trainer
+        """
         super(BaseEnsembleTrainer, self).__init__()
 
         if model is not None:
@@ -30,8 +36,28 @@ class BaseEnsembleTrainer(BaseTrainer):
 
     def compile_ensemble_trainer(self,
                                  strategy: str = "from_scratch",
-                                 **kwargs):
+                                 **kwargs: compile_kwargs_type
+                                 ) -> None:
+        """
+        Compile ensemble trainer.
 
+        Args:
+            strategy (str): 
+                Select between 'from_scratch', 'from_baseline' and 'swag'.
+                If 'from_scratch' is selected, the *n* models are trained independently
+                starting each time with a different random initialization. If
+                'from_baseline' is selected, a basemodel is trained for *N* epochs
+                and then its weights are used as a baseline to train multiple ensemble models
+                for n epochs (*n* << *N*), each with different random shuffling of batches
+                (and different seed for data augmentation if any). If 'swag' is
+                selected, a SWAG-like sampling of weights is performed at the end of
+                a single model training.
+            kwargs:
+                Keyword arguments to be passed to BaseTrainer.compile_trainer
+                (loss, optimizer, compute_accuracy, full_epoch, swa,
+                perturb_weights, batch_size, training_cycles, accuracy_metrics,
+                filename, print_loss, plot_training_history)
+        """
         self.strategy = strategy
         if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
             raise NotImplementedError(
@@ -44,8 +70,27 @@ class BaseEnsembleTrainer(BaseTrainer):
                        X_test: Optional[np.ndarray] = None,
                        y_test: Optional[np.ndarray] = None,
                        seed: int = 1,
-                       augment_fn: augfn_type = None):
+                       augment_fn: augfn_type = None
+                       ) -> Type[torch.nn.Module]:
+        """
+        Trains baseline weights
 
+        Args:
+            X_train (numpy array): Training features
+            y_train (numpy array): Training targets
+            X_test (numpy array): Test features
+            y_test (numpy array): Test targets
+            seed (int):
+                seed to be used for pytorch and numpy random numbers generator
+            augment_fn (python callable):
+                function that takes two torch tensors (features and targets),
+                peforms some transforms, and returns the transformed tensors.
+                The dimensions of the transformed tensors must be the same as
+                the dimensions of the original ones.
+        
+        Returns:
+            Trained baseline model
+        """
         if self.net is None:
             raise AssertionError("You need to set a model first")
         self._reset_rng(seed)
@@ -64,11 +109,36 @@ class BaseEnsembleTrainer(BaseTrainer):
                                     y_test: Optional[np.ndarray] = None,
                                     n_models: int = 10,
                                     augment_fn: augfn_type = None,
-                                    **kwargs):
+                                    **kwargs
+                                    ) -> Tuple[Type[torch.nn.Module], ensemble_type]:
+        """
+        Trains ensemble of models starting every time from scratch with
+        different initialization
+
+        Args:
+            X_train (numpy array): Training features
+            y_train (numpy array): Training targets
+            X_test (numpy array): Test features
+            y_test (numpy array): Test targets
+            n_models (int): number of models to be trained
+            augment_fn (python callable):
+                function that takes two torch tensors (features and targets),
+                peforms some transforms, and returns the transformed tensors.
+                The dimensions of the transformed tensors must be the same as
+                the dimensions of the original ones.
+            **kwargs: Updates kwargs from initial compilation
+                (can be useful for iterative training)
+        
+        Returns:
+            The last trained model and dictionary with ensemble weights
+        """
+        
         batch_seed = kwargs.get("batch_seed")
-        print("Training ensemble models (trategy = 'from_scratch'")
+        self.update_training_parameters(kwargs)
+
+        print("Training ensemble models (strategy = 'from_scratch')")
         for i in range(n_models):
-            print("Ensemble model {}".format(i + 1))
+            print("\nEnsemble model {}".format(i + 1))
             if batch_seed is not None:
                 self.kdict["batch_seed"] = i
             model_i = self.train_baseline(
@@ -87,14 +157,39 @@ class BaseEnsembleTrainer(BaseTrainer):
                                      training_cycles_base: int = 1000,
                                      training_cycles_ensemble: int = 100,
                                      augment_fn: augfn_type = None,
-                                     **kwargs):
+                                     **kwargs
+                                     ) -> Tuple[Type[torch.nn.Module], ensemble_type]:
+        """
+        Trains ensemble of models starting each time from baseline weights
 
-        if len(kwargs) != 0:
-            for k, v in kwargs.items():
-                self.kdict[k] = v
+        Args:
+            X_train (numpy array): Training features
+            y_train (numpy array): Training targets
+            X_test (numpy array): Test features
+            y_test (numpy array): Test targets
+            basemodel (pytorch object): Provide a baseline model (Optional)
+            n_models (int): number of models in ensemble
+            training_cycles_base (int):
+                Number of training iterations for baseline model
+            training_cycles_ensemble (int):
+                Number of training iterations for every ensemble model
+            augment_fn (python callable):
+                function that takes two torch tensors (features and targets),
+                peforms some transforms, and returns the transformed tensors.
+                The dimensions of the transformed tensors must be the same as
+                the dimensions of the original ones.
+            **kwargs: Updates kwargs from initial compilation
+                (can be useful for iterative training)
+        
+        Returns:
+            Model with averaged weights and dictionary with ensemble weights
+        """
+
+        self.update_training_parameters(kwargs)
 
         if basemodel is None:
             self.kdict["training_cycles"] = training_cycles_base
+            print("Training baseline model...")
             basemodel = self.train_baseline(
                 X_train, y_train, X_test, y_test, 1, augment_fn)
 
@@ -102,20 +197,23 @@ class BaseEnsembleTrainer(BaseTrainer):
         basemodel_state_dict = dc(self.net.state_dict())
 
         self.kdict["training_cycles"] = training_cycles_ensemble
-        if "print_loss" not in self.kdict.keys():
-            self.kdict["print_loss"] = 10
+        if not self.full_epoch:
+            if "print_loss" not in self.kdict.keys():
+                self.kdict["print_loss"] = 10
 
-        print("Training ensemble models (trategy = 'from_baseline'")
+        print("\nTraining ensemble models (strategy = 'from_baseline')")
         for i in range(n_models):
-            print("Ensemble model {}".format(i + 1))
+            print("\nEnsemble model {}".format(i + 1))
             if i > 0:
                 self.net.load_state_dict(basemodel_state_dict)
-                self._reset_rng(i+2)
-                self.compile_trainer(  # Note that here we reinitialize optimizer
-                    (X_train, y_train, X_test, y_test), **self.kdict)
-                model_i = self.fit()
-                self.ensemble_state_dict[i] = dc(model_i.state_dict())
-                self.save_ensemble_metadict()
+            self._reset_rng(i+2)
+            self._reset_training_history()
+            self.compile_trainer(  # Note that here we reinitialize optimizer
+                (X_train, y_train, X_test, y_test),
+                batch_seed=i+2, **self.kdict)
+            model_i = self.run()
+            self.ensemble_state_dict[i] = dc(model_i.state_dict())
+            self.save_ensemble_metadict()
             averaged_weights = average_weights(self.ensemble_state_dict)
             model_i.load_state_dict(averaged_weights)
         return model_i, self.ensemble_state_dict
@@ -126,11 +224,30 @@ class BaseEnsembleTrainer(BaseTrainer):
                    X_test: Optional[np.ndarray] = None,
                    y_test: Optional[np.ndarray] = None,
                    n_models: int = 10,
-                   augment_fn: augfn_type = None
-                   ):
+                   augment_fn: augfn_type = None,
+                   **kwargs: compile_kwargs_type
+                   ) -> Tuple[Type[torch.nn.Module], ensemble_type]:
         """
         Performs SWAG-like weights sampling at the end of single model training
+
+        Args:
+            X_train (numpy array): Training features
+            y_train (numpy array): Training targets
+            X_test (numpy array): Test features
+            y_test (numpy array): Test targets
+            n_models (int): number fo samples to be drawn
+            augment_fn (python callable):
+                function that takes two torch tensors (features and targets),
+                peforms some transforms, and returns the transformed tensors.
+                The dimensions of the transformed tensors must be the same as
+                the dimensions of the original ones.
+            **kwargs: Updates kwargs from initial compilation
+                (can be useful for iterative training)
+        
+        Returns:
+            Baseline model and dictionary with sampled weights
         """
+        self.update_training_parameters(kwargs)
         self.kdict["swa"] = True
         basemodel = self.train_baseline(
                 X_train, y_train, X_test, y_test, 1, augment_fn)
@@ -139,6 +256,15 @@ class BaseEnsembleTrainer(BaseTrainer):
         self.save_ensemble_metadict()
 
         return basemodel, self.ensemble_state_dict
+
+    def update_training_parameters(self, kwargs):
+        warn_msg = "Overwriting the initial value '{}' of parameter '{}' with new value '{}'"
+        if len(kwargs) != 0:
+            for k, v in kwargs.items():
+                if k in self.kdict.keys():
+                    warnings.warn(
+                        warn_msg.format(self.kdict[k], k, kwargs[k]))
+                self.kdict[k] = v
 
     def save_ensemble_metadict(self) -> None:
         """
@@ -157,7 +283,9 @@ class EnsembleTrainer(BaseEnsembleTrainer):
                  nb_classes: int = 1,
                  **kwargs) -> None:
         super(EnsembleTrainer, self).__init__()
-
+        """
+        Initializes ensemble trainer
+        """
         self.nb_classes = nb_classes
         if isinstance(model, str):
             if model in ["dilUnet", "dilnet"]:
@@ -183,7 +311,28 @@ class EnsembleTrainer(BaseEnsembleTrainer):
 
     def compile_ensemble_trainer(self,
                                  strategy: str = "from_scratch",
-                                 **kwargs):
+                                 **kwargs: compile_kwargs_type
+                                 ) -> None:
+        """
+        Compile ensemble trainer.
+
+        Args:
+            strategy (str): 
+                Select between 'from_scratch', 'from_baseline' and 'swag'.
+                If 'from_scratch' is selected, the *n* models are trained independently
+                starting each time with a different random initialization. If
+                'from_baseline' is selected, a basemodel is trained for *N* epochs
+                and then its weights are used as a baseline to train multiple ensemble models
+                for n epochs (*n* << *N*), each with different random shuffling of batches
+                (and different seed for data augmentation if any). If 'swag' is
+                selected, a SWAG-like sampling of weights is performed at the end of
+                a single model training.
+            kwargs:
+                Keyword arguments to be passed to BaseTrainer.compile_trainer
+                (loss, optimizer, compute_accuracy, full_epoch, swa,
+                perturb_weights, batch_size, training_cycles, accuracy_metrics,
+                filename, print_loss, plot_training_history)
+        """
 
         self.strategy = strategy
         if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
@@ -200,8 +349,27 @@ class EnsembleTrainer(BaseEnsembleTrainer):
                        X_test: Optional[np.ndarray] = None,
                        y_test: Optional[np.ndarray] = None,
                        seed: int = 1,
-                       augment_fn: augfn_type = None):
+                       augment_fn: augfn_type = None
+                       ) -> Type[torch.nn.Module]:
+        """
+        Trains baseline weights
 
+        Args:
+            X_train (numpy array): Training features
+            y_train (numpy array): Training targets
+            X_test (numpy array): Test features
+            y_test (numpy array): Test targets
+            seed (int):
+                seed to be used for pytorch and numpy random numbers generator
+            augment_fn (python callable):
+                function that takes two torch tensors (features and targets),
+                peforms some transforms, and returns the transformed tensors.
+                The dimensions of the transformed tensors must be the same as
+                the dimensions of the original ones.
+
+        Returns:
+            Trained baseline weights
+        """
         if self.net is None:
             raise AssertionError("You need to set a model first")
 
