@@ -294,13 +294,17 @@ class EnsembleTrainer(BaseEnsembleTrainer):
                     model, self.nb_classes, **kwargs)
                 self.accuracy_fn = accuracy_fn_seg(nb_classes)
             elif model == "imspec":
-                self.in_dim = kwargs.get("in_dim")
-                self.out_dim = kwargs.get("out_dim")
-                latent_dim = kwargs.get("latent_dim")
-                if None in (self.in_dim, self.out_dim, latent_dim):
+                keys_check = []
+                for k in ["in_dim", "out_dim", "latent_dim"]:
+                    if k not in kwargs.keys():
+                        keys_check.append(k)
+                if len(keys_check) > 0:
                     raise AssertionError(
-                        "Specify input/output and latent dimensions " +
-                        "(in_dim, out_dim, latent_dim)")
+                        "Specify input, output, and latent dimensions " + 
+                        "(Missing dimensions: {})".format(str(keys_check)[1:-1]))
+                self.in_dim = kwargs.pop("in_dim")
+                self.out_dim = kwargs.pop("out_dim")
+                latent_dim = kwargs.pop("latent_dim")
                 self.net, self.meta_state_dict = init_imspec_model(
                     self.in_dim, self.out_dim, latent_dim, **kwargs)
             self.net.to(self.device)

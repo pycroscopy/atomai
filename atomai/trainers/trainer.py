@@ -352,7 +352,7 @@ class BaseTrainer:
                   'GPU memory usage: {}/{}'.format(
                       gpu_usage[0], gpu_usage[1]))
 
-    def accuracy_fn(self) -> None:
+    def accuracy_fn(self, *args) -> None:
         """
         Computes accuracy score
         """
