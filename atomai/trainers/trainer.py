@@ -76,6 +76,7 @@ class BaseTrainer:
         self.X_test, self.y_test = None, None
         self.train_loader = torch.utils.data.TensorDataset()
         self.test_loader = torch.utils.data.TensorDataset()
+        self.data_is_set = False
         self.augdict = {}
         self.augment_fn = None
         self.filename = "model"
@@ -133,6 +134,8 @@ class BaseTrainer:
             (self.X_train, self.y_train,
              self.X_test, self.y_test) = array2list(
                 X_train, y_train, X_test, y_test, self.batch_size)
+
+        self.data_is_set = True
 
     def set_model(self,
                   model: Type[torch.nn.Module],
@@ -398,7 +401,7 @@ class BaseTrainer:
                         training_cycles: int = 1000,
                         batch_size: int = 32,
                         compute_accuracy: bool = False,
-                        full_epoch: bool = True,
+                        full_epoch: bool = False,
                         swa: bool = False,
                         perturb_weights: bool = False,
                         **kwargs):
@@ -434,6 +437,9 @@ class BaseTrainer:
                 where parameters *a* and *gamma* can be passed as a dictionary,
                 together with parameter *e_p* determining every n-th epoch at
                 which a perturbation is applied
+            **overwrite_train_data (bool):
+                Overwrites the exising training data using self.set_data()
+                (Default: True)
             **print_loss (int):
                 Prints loss every *n*-th epoch
             **accuracy_metrics (str):
@@ -449,7 +455,14 @@ class BaseTrainer:
         self.batch_size = batch_size
         self.compute_accuracy = compute_accuracy
         self.swa = swa
-        self.set_data(*train_data)
+
+        if self.data_is_set:
+            if kwargs.get("overwrite_train_data", True):
+                self.set_data(*train_data)
+            else:
+                pass
+        else:
+            self.set_data(*train_data)
 
         self.perturb_weights = perturb_weights
         if self.perturb_weights:

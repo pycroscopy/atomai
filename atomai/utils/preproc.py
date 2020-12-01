@@ -313,6 +313,8 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
     """
     if num_classes is None:
         num_classes = num_classes_from_labels(y_train)
+    X_train, y_train, X_test, y_test = check_image_dims(
+        X_train, y_train, X_test, y_test, num_classes)
     tor = lambda x: torch.from_numpy(x)
     X_train, y_train = tor(X_train).float(), tor(y_train)
     X_test, y_test = tor(X_test).float(), tor(y_test)

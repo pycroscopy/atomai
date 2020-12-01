@@ -7,8 +7,9 @@ from sklearn.model_selection import train_test_split
 
 from ..losses_metrics import IoU
 from ..nets import init_fcnn_model, init_imspec_model
-from ..utils import (average_weights, init_fcnn_dataloaders,
-                     init_imspec_dataloaders, preprocess_training_image_data,
+from ..utils import (average_weights, check_image_dims, check_signal_dims,
+                     init_fcnn_dataloaders, init_imspec_dataloaders,
+                     num_classes_from_labels, preprocess_training_image_data,
                      preprocess_training_imspec_data, sample_weights)
 from .trainer import BaseTrainer
 
@@ -24,7 +25,7 @@ class BaseEnsembleTrainer(BaseTrainer):
         super(BaseEnsembleTrainer, self).__init__()
 
         if model is not None:
-            self.set_model(model, nb_classes) # This part will be modified in EnsembleTrainer for Unet and ImSpec
+            self.set_model(model, nb_classes)
         self.ensemble_state_dict = {}
 
     def compile_ensemble_trainer(self,
@@ -148,12 +149,12 @@ class BaseEnsembleTrainer(BaseTrainer):
 class EnsembleTrainer(BaseEnsembleTrainer):
 
     def __init__(self,
-                 model: Union[str, Type[torch.nn.Module]],
+                 model: Union[str, Type[torch.nn.Module]] = None,
                  nb_classes: int = 1,
                  **kwargs) -> None:
+        super(EnsembleTrainer, self).__init__()
 
         self.nb_classes = nb_classes
-        seg = True
         if isinstance(model, str):
             if model in ["dilUnet", "dilnet"]:
                 self.net, self.meta_state_dict = init_fcnn_model(
@@ -169,127 +170,122 @@ class EnsembleTrainer(BaseEnsembleTrainer):
                         "(in_dim, out_dim, latent_dim)")
                 self.net, self.meta_state_dict = init_imspec_model(
                     self.in_dim, self.out_dim, latent_dim, **kwargs)
-                seg = False
             self.net.to(self.device)
         else:
-            self.set_model(model, nb_classes)        
-        if seg:
-            self.set_data = self.set_data_seg
-        else:
-            self.set_data = self.set_data_imspec
+            self.set_model(model, nb_classes)
 
-        self.kdict = kwargs    
+        self.meta_state_dict["weights"] = self.net.state_dict()
+        self.meta_state_dict["optimizer"] = self.optimizer
 
-    def set_data_imspec(self,
-                        X_train: np.ndarray,
-                        y_train: np.ndarray,
-                        X_test: Optional[np.ndarray] = None,
-                        y_test: Optional[np.ndarray] = None,
-                        **kwargs: Union[float, int]) -> None:
-        """
-        Sets training and test data.
+    def compile_ensemble_trainer(self,
+                                 strategy: str = "from_scratch",
+                                 **kwargs):
 
-        Args:
+        self.strategy = strategy
+        if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
+            raise NotImplementedError(
+                "Select 'from_baseline' 'from_scratch', or 'swag'  strategy")
+        self.kdict = kwargs
+        self.full_epoch = self.kdict.get("full_epoch", False)
+        self.batch_size = self.kdict.get("batch_size", 32)
+        self.kdict["overwrite_train_data"] = False
 
-        X_train (numpy array):
-            4D numpy array with image data (n_samples x 1 x height x width)
-            or 3D numpy array with spectral data (n_samples x 1 x signal_length).
-            It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
-            which will be added automatically.
-        y_train (numpy array):
-            3D numpy array with spectral data (n_samples x 1 x signal_length)
-            or 4D numpy array with image data (n_samples x 1 x height x width).
-            It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
-            which will be added automatically. Note that if your X_train data are images,
-            then your y_train must be spectra and vice versa.
-        X_test (numpy array):
-            4D numpy array with image data (n_samples x 1 x height x width)
-            or 3D numpy array with spectral data (n_samples x 1 x signal_length).
-            It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
-            which will be added automatically.
-        y_test (numpy array):
-            3D numpy array with spectral data (n_samples x 1 x signal_length)
-            or 4D numpy array with image data (n_samples x 1 x height x width).
-            It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
-            which will be added automatically. Note that if your X_train data are images,
-            then your y_train must be spectra and vice versa.
-        kwargs:
-            Parameters for train_test_split ('test_size' and 'seed') when
-            separate test set is not provided
-        """
+    def train_baseline(self,
+                       X_train: np.ndarray,
+                       y_train: np.ndarray,
+                       X_test: Optional[np.ndarray] = None,
+                       y_test: Optional[np.ndarray] = None,
+                       seed: int = 1,
+                       augment_fn: augfn_type = None):
 
-        if X_test is None or y_test is None:
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_train, y_train, test_size=kwargs.get("test_size", .15),
-                shuffle=True, random_state=kwargs.get("seed", 1))
+        if self.net is None:
+            raise AssertionError("You need to set a model first")
+        self._reset_rng(seed)
+        self._reset_weights()
+        self._reset_training_history()
 
-        if self.full_epoch:
-            self.train_loader, self.test_loader, dims = init_imspec_dataloaders(
-                X_train, y_train, X_test, y_test, self.batch_size)
-        else:
-            (self.X_train, self.y_train,
-             self.X_test, self.y_test, dims) = preprocess_training_imspec_data(
-                X_train, y_train, X_test, y_test, self.batch_size)
+        if self.meta_state_dict.get("model_type") == "seg":
+            train_data = set_data_seg(
+                X_train, y_train, X_test, y_test,
+                self.nb_classes)
+        elif self.meta_state_dict.get("model_type") == "imspec":
+            train_data = set_data_imspec(
+                X_train, y_train, X_test, y_test,
+                (self.in_dim, self.out_dim))
+        self.set_data(*train_data)
 
-        if dims[0] != self.in_dim or dims[1] != self.out_dim:
-            raise AssertionError(
-                "The input/output dimensions of the imspec model must match" +
-                " the height, width and length (for spectra) of training")
+        self.compile_trainer(
+            (X_train, y_train, X_test, y_test), **self.kdict)
+        self.data_augmentation(augment_fn)
+        self.fit()
+        
+        return self.net
 
-    def set_data_seg(self,
-                     X_train: np.ndarray,
-                     y_train: np.ndarray,
-                     X_test: Optional[np.ndarray] = None,
-                     y_test: Optional[np.ndarray] = None,
-                     **kwargs: Union[float, int]) -> None:
-        """
-        Sets training and test data.
 
-        Args:
+def set_data_seg(X_train: np.ndarray,
+                 y_train: np.ndarray,
+                 X_test: Optional[np.ndarray] = None,
+                 y_test: Optional[np.ndarray] = None,
+                 nb_classes_set: int = 1,
+                 **kwargs: Union[float, int]
+                 ) -> Tuple[np.ndarray]:
+    """
+    Sets training and test data for semantic segmentation
+    """
+    nb_classes = num_classes_from_labels(y_train)
+    if nb_classes != nb_classes_set:
+        raise AssertionError("Number of specified classes" +
+                             " is different from the number of classes" +
+                             " contained in training data")
 
-        X_train (numpy array):
-            4D numpy array (3D image tensors stacked along the first dim)
-            representing training images
-        y_train (numpy array):
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D images stacked along the first array dimension
-            represent training labels (aka masks aka ground truth).
-            The reason why in the multiclass case the images are 4-dimensional
-            tensors and the labels are 3-dimensional tensors is because of how
-            the cross-entropy loss is calculated in PyTorch
-            (see https://pytorch.org/docs/stable/nn.html#nllloss).
-        X_test (numpy array):
-            4D numpy array (3D image tensors stacked along the first dim)
-            representing test images
-        y_test (numpy array):
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D images stacked along the first array dimension
-            represent test labels (aka masks aka ground truth)
-        kwargs:
-            Parameters for train_test_split ('test_size' and 'seed') when
-            separate test set is not provided
-        """
+    if X_test is None or y_test is None:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_train, y_train, test_size=kwargs.get("test_size", .15),
+            shuffle=True, random_state=kwargs.get("seed", 1))
 
-        if X_test is None or y_test is None:
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_train, y_train, test_size=kwargs.get("test_size", .15),
-                shuffle=True, random_state=kwargs.get("seed", 1))
+    X_train, y_train, X_test, y_test = check_image_dims(
+        X_train, y_train, X_test, y_test, nb_classes)
 
-        if self.full_epoch:
-            loaders = init_fcnn_dataloaders(
-                X_train, y_train, X_test, y_test, self.batch_size)
-            self.train_loader, self.test_loader, nb_classes = loaders
-        else:
-            (self.X_train, self.y_train,
-             self.X_test, self.y_test,
-             nb_classes) = preprocess_training_image_data(
-                                    X_train, y_train, X_test, y_test,
-                                    self.batch_size)
+    f32, i64 = lambda x: x.astype(np.float32), lambda x: x.astype(np.int64)
+    X_train, X_test = f32(X_train), f32(X_test)
+    if nb_classes > 1:
+        y_train, y_test = i64(y_train), i64(y_test)
+    else:
+        y_train, y_test = f32(y_train), f32(y_test)
 
-        if self.nb_classes != nb_classes:
-            raise AssertionError("Number of specified classes" +
-                                 " is different from the number of classes" +
-                                 " contained in training data")
+    return X_train, y_train, X_test, y_test
+
+
+def set_data_imspec(X_train: np.ndarray,
+                    y_train: np.ndarray,
+                    X_test: Optional[np.ndarray] = None,
+                    y_test: Optional[np.ndarray] = None,
+                    dims: Tuple[int] = None,
+                    **kwargs: Union[float, int]
+                    ) -> Tuple[np.ndarray]:
+    """
+    Sets training and test data for im2spec and spec2im models
+    """
+
+    if X_test is None or y_test is None:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_train, y_train, test_size=kwargs.get("test_size", .15),
+            shuffle=True, random_state=kwargs.get("seed", 1))
+
+    X_train, y_train, X_test, y_test = check_signal_dims(
+        X_train, y_train, X_test, y_test)
+
+    in_dim, out_dim = X_train.shape[2:], y_train.shape[2:]
+    if dims[0] != in_dim or dims[1] != out_dim:
+        raise AssertionError(
+            "The input/output dimensions of the model must match" +
+            " the height, width and length (for spectra) of training")
+
+    f32 = lambda x: x.astype(np.float32)
+    X_train, X_test = f32(X_train), f32(X_test)
+    y_train, y_test = f32(y_train), f32(y_test)
+
+    return X_train, y_train, X_test, y_test
 
 
 def accuracy_fn_seg(nb_classes: int
