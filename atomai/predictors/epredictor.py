@@ -128,7 +128,7 @@ class EnsemblePredictor(BasePredictor):
             else:
                 if nclasses > 1:
                     prob = torch.exp(prob)
-            eprediction[i] = prob.cpu().cpu().numpy()
+            eprediction[i] = prob.cpu().numpy()
 
         return eprediction
     

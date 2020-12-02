@@ -95,7 +95,7 @@ class BasePredictor:
                 print("\rBatch {}/{}".format(i+1, num_batches), end="")
             data_i = data[i*batch_size:(i+1)*batch_size]
             prediction_i = self.forward_(data_i)
-            # We put predictions on cpu since the whole point of batch-by-batch
+            # We put predictions on cpu since the major point of batch-by-batch
             # prediction is to not run out of the GPU memory
             prediction_all[i*batch_size:(i+1)*batch_size] = prediction_i.cpu()
         data_i = data[(i+1)*batch_size:]
@@ -223,7 +223,7 @@ class SegPredictor(BasePredictor):
                 pass
         prob = prob.permute(0, 2, 3, 1)  # reshape to have channel as a last dim
         images = images.cpu()
-        prob = prob.cpu().numpy()
+        prob = prob.cpu()
         return prob
 
     def predict(self,
@@ -242,7 +242,7 @@ class SegPredictor(BasePredictor):
             **norm (bool): Normalize data to (0, 1) during pre-processing
         """
         image_data = self.preprocess(
-            image_data, kwargs.get("norm"), True)
+            image_data, kwargs.get("norm", True))
         n, _, w, h = image_data.shape
         num_batches = kwargs.get("num_batches")
         if num_batches is None:
@@ -254,8 +254,8 @@ class SegPredictor(BasePredictor):
             image_data, (n, w, h, self.nb_classes), num_batches)
         if return_image:
             image_data = image_data.permute(0, 2, 3, 1).numpy()
-            return image_data, segmented_imgs
-        return segmented_imgs
+            return image_data, segmented_imgs.numpy()
+        return segmented_imgs.numpy()
 
     def run(self,
             image_data: np.ndarray,
