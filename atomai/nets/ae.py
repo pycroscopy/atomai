@@ -13,8 +13,7 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from .blocks import convblock
+from .blocks import ConvBlock
 
 
 class EncoderNet(nn.Module):
@@ -50,7 +49,7 @@ class EncoderNet(nn.Module):
         c = 1 if len(dim) == 2 else dim[-1]
         self.mlp = mlp
         if not self.mlp:
-            self.econv = convblock(2, num_layers, c, hidden_dim, lrelu_a=0.1)
+            self.econv = ConvBlock(2, num_layers, c, hidden_dim, lrelu_a=0.1)
             self.reshape_ = hidden_dim * dim[0] * dim[1]
         else:
             edense = []
@@ -219,7 +218,7 @@ class DecoderNet(nn.Module):
             self.fc_linear = nn.Linear(
                 latent_dim, hidden_dim * out_dim[0] * out_dim[1], bias=False)
             self.reshape_ = (hidden_dim, out_dim[0], out_dim[1])
-            self.decoder = convblock(
+            self.decoder = ConvBlock(
                 2, num_layers, hidden_dim, hidden_dim, lrelu_a=0.1)
             self.out = nn.Conv2d(hidden_dim, c, 1, 1, 0)
         else:

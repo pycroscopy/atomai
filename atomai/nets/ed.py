@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .blocks import convblock, dilated_block
+from .blocks import ConvBlock, DilatedBlock
 
 
 class signal_encoder(nn.Module):
@@ -39,7 +39,7 @@ class signal_encoder(nn.Module):
             signal_dim = [s // self.downsample for s in signal_dim]
         n = np.product(signal_dim)
         self.reshape_ = nb_filters * n
-        self.conv = convblock(
+        self.conv = ConvBlock(
             ndim, nb_layers, 1, nb_filters,
             lrelu_a=0.1, batch_norm=bn)
         self.fc = nn.Linear(nb_filters * n, z_dim)
@@ -83,18 +83,18 @@ class signal_decoder(nn.Module):
         self.reshape_ = (nb_filters, *signal_dim)
         self.fc = nn.Linear(z_dim, nb_filters*n)
         if self.upsampling:
-            self.deconv1 = convblock(
+            self.deconv1 = ConvBlock(
                 ndim, 1, nb_filters, nb_filters,
                 lrelu_a=0.1, batch_norm=bn)
-            self.deconv2 = convblock(
+            self.deconv2 = ConvBlock(
                 ndim, 1, nb_filters, nb_filters,
                 lrelu_a=0.1, batch_norm=bn)
-        self.dilblock = dilated_block(
+        self.dilblock = DilatedBlock(
             ndim, nb_filters, nb_filters,
             dilation_values=torch.arange(1, nb_layers + 1).tolist(),
             padding_values=torch.arange(1, nb_layers + 1).tolist(),
             lrelu_a=0.1, batch_norm=bn)
-        self.conv = convblock(
+        self.conv = ConvBlock(
             ndim, 1, nb_filters, 1,
             lrelu_a=0.1, batch_norm=bn)
         if ndim == 2:

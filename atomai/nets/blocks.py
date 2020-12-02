@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class convblock(nn.Module):
+class ConvBlock(nn.Module):
     """
     Creates block of layers each consisting of convolution operation,
     leaky relu and (optionally) dropout and batch normalization
@@ -49,7 +49,7 @@ class convblock(nn.Module):
         """
         Initializes module parameters
         """
-        super(convblock, self).__init__()
+        super(ConvBlock, self).__init__()
         if not 0 < ndim < 3:
             raise AssertionError("ndim must be equal to 1 or 2")
         conv = nn.Conv2d if ndim == 2 else nn.Conv1d
@@ -79,7 +79,7 @@ class convblock(nn.Module):
         return output
 
 
-class upsample_block(nn.Module):
+class UpsampleBlock(nn.Module):
     """
     Defines upsampling block performed using bilinear
     or nearest-neigbor interpolation followed by 1-by-1 convolution
@@ -106,7 +106,7 @@ class upsample_block(nn.Module):
         """
         Initializes module parameters
         """
-        super(upsample_block, self).__init__()
+        super(UpsampleBlock, self).__init__()
         if not any([mode == 'bilinear', mode == 'nearest']):
             raise NotImplementedError(
                 "use 'bilinear' or 'nearest' for upsampling mode")
@@ -128,7 +128,7 @@ class upsample_block(nn.Module):
         return self.conv(x)
 
 
-class dilated_block(nn.Module):
+class DilatedBlock(nn.Module):
     """
     Creates a "pyramid" with dilated convolutional
     layers (aka atrous convolutions)
@@ -167,7 +167,7 @@ class dilated_block(nn.Module):
         """
         Initializes module parameters
         """
-        super(dilated_block, self).__init__()
+        super(DilatedBlock, self).__init__()
         if not 0 < ndim < 3:
             raise AssertionError("ndim must be equal to 1 or 2")
         conv = nn.Conv2d if ndim == 2 else nn.Conv1d
@@ -200,3 +200,135 @@ class dilated_block(nn.Module):
             x = conv_layer(x)
             atrous_layers.append(x.unsqueeze(-1))
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
+
+
+class ResBlock(nn.Module):
+    """
+    Builds a residual block
+
+    Args:
+        ndim (int):
+            Data dimensionality (1D or 2D)
+        input_channels (int):
+            Number of input channels for the block
+        output_channels (int):
+            Number of the output channels for the block
+        kernel_size (int):
+            Size of convolutional filter (in pixels)
+        stride (int):
+            Stride of convolutional filter
+        padding (int):
+            Value for edge padding
+        batch_norm (bool):
+            Add batch normalization to each layer in the block
+        lrelu_a (float)
+            Value of alpha parameter in leaky ReLU activation
+            for each layer in the block
+    """
+    def __init__(self,
+                 ndim: int,
+                 input_channels: int,
+                 output_channels: int,
+                 kernel_size: int = 3,
+                 stride: int = 1,
+                 padding: int = 1,
+                 lrelu_a: float = 0.01,
+                 batch_norm: bool = True
+                 ) -> None:
+        """
+        Initializes module parameters
+        """
+        super(ResBlock, self).__init__()
+        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
+        self.lrelu_a = lrelu_a
+        self.batch_norm = batch_norm
+        self.c0 = conv(input_channels,
+                       output_channels,
+                       kernel_size=kernel_size,
+                       stride=stride,
+                       padding=padding)
+        self.c1 = conv(input_channels,
+                       output_channels,
+                       kernel_size=kernel_size,
+                       stride=stride,
+                       padding=padding)
+        self.c2 = conv(input_channels,
+                       output_channels,
+                       kernel_size=kernel_size,
+                       stride=stride,
+                       padding=padding)
+        self.bn1 = nn.BatchNorm2d(output_channels)
+        self.bn2 = nn.BatchNorm2d(output_channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Defines forward pass
+        """
+        x = self.c0(x)
+        residual = x
+        out = self.c1(x)
+        if self.use_batchnorm:
+            out = self.bn1(out)
+        out = F.leaky_relu(out, negative_slope=self.lrelu_a)
+        out = self.c2(out)
+        if self.use_batchnorm:
+            out = self.bn2(out)
+        out += residual
+        out = F.leaky_relu(out, negative_slope=self.lrelu_a)
+        return out
+
+
+class ResModule(nn.Module):
+    """
+    Stitches multiple convolutional blocks with residual connections together
+    
+    Args:
+        ndim (int):
+            Data dimensionality (1D or 2D)
+        res_depth (int):
+            Number of residual blocks in the module
+        input_channels (int):
+            Number of input channels for the module
+        output_channels (int):
+            Number of the output channels for the module
+        kernel_size (int):
+            Size of convolutional filter (in pixels)
+        stride (int):
+            Stride of convolutional filter
+        padding (int):
+            Value for edge padding
+        batch_norm (bool):
+            Batch normalization for each convolutional layer in the module
+        lrelu_a (float)
+            Value of alpha parameter in leaky ReLU activation
+            for each convolutional layer in the module
+    """
+    def __init__(self,
+                 ndim: int,
+                 res_depth: int,
+                 input_channels: int,
+                 output_channels: int,
+                 kernel_size: int = 3,
+                 stride: int = 1,
+                 padding: int = 1,
+                 lrelu_a: float = 0.01,
+                 batch_norm: bool = True
+                 ) -> None:
+        """
+        Initializes module parameters
+        """
+        super(ResModule, self).__init__()
+        res_module = []
+        for i in range(res_depth):
+            input_channels = output_channels if i > 0 else input_channels
+            res_module.append(
+                ResBlock(ndim, input_channels, output_channels,
+                         kernel_size, stride, padding, lrelu_a, batch_norm)
+        self.res_module = nn.Sequential(*res_module)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Defines a forward pass
+        """
+        x = self.res_module(x)
+        return x
