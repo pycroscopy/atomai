@@ -2,6 +2,7 @@ from typing import Dict, Tuple, Type, Union
 
 import numpy as np
 import torch
+from torch.nn.functional import softmax
 
 from ..utils import (get_downsample_factor, torch_format_image,
                      torch_format_spectra)
@@ -22,11 +23,11 @@ class EnsemblePredictor(BasePredictor):
         """
         Initialize ensemble predictor
         """
-        super(EnsemblePredictor, self).__super__()
+        super(EnsemblePredictor, self).__init__()
         if output_type not in ["image", "spectra"]:
             raise TypeError("Supported output types are 'image' and 'spectra'")
         inout = [data_type, output_type]
-        inout_d = not all(in_dim, out_dim)
+        inout_d = not all([in_dim, out_dim])
         if inout in (["image", "spectra"], ["spectra", "image"]) and inout_d:
             raise TypeError(
                 "Specify input (in_dim) & output (out_dim) dimensions")
@@ -43,6 +44,7 @@ class EnsemblePredictor(BasePredictor):
         self.nb_classes = nb_classes
         self.in_dim, self.out_dim = in_dim, out_dim
         self.downsample_factor = None
+        self.logits = kwargs.get("logits", False)
         self.output_shape = kwargs.get("output_shape")
         verbose = kwargs.get("verbose", 1)
         if verbose:
@@ -55,18 +57,18 @@ class EnsemblePredictor(BasePredictor):
         """
         if self.data_type == self.output_type == "image":
             if self.nb_classes:  # semantic segmentation
-                out_shape = (*data.shape, self.nb_classes)
+                out_shape = (len(data), self.nb_classes, *data.shape[2:])
             else:  # image cleaning
-                out_shape = (*data.shape)
+                out_shape = (len(data), 1, *data.shape[2:])
         elif self.data_type == "spectra" and self.output_type == "image":
             if self.nb_classes:
-                out_shape = (len(data), *self.out_dim, self.nb_classes)
+                out_shape = (len(data), self.nb_classes, *self.out_dim)
             else:
-                out_shape = (len(data), *self.out_dim)
+                out_shape = (len(data), 1, *self.out_dim)
         elif self.data_type == "image" and self.output_type == "spectra":
-            out_shape = (len(data), *self.out_dim)
+            out_shape = (len(data), 1, *self.out_dim)
         elif self.data_type == self.output_type == "spectra":
-            out_shape = (*data.shape)
+            out_shape = (len(data), 1, *data.shape[2:])
         else:
             raise TypeError("Data not understood")
 
@@ -102,7 +104,17 @@ class EnsemblePredictor(BasePredictor):
         for i, m in enumerate(self.ensemble.values()):
             self.model.load_state_dict(m)
             self._model2device()
-            eprediction[i] = self.forward_(data).cpu().numpy()
+            prob = self.forward_(data)
+            if self.logits:
+                if self.nb_classes > 1:
+                    prob = softmax(prob, dim=1)
+                else:
+                    prob = torch.sigmoid(prob)
+            else:
+                if self.nb_classes > 1:
+                    prob = torch.exp(prob)
+            eprediction[i] = prob.cpu().cpu().numpy()
+
         return np.mean(eprediction, axis=0), np.var(eprediction, axis=0) 
     
     def ensemble_batch_predict(self,
@@ -115,6 +127,7 @@ class EnsemblePredictor(BasePredictor):
         batch_size = len(data) // num_batches
         if batch_size < 1:
             num_batches = batch_size = 1
+        print("batch_size", batch_size)
         prediction_mean = np.zeros(shape=self.output_shape)
         prediction_var = np.zeros(shape=self.output_shape)
         for i in range(num_batches):
@@ -128,22 +141,22 @@ class EnsemblePredictor(BasePredictor):
         data_i = data[(i+1)*batch_size:]
         if len(data_i) > 0:
             pred_mean, pred_var = self.ensemble_forward_(
-                data_i, (len(data_i, *self.output_shape[1:])))
+                data_i, (len(data_i), *self.output_shape[1:]))
             prediction_mean[(i+1)*batch_size:] = pred_mean
             prediction_var[(i+1)*batch_size:] = pred_var
         return prediction_mean, prediction_var
   
-    def ensemble_predict(self,
-                         data: np.ndarray,
-                         num_batches: int = 10,
-                         ) -> Tuple[np.ndarray]:
+    def predict(self,
+                data: np.ndarray,
+                num_batches: int = 10,
+                ) -> Tuple[np.ndarray]:
         """
-        Predict mean and variance for all the data points
+        Predicts mean and variance for all the data points
         with ensemble of models
         """
+        data = self.preprocess(data)
         if not self.output_shape:
             self._set_output_shape(data)
-        data = self.preprocess(data)
 
         if (self.data_type == self.output_type == "image"
            and self.downsample_factor is None):
