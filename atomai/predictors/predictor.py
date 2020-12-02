@@ -24,19 +24,27 @@ from atomai.utils import (Hook, cv_thresh, find_com, get_downsample_factor,
 class BasePredictor:
 
     def __init__(self,
-                 model: Type[torch.nn.Module],
-                 use_gpu: bool = False) -> None:
+                 model: Type[torch.nn.Module] = None,
+                 use_gpu: bool = False,
+                 **kwargs: Union[bool, str]) -> None:
         """
         Initialize predictor
 
         Args:
             model: trained pytorch model
             use_gpu: Use GPU accelerator (Default: False)
+            **device: CUDA device, e.g. 'cuda:0'
         """
         self.model = model
         self.device = "cpu"
         if use_gpu and torch.cuda.is_available():
-            self.device = "cuda"
+            if kwargs.get("device") is None:
+                self.device = "cuda"
+            else:
+                self.device = kwargs.get("device")
+        if self.model is not None:
+            self.model.to(self.device)
+        self.verbose = kwargs.get("verbose", False)
     
     def preprocess(self,
                    data: Union[torch.Tensor, np.ndarray]
@@ -48,13 +56,26 @@ class BasePredictor:
             data = torch.from_numpy(data).float()
         return data
 
+    def _model2device(self, device: str = None) -> None:
+        if device is None:
+            device = self.device
+        self.model.to(device)
+
+    def _data2device(self,
+                     data: torch.Tensor,
+                     device: str = None) -> torch.Tensor:
+        if device is None:
+            device = self.device
+        data = data.to(device)
+        return data
+
     def forward_(self, xnew: torch.Tensor) -> torch.Tensor:
         """
         Pass data through a trained neural network
         """
         self.model.eval()
         with torch.no_grad():
-            out = self.model(xnew)
+            out = self.model(xnew.to(self.device))
         return out
 
     def batch_predict(self,
@@ -67,17 +88,20 @@ class BasePredictor:
         batch_size = len(data) // num_batches
         if batch_size < 1:
             num_batches = batch_size = 1
-        prediction_all = np.zeros(shape=out_shape)
+        #prediction_all = np.zeros(shape=out_shape)
+        prediction_all = torch.zeros(out_shape)
         for i in range(num_batches):
             if self.verbose:
                 print("\rBatch {}/{}".format(i+1, num_batches), end="")
             data_i = data[i*batch_size:(i+1)*batch_size]
             prediction_i = self.forward_(data_i)
-            prediction_all[i*batch_size:(i+1)*batch_size] = prediction_i
+            # We put predictions on cpu since the whole point of batch-by-batch
+            # prediction is to not run out of the GPU memory
+            prediction_all[i*batch_size:(i+1)*batch_size] = prediction_i.cpu()
         data_i = data[(i+1)*batch_size:]
         if len(data_i) > 0:
             prediction_i = self.forward_(data_i)
-            prediction_all[(i+1)*batch_size:] = prediction_i
+            prediction_all[(i+1)*batch_size:] = prediction_i.cpu()
         return prediction_all
 
     def predict(self,
@@ -305,7 +329,7 @@ class ImSpecPredictor(BasePredictor):
         num_batches = kwargs.get("num_batches", 10)
         output = self.batch_predict(
             signal, (len(signal), 1, *self.output_dim), num_batches)
-        return output[:, 0]
+        return output[:, 0].numpy()
 
     def run(self,
             signal: np.ndarray,
