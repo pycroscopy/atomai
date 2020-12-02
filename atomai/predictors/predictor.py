@@ -272,7 +272,7 @@ class SegPredictor(BasePredictor):
         start_time = time.time()
         images, decoded_imgs = self.predict(
             image_data, return_image=True, **kwargs)
-        loc = locator(self.thresh, refine=self.refine, d=self.d)
+        loc = Locator(self.thresh, refine=self.refine, d=self.d)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
@@ -356,7 +356,7 @@ class ImSpecPredictor(BasePredictor):
         return prediction
 
 
-class locator:
+class Locator:
     """
     Transforms pixel data from NN output into coordinate data
 

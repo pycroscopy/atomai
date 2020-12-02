@@ -5,8 +5,8 @@ import torch
 from torch.nn.functional import softmax
 
 from ..utils import (get_downsample_factor, torch_format_image,
-                     torch_format_spectra)
-from .predictor import BasePredictor
+                     torch_format_spectra, cluster_coord)
+from .predictor import BasePredictor, Locator
 
 
 class EnsemblePredictor(BasePredictor):
@@ -97,12 +97,28 @@ class EnsemblePredictor(BasePredictor):
         """
         Computes mean and variance of prediction with ensemble models
         """
+        eprediction = self.ensemble_forward(data, out_shape)
+
+        return np.mean(eprediction, axis=0), np.var(eprediction, axis=0) 
+
+    def ensemble_forward(self,
+                         data: torch.Tensor,
+                         out_shape: Tuple[int],
+                         num_batches: int = 1) -> np.ndarray:
+        """
+        Computes prediction with ensemble models.
+        Returns ALL calculated predictions (n_models * n_samples).
+        """
         eprediction = np.zeros(
             (len(self.ensemble), *out_shape))
         for i, m in enumerate(self.ensemble.values()):
             self.model.load_state_dict(m)
             self._model2device()
-            prob = self.forward_(data)
+            if num_batches > 1:
+                prob = self.batch_predict(
+                    data, out_shape, num_batches)
+            else:
+                prob = self.forward_(data)
             nclasses = 0 if not self.nb_classes else self.nb_classes
             if self.logits:
                 if nclasses > 1:
@@ -114,7 +130,7 @@ class EnsemblePredictor(BasePredictor):
                     prob = torch.exp(prob)
             eprediction[i] = prob.cpu().cpu().numpy()
 
-        return np.mean(eprediction, axis=0), np.var(eprediction, axis=0) 
+        return eprediction
     
     def ensemble_batch_predict(self,
                                data: np.ndarray,
@@ -164,3 +180,37 @@ class EnsemblePredictor(BasePredictor):
         prediction_mean, prediction_var = prediction
         
         return prediction_mean, prediction_var 
+
+
+def ensemble_locate(nn_output_ensemble: np.ndarray,
+                    **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Finds coordinates for each ensemble predictions
+    (basically, an atomnet.locator for ensembles)
+
+    Args:
+        nn_output_ensembles (numpy array):
+            5D numpy array with ensemble predictions
+        **eps (float):
+            DBSCAN epsilon for clustering coordinates
+        **threshold (float):
+            threshold value for atomnet.locator
+
+    Returns:
+        Mean and variance for every detected atom/defect/particle coordinate
+    """
+    eps = kwargs.get("eps", 0.5)
+    thresh = kwargs.get("threshold", 0.5)
+    coord_mean_all = {}
+    coord_var_all = {}
+    for i in range(nn_output_ensemble.shape[1]):
+        coordinates = {}
+        nn_output = nn_output_ensemble[:, i]
+        for i2, img in enumerate(nn_output):
+            coord = Locator(thresh).run(img[None, ...])
+            coordinates[i2] = coord[0]
+        _, coord_mean, coord_var = cluster_coord(coordinates, eps)
+        coord_mean_all[i] = coord_mean
+        coord_var_all[i] = coord_var
+    return coord_mean_all, coord_var_all
+
