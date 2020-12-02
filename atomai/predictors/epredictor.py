@@ -74,9 +74,9 @@ class EnsemblePredictor(BasePredictor):
 
         self.output_shape = out_shape
 
-    def preprocess_data(self,
-                        data: np.ndarray,
-                        ) -> torch.Tensor:
+    def preprocess(self,
+                   data: np.ndarray,
+                   ) -> torch.Tensor:
         """
         Preprocesses data depending on type (image or spectra)
         """
@@ -88,8 +88,6 @@ class EnsemblePredictor(BasePredictor):
             if data.ndim == 1:
                 data = data[np.newaxis, ...]
             data = torch_format_spectra(data)
-        else:
-            data = self.preprocess(data)
         return data
 
     def ensemble_forward_(self,
@@ -105,13 +103,14 @@ class EnsemblePredictor(BasePredictor):
             self.model.load_state_dict(m)
             self._model2device()
             prob = self.forward_(data)
+            nclasses = 0 if not self.nb_classes else self.nb_classes
             if self.logits:
-                if self.nb_classes > 1:
+                if nclasses > 1:
                     prob = softmax(prob, dim=1)
-                else:
+                elif self.nb_classes == 1:
                     prob = torch.sigmoid(prob)
             else:
-                if self.nb_classes > 1:
+                if nclasses > 1:
                     prob = torch.exp(prob)
             eprediction[i] = prob.cpu().cpu().numpy()
 
