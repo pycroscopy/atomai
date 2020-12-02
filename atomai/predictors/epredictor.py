@@ -127,7 +127,6 @@ class EnsemblePredictor(BasePredictor):
         batch_size = len(data) // num_batches
         if batch_size < 1:
             num_batches = batch_size = 1
-        print("batch_size", batch_size)
         prediction_mean = np.zeros(shape=self.output_shape)
         prediction_var = np.zeros(shape=self.output_shape)
         for i in range(num_batches):
