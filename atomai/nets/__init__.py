@@ -1,4 +1,4 @@
-from .blocks import convblock, upsample_block, dilated_block
+from .blocks import ConvBlock, UpsampleBlock, DilatedBlock
 from .fcnn import dilUnet, dilnet, init_fcnn_model
 from .ae import EncoderNet, DecoderNet, rDecoderNet, coord_latent
 from .ed import signal_encoder, signal_decoder, signal_ed, init_imspec_model

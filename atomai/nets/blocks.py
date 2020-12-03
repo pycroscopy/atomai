@@ -323,7 +323,7 @@ class ResModule(nn.Module):
             input_channels = output_channels if i > 0 else input_channels
             res_module.append(
                 ResBlock(ndim, input_channels, output_channels,
-                         kernel_size, stride, padding, lrelu_a, batch_norm)
+                         kernel_size, stride, padding, lrelu_a, batch_norm))
         self.res_module = nn.Sequential(*res_module)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
