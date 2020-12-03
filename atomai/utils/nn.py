@@ -133,6 +133,7 @@ def set_train_rng(seed: int = 1):
     """
     For reproducibility
     """
+    np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
