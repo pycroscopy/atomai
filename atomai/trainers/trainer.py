@@ -478,10 +478,11 @@ class BaseTrainer:
                 e_p = 1 if self.full_epoch else 50
                 self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
 
+        params = self.net.parameters()
         if optimizer is None:
-            self.optimizer = torch.optim.Adam(self.net.parameters(), lr=1e-3)
+            self.optimizer = torch.optim.Adam(params, lr=1e-3)
         else:
-            self.optimizer = optimizer
+            self.optimizer = optimizer(params)
         self.criterion = self.get_loss_fn(loss, self.nb_classes)
 
         if not self.full_epoch:
