@@ -380,26 +380,26 @@ class fcDecoderNet(nn.Module):
 
 class rDecoderNet(nn.Module):
     """
-    Spatial decoder network with skip connections
+    Spatial decoder network with (optional) skip connections
 
     Args:
+        out_dim (tuple):
+            output dimensions: (height, width) or (height, width, channels)
         latent_dim (int):
             number of latent dimensions associated with images content
         num_layers (int):
             number of fully connected layers
         hidden_dim (int):
             number of neurons in each fully connected layer
-        out_dim (tuple):
-            output dimensions: (height, width) or (height, width, channels)
         skip (bool):
             Use skip connections to propagate latent variables
             through decoder network (Default: False)
     """
     def __init__(self,
+                 out_dim: Tuple[int],
                  latent_dim: int,
                  num_layers: int,
                  hidden_dim: int,
-                 out_dim: Tuple[int],
                  skip: bool = False,
                  num_classes: int = 0) -> None:
         """
