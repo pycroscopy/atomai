@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 from ..nets import (convDecoderNet, convEncoderNet, fcDecoderNet, fcEncoderNet,
                     rDecoderNet)
 from ..trainers import viBaseTrainer
+from ..losses_metrics import vae_loss, rvae_loss
 from ..utils import (crop_borders, extract_subimages, get_coord_grid,
                      imcoordgrid, init_vae_dataloaders, set_train_rng,
                      subimg_trajectories, transform_coordinates)
@@ -108,7 +109,7 @@ class BaseVAE(viBaseTrainer):
         encoder_net = enet(
             self.in_dim, self.z_dim, numlayers_e, numhidden_e)
         self.set_model(encoder_net, decoder_net)
-
+        
         self.coord = coord
 
         self.metadict = {
@@ -493,43 +494,22 @@ class BaseVAE(viBaseTrainer):
         duration = kwargs.get("frame_duration", 1)
         animation_from_png(frames_dir, movie_name, duration, remove_dir=False)
 
-    def loss_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
-                *args: torch.Tensor, **kwargs: str) -> torch.Tensor:
+    def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
+                *args: torch.Tensor) -> torch.Tensor:
         """
         Calculates ELBO
         """
-        z_mean, z_logsd = args
-        loss = kwargs.get("loss")
-        if loss is None:
-            loss = self.loss
-        z_sd = torch.exp(z_logsd)
-        batch_dim = x.size(0)
-        if loss == "mse":
-            reconstr_error = -0.5 * torch.sum(
-                (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1).mean()
-        else:
-            px_size = np.product(self.in_dim)
-            rs = (self.in_dim[0] * self.in_dim[1],)
-            if len(self.in_dim) == 3:
-                rs = rs + (self.in_dim[-1],)
-            reconstr_error = -F.binary_cross_entropy_with_logits(
-                x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs)) * px_size
-        kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
-        kl_z = torch.sum(kl_z, 1).mean()
-        return reconstr_error - kl_z
+        return vae_loss(self.loss, self.in_dim, x_reconstr, x, *args)
     
-    def step(self,
-             x: torch.Tensor,
-             y: Optional[torch.Tensor] = None,
-             mode: str = "train") -> torch.Tensor:
+    def forward_compute_elbo(self,
+                             x: torch.Tensor,
+                             y: Optional[torch.Tensor] = None,
+                             mode: str = "train"
+                             ) -> torch.Tensor:
         """
-        Single training/test step
+        VAE's forward pass with training/test loss computation
         """
-        if y is not None and not hasattr(self, "nb_classes"):
-            raise AssertionError(
-                "Please provide total number of classes as 'nb_classes'")
-        if torch.cuda.is_available():
-            x = x.cuda()
+        x = x.to(self.device)
         if mode == "eval":
             with torch.no_grad():
                 z_mean, z_logsd = self.encoder_net(x)
@@ -540,14 +520,13 @@ class BaseVAE(viBaseTrainer):
         if y is not None:
             targets = to_onehot(y, self.nb_classes)
             z = torch.cat((z, targets), -1)
-
         if mode == "eval":
             with torch.no_grad():
                 x_reconstr = self.decoder_net(z)
         else:
             x_reconstr = self.decoder_net(z)
 
-        return self.loss_fn(x, x_reconstr, z_mean, z_logsd)
+        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd)
 
     def _check_inputs(self,
                       X_train: np.ndarray,
@@ -575,6 +554,7 @@ class BaseVAE(viBaseTrainer):
                 "during the initialization. Example of correct usage: " + 
                 "vae = VAE(in_dim=(28, 28), nb_classes=10)); " +
                 "vae.fit(train_data, train_labels).")
+        lbl_match = True
         if y_train is not None and y_test is None:
             lbl_match = self.nb_classes == len(np.unique(y_train))
         elif y_train is not None and y_test is not None:
@@ -590,6 +570,7 @@ class BaseVAE(viBaseTrainer):
             y_train: Optional[np.ndarray] = None,
             X_test: Optional[np.ndarray] = None,
             y_test: Optional[np.ndarray] = None,
+            loss: str = "mse",
             **kwargs) -> None:
         """
         Trains VAE model
@@ -597,7 +578,8 @@ class BaseVAE(viBaseTrainer):
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
-
+        self.loss = loss  # this part needs to be handled better
+        
         for e in range(self.training_cycles):
             elbo_epoch = self.train_epoch()
             self.loss_history["train_loss"].append(elbo_epoch)
@@ -674,151 +656,51 @@ class VAE(BaseVAE):
 
 
 class rVAE(BaseVAE):
-    """
-    Implements rotationally and translationally invariant
-    Variational Autoencoder (VAE), which is based on the work
-    by Bepler et al. in arXiv:1909.11663
 
-    Args:
-        X_train (np.ndarray):
-            3D or 4D stack of training images ( n x w x h or n x w x h x c )
-        latent_dim (int):
-            number of VAE latent dimensions associated with image content
-        training_cycles (int):
-            number of training 'epochs' (Default: 300)
-        batch_size (int):
-            size of training batch for each training epoch (Default: 200)
-        test_size (float):
-            proportion of the dataset for model evaluation (Default: 0.15)
-        translation (bool):
-            account for xy shifts of image content (Default: True)
-        seed(int):
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units in decoder (Default: 128)
-        **skip (bool):
-            uses generative skip model with residual paths between
-            latents and decoder layers (Default: False)
-        **loss (str):
-            reconstruction loss function, "ce" or "mse" (Default: "mse")
-        **translation_prior (float):
-            translation prior
-        **rotation_prior (float):
-            rotational prior
-        **savename (str):
-            file name/path for saving model at the end of training
-        **recording (bool):
-            saves a learned 2d manifold at each training step
-    """
     def __init__(self,
-                 X_train: np.ndarray,
+                 in_dim: int = None,
                  latent_dim: int = 2,
-                 training_cycles: int = 300,
-                 batch_size: int = 200,
-                 test_size: float = 0.15,
+                 nb_classes: int = 0,
                  translation: bool = True,
                  seed: int = 0,
-                 **kwargs: Union[int, float, bool, str]) -> None:
-        """
-        Initialize rVAE trainer
-        """
-        dim = X_train[0].shape[1:] if isinstance(X_train, tuple) else X_train.shape[1:]
-        kwargs["nb_classes"] = len(np.unique(X_train[1])) if isinstance(X_train, tuple) else 0
+                 **kwargs: Union[int, bool, str]
+                 ) -> None:
         coord = 3 if translation else 1  # xy translations and/or rotation
-        super(rVAE, self).__init__(dim, latent_dim, coord, seed, **kwargs)
-
-        if torch.cuda.is_available:
-            torch.cuda.empty_cache()
+        args = (in_dim, latent_dim, nb_classes, coord)
+        super(rVAE, self).__init__(*args, **kwargs)
         set_train_rng(seed)
-        np.random.seed(seed)
-
-        if isinstance(X_train, tuple):
-            self.nb_classes = kwargs.get("nb_classes")
-            X_train, X_test, y_train, y_test = train_test_split(
-                X_train[0], X_train[1], test_size=test_size,
-                shuffle=True, random_state=seed)
-            iterators = init_vae_dataloaders(
-                X_train, X_test, y_train, y_test, batch_size)
-        else:
-            X_train, X_test = train_test_split(
-                X_train, test_size=test_size, shuffle=True,
-                random_state=seed) 
-            iterators = init_vae_dataloaders(X_train, X_test, batch_size=batch_size)
-        self.in_dim = X_train.shape[1:]
-
-        self.train_iterator, self.test_iterator = iterators
-
-        self.in_dim = X_train.shape[1:]
-        self.x_coord = imcoordgrid(X_train.shape[1:])
+        self.x_coord = None
         self.translation = translation
-        if torch.cuda.is_available():
-            self.x_coord = self.x_coord.cuda()
-
-        if torch.cuda.is_available():
-            self.decoder_net.cuda()
-            self.encoder_net.cuda()
-
-        params = list(self.decoder_net.parameters()) +\
-            list(self.encoder_net.parameters())
-        self.optim = torch.optim.Adam(params, lr=1e-4)
-        self.loss = kwargs.get("loss", "mse")
-        self.dx_prior = kwargs.get("translation_prior", 0.1)
-        self.phi_prior = kwargs.get("rotation_prior", 0.1)
-        self.training_cycles = training_cycles
-        self.savename = kwargs.get("savename", "./rVAE_metadict")
+        self.dx_prior = None
+        self.phi_prior = None
         self.recording = kwargs.get("recording", False)
 
-    def loss_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
-                *args: torch.Tensor, **kwargs: str) -> torch.Tensor:
+    def _2torch(self,
+                X: Union[np.ndarray, torch.Tensor],
+                y: Union[np.ndarray, torch.Tensor] = None
+                ) -> torch.Tensor:
+        if isinstance(X, np.ndarray):
+            X = torch.from_numpy(X).float()
+        if isinstance(y, np.ndarray):
+            y = torch.from_numpy(y).long()
+        return X, y
+
+    def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
+                *args: torch.Tensor, **kwargs: float) -> torch.Tensor:
         """
         Calculates ELBO
         """
-        z_mean, z_logsd = args
-        loss = kwargs.get("loss")
-        if loss is None:
-            loss = self.loss
-        z_sd = torch.exp(z_logsd)
-        phi_sd, phi_logsd = z_sd[:, 0], z_logsd[:, 0]
-        z_mean, z_sd, z_logsd = z_mean[:, 1:], z_sd[:, 1:], z_logsd[:, 1:]
-        batch_dim = x.size(0)
-        if self.loss == "mse":
-            reconstr_error = -0.5 * torch.sum(
-                (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
-        else:
-            px_size = np.product(self.in_dim)
-            rs = (self.in_dim[0] * self.in_dim[1],)
-            if len(self.in_dim) == 3:
-                rs = rs + (self.in_dim[-1],)
-            reconstr_error = -F.binary_cross_entropy_with_logits(
-                x_reconstr.view(-1, *rs), x.view(-1, *rs)) * px_size
-        kl_rot = (-phi_logsd + np.log(self.phi_prior) +
-                  phi_sd**2 / (2 * self.phi_prior**2) - 0.5)
-        kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
-        kl_div = (kl_rot + torch.sum(kl_z, 1)).mean()
-        return reconstr_error - kl_div
+        return rvae_loss(self.loss, self.in_dim, x_reconstr, x, *args, **kwargs)
 
-    def step(self,
-             x: torch.Tensor,
-             y: Optional[torch.Tensor] = None,
-             mode: str = "train") -> torch.Tensor:
+    def forward_compute_elbo(self,
+                             x: torch.Tensor,
+                             y: Optional[torch.Tensor] = None,
+                             mode: str = "train"
+                             ) -> torch.Tensor:
         """
         Single training/test step
         """
-        if y is not None and not hasattr(self, "nb_classes"):
-            raise AssertionError(
-                "Please provide total number of classes as 'nb_classes'")
-
         x_coord_ = self.x_coord.expand(x.size(0), *self.x_coord.size())
-        if torch.cuda.is_available():
-            x = x.cuda()
         if mode == "eval":
             with torch.no_grad():
                 z_mean, z_logsd = self.encoder_net(x)
@@ -845,24 +727,42 @@ class rVAE(BaseVAE):
                 x_reconstr = self.decoder_net(x_coord_, z)
         else:
             x_reconstr = self.decoder_net(x_coord_, z)
-        return self.loss_fn(x, x_reconstr, z_mean, z_logsd)
 
-    def run(self):
+        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, phi_prior=self.phi_prior)
+
+    def fit(self,
+            X_train: np.ndarray,
+            y_train: Optional[np.ndarray] = None,
+            X_test: Optional[np.ndarray] = None,
+            y_test: Optional[np.ndarray] = None,
+            loss: str = "mse",
+            **kwargs) -> None:
         """
         Trains rVAE model
         """
+        self._check_inputs(X_train, y_train, X_test, y_test)
+        self.x_coord = imcoordgrid(X_train.shape[1:]).to(self.device)
+        self.dx_prior = kwargs.get("translation_prior", 0.1)
+        self.phi_prior = kwargs.get("rotation_prior", 0.1)
+        self.compile_trainer(
+            (X_train, y_train), (X_test, y_test), **kwargs)
+        self.loss = loss  # this part needs to be handled better
+
         for e in range(self.training_cycles):
             elbo_epoch = self.train_epoch()
-            elbo_epoch_test = self.evaluate_model()
-            template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
-            print(template.format(e+1, self.training_cycles,
-                  -elbo_epoch, -elbo_epoch_test))
+            self.loss_history["train_loss"].append(elbo_epoch)
+            if self.test_iterator is not None:
+                elbo_epoch_test = self.evaluate_model()
+                self.loss_history["test_loss"].append(elbo_epoch_test)
+            self.print_statistics(e)
             if self.recording and self.z_dim in [3, 5]:
                 self.manifold2d(savefig=True, filename=str(e))
-        self.save_model(self.savename)
+        self.save_model(self.filename)
         if self.recording and self.z_dim in [3, 5]:
             self.visualize_manifold_learning("./vae_learning")
-        return
+
+
+
 
 
 
