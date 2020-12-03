@@ -1,11 +1,13 @@
 from typing import Tuple, Type, Optional, Union
 import torch
 import numpy as np
+from ..utils import set_train_rng
 
 
 class viBaseTrainer:
 
     def __init__(self):
+        set_train_rng(1)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.in_dim = None
         self.out_dim = None
@@ -35,20 +37,27 @@ class viBaseTrainer:
         if X_test is not None:
             self.test_iterator = self._set_data(X_test, y_test)
 
+    def _2torch(self,
+                X: Union[np.ndarray, torch.Tensor],
+                y: Union[np.ndarray, torch.Tensor] = None
+                ) -> torch.Tensor:
+
+        if isinstance(X, np.ndarray):
+            X = torch.from_numpy(X)
+        if isinstance(y, np.ndarray):
+            y = torch.from_numpy(y)
+        return X, y
+
     def _set_data(self, X, y=None):
-
-        tor = lambda x: torch.from_numpy(x) if isinstance(x, np.ndarray) else x
-        X, y = tor(X), tor(y)
-
+        
         if X is None:
             raise AssertionError(
                 "You must provide input train/test data")
-
+        X, y = self._2torch(X, y)
         if y is not None:  # VED or cVAE
             data_train = torch.utils.data.TensorDataset(X, y)
         else:  # VAE
             data_train = torch.utils.data.TensorDataset(X,)
-
         data_loader = torch.utils.data.DataLoader(
             data_train, batch_size=self.batch_size,
             shuffle=True, drop_last=True)
@@ -63,7 +72,7 @@ class viBaseTrainer:
                         test_data: Tuple[Union[torch.Tensor, np.ndarray]] = None,
                         loss: str = "mse",
                         optimizer: Optional[Type[torch.optim.Optimizer]] = None,
-                        training_cycles: int = 1000,
+                        training_cycles: int = 100,
                         batch_size: int = 32,
                         **kwargs
                         ) -> None:
