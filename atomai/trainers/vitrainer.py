@@ -1,4 +1,4 @@
-from typing import Tuple, Type, Optional, Union
+from typing import Tuple, Type, Optional, Union, Callable
 import torch
 import numpy as np
 from ..utils import set_train_rng
@@ -19,6 +19,9 @@ class viBaseTrainer:
         self.optim = None
         self.metadict = {}
         self.loss_history = {"train_loss": [], "test_loss": []}
+        self.filename = "model"
+        self.training_cycles = 1
+        self.batch_size = 1
 
     def set_model(self, encoder_net, decoder_net):
         self.encoder_net = encoder_net
@@ -64,14 +67,32 @@ class viBaseTrainer:
 
         return data_loader
 
-    def step(self) -> None:
+    def elbo_fn(self):
+        """
+        Computes ELBO
+        """
+        raise NotImplementedError
+
+    def forward_compute_elbo(self,
+                             x: torch.Tensor,
+                             y: torch.Tensor
+                             ) -> None:
+        """
+        Computes ELBO in "train" and "eval" modes.
+        Specifically, it passes input data x through encoder,
+        "compresses" it to latent variables z_mean and z_sd/z_logsd,
+        performs reparametrization trick, passes the reparameterized
+        latent vector through decoder to obtain y/x_reconstructed,
+        and then computes the "loss" via self.elbo_fn, which usually takes
+        as parameters x, y/x_reconstructed, z_mean, and z_sd/z_logsd.
+        """
         raise NotImplementedError
 
     def compile_trainer(self,
                         train_data: Tuple[Union[torch.Tensor, np.ndarray]],
                         test_data: Tuple[Union[torch.Tensor, np.ndarray]] = None,
-                        loss: str = "mse",
                         optimizer: Optional[Type[torch.optim.Optimizer]] = None,
+                        elbo_fn: Callable = None,
                         training_cycles: int = 100,
                         batch_size: int = 32,
                         **kwargs
@@ -79,7 +100,9 @@ class viBaseTrainer:
 
         self.training_cycles = training_cycles
         self.batch_size = batch_size
-        self.loss = loss
+        
+        if elbo_fn is not None:
+            self.elbo_fn = elbo_fn
 
         if test_data is not None:
             self.set_data(*train_data, *test_data)
@@ -112,6 +135,7 @@ class viBaseTrainer:
         """
         Trains a single epoch
         """
+        step = self.forward_compute_elbo
         self.decoder_net.train()
         self.encoder_net.train()
         c = 0
@@ -123,7 +147,7 @@ class viBaseTrainer:
             else:  # VED or cVAE mode
                 x, y = x
             b = x.size(0)
-            elbo = self.step(x) if y is None else self.step(x, y)
+            elbo = step(x) if y is None else step(x, y)
             loss = -elbo
             loss.backward()
             self.optim.step()
@@ -138,6 +162,7 @@ class viBaseTrainer:
         """
         Evaluates model on test data
         """
+        step = self.forward_compute_elbo
         self.decoder_net.eval()
         self.encoder_net.eval()
         c = 0
@@ -150,9 +175,9 @@ class viBaseTrainer:
                 x, y = x
             b = x.size(0)
             if y is None:  # VAE mode
-                elbo = self.step(x, mode="eval")
+                elbo = step(x, mode="eval")
             else:  # VED or cVAE mode
-                elbo = self.step(x, y, mode="eval")
+                elbo = step(x, y, mode="eval")
             elbo = elbo.item()
             c += b
             delta = b * (elbo - elbo_epoch_test)
