@@ -12,6 +12,8 @@ import warnings
 import numpy as np
 import torch
 
+from sklearn.model_selection import train_test_split
+
 
 def num_classes_from_labels(labels: np.ndarray) -> int:
     """
@@ -20,7 +22,7 @@ def num_classes_from_labels(labels: np.ndarray) -> int:
     Args:
         labels (numpy array):
             ground truth (aka masks aka labels) for semantic segmentation
-    
+
     Returns:
         number of classes
     """
@@ -123,7 +125,7 @@ def check_signal_dims(X_train: np.ndarray,
                 'Adding a channel dimension of 1 to test spectra',
                 UserWarning)
             y_test = y_test[:, np.newaxis]
-        
+
         same_dim1 = X_train.shape[1:] == X_test.shape[1:]
         same_dim2 = y_train.shape[1:] == y_test.shape[1:]
         if not all(same_dim1, same_dim2):
@@ -277,7 +279,7 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
                 X_train, y_train, X_test, y_test, batch_size)
 
         return X_train, y_train, X_test, y_test, (in_dim, out_dim)
-        
+
 
 def init_dataloaders(X_train: torch.Tensor,
                      y_train: torch.Tensor,
@@ -326,7 +328,7 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
         y_test = y_test.float()
     train_loader, test_loader = init_dataloaders(
         X_train, y_train, X_test, y_test, batch_size)
-    
+
     return train_loader, test_loader, num_classes
 
 
@@ -463,3 +465,16 @@ def torch_format(image_data: np.ndarray) -> torch.Tensor:
     warnings.warn("torch_format is deprecated. Use torch_format_image instead",
                   UserWarning)
     return torch_format_image(image_data)
+
+
+def data_split(X_train: np.ndarray,
+               y_train: np.ndarray,
+               test_size: float = 0.15,
+               random_state: int = 1
+               ) -> Tuple[np.ndarray]:
+    """
+    Wrapper for sklearn's train_test_split
+    """
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_train, y_train, test_size=test_size,
+        shuffle=True, random_state=random_state)
