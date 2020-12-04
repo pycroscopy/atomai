@@ -487,7 +487,7 @@ def data_split(X_train: np.ndarray,
     else:
         raise NotImplementedError(
             "{} channel format is not implemented".format(channel) +
-            " Choose between 'first', 'last')
+            " Choose between 'first', 'last'")
     X_train, X_test, y_train, y_test = train_test_split(
         X_train, y_train, test_size=test_size,
         shuffle=True, random_state=random_state)
