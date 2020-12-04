@@ -484,6 +484,8 @@ def data_split(X_train: np.ndarray,
     elif channel == "last":
         X_train = X_train[..., np.newaxis]
         y_train = y_train[..., np.newaxis]
+    elif channel is None:
+        pass
     else:
         raise NotImplementedError(
             "{} channel format is not implemented".format(channel) +
