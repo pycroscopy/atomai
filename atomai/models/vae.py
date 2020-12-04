@@ -8,22 +8,20 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import os
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn.functional as F
 from scipy.stats import norm
-from sklearn.model_selection import train_test_split
 
+from ..losses_metrics import rvae_loss, vae_loss
 from ..nets import (convDecoderNet, convEncoderNet, fcDecoderNet, fcEncoderNet,
                     rDecoderNet)
 from ..trainers import viBaseTrainer
-from ..losses_metrics import vae_loss, rvae_loss
 from ..utils import (crop_borders, extract_subimages, get_coord_grid,
-                     imcoordgrid, init_vae_dataloaders, set_train_rng,
-                     subimg_trajectories, transform_coordinates)
+                     imcoordgrid, set_train_rng, subimg_trajectories,
+                     transform_coordinates)
 
 
 class BaseVAE(viBaseTrainer):
@@ -65,7 +63,7 @@ class BaseVAE(viBaseTrainer):
         """
 
         in_dim_error_msg = (
-            "You must specify the input dimensions and pass them as a tuple. " 
+            "You must specify the input dimensions and pass them as a tuple. "
             "For images, specify (height, width) or (height, width, channels)" +
             " if multiple channels. For spectra, specify (length,)")
 
@@ -111,7 +109,7 @@ class BaseVAE(viBaseTrainer):
         encoder_net = enet(
             self.in_dim, self.z_dim, numlayers_e, numhidden_e)
         self.set_model(encoder_net, decoder_net)
-        
+
         self.coord = coord
 
         self.metadict = {
@@ -248,7 +246,7 @@ class BaseVAE(viBaseTrainer):
                 y = torch.from_numpy(y)
             if y.dim() == 0:
                 y = y.unsqueeze(0)
-            y = y.cuda() if torch.cuda.is_available() else y            
+            y = y.cuda() if torch.cuda.is_available() else y
             targets = to_onehot(y, self.nb_classes)
             z_sample = torch.cat((z_sample, targets), dim=-1)
         if torch.cuda.is_available():
@@ -502,7 +500,7 @@ class BaseVAE(viBaseTrainer):
         Calculates ELBO
         """
         return vae_loss(self.loss, self.in_dim, x_reconstr, x, *args)
-    
+
     def forward_compute_elbo(self,
                              x: torch.Tensor,
                              y: Optional[torch.Tensor] = None,
@@ -552,20 +550,20 @@ class BaseVAE(viBaseTrainer):
                 "Expected {} but got {}".format(self.in_dim, X_test.shape[1:]))
         if y_train is not None and self.nb_classes == 0:
             raise RuntimeError(
-                "You must have forgotten to specify number of classes " + 
-                "during the initialization. Example of correct usage: " + 
+                "You must have forgotten to specify number of classes " +
+                "during the initialization. Example of correct usage: " +
                 "vae = VAE(in_dim=(28, 28), nb_classes=10)); " +
                 "vae.fit(train_data, train_labels).")
         lbl_match = True
         if y_train is not None and y_test is None:
             lbl_match = self.nb_classes == len(np.unique(y_train))
         elif y_train is not None and y_test is not None:
-            lbl_match = (self.nb_classes == len(np.unique(y_train)) 
+            lbl_match = (self.nb_classes == len(np.unique(y_train))
                          == len(np.unique(y_test)))
         if not lbl_match:
             raise RuntimeError(
                 "The number of classes specified at initialization must be " +
-                "equal the the number of classes in train and test labels")    
+                "equal the the number of classes in train and test labels")
 
     def fit(self,
             X_train: np.ndarray,
@@ -601,7 +599,7 @@ class BaseVAE(viBaseTrainer):
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
-        
+
         for e in range(self.training_cycles):
             elbo_epoch = self.train_epoch()
             self.loss_history["train_loss"].append(elbo_epoch)
