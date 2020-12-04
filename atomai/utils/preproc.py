@@ -470,13 +470,40 @@ def torch_format(image_data: np.ndarray) -> torch.Tensor:
 def data_split(X_train: np.ndarray,
                y_train: np.ndarray,
                test_size: float = 0.15,
-               random_state: int = 1
-               ) -> Tuple[np.ndarray]:
+               random_state: int = 1,
+               channel: Optional[str]= None,
+               format_out: str = "numpy"
+               ) -> Tuple[Union[np.ndarray, torch.Tensor]]:
     """
-    Wrapper for sklearn's train_test_split
+    Wrapper for sklearn's train_test_split, which also takes care
+    (optionally) of pseudo-channel dimension and numpy-to-torch conversion
     """
+    if channel == "first":
+        X_train = X_train[:, np.newaxis]
+        y_train = y_train[:, np.newaxis]
+    elif channel == "last":
+        X_train = X_train[..., np.newaxis]
+        y_train = y_train[..., np.newaxis]
+    else:
+        raise NotImplementedError(
+            "{} channel format is not implemented".format(channel) +
+            " Choose between 'first', 'last')
     X_train, X_test, y_train, y_test = train_test_split(
         X_train, y_train, test_size=test_size,
         shuffle=True, random_state=random_state)
+    torf = lambda x: torch.from_numpy(x).float()
+    torl = lambda x: torch.from_numpy(x).long()
+    if format_out == "torch_float_long":
+        X_train, X_test = torf(X_train), torf(X_test)
+        y_train, y_test = torl(y_train), torl(y_test)
+    elif format_out == "torch_float":
+        X_train, X_test = torf(X_train), torf(X_test)
+        y_train, y_test = torf(y_train), torf(y_test)
+    elif format_out == "numpy":
+        pass
+    else:
+        raise NotImplementedError(
+            "{} output format is not implemented".format(format_out) +
+            " Choose between 'torch_float', 'torch_float_long' and 'numpy'")
 
     return X_train, y_train, X_test, y_test
