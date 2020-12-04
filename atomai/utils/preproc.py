@@ -478,3 +478,5 @@ def data_split(X_train: np.ndarray,
     X_train, X_test, y_train, y_test = train_test_split(
         X_train, y_train, test_size=test_size,
         shuffle=True, random_state=random_state)
+
+    return X_train, y_train, X_test, y_test
