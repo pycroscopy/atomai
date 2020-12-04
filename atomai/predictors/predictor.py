@@ -207,7 +207,7 @@ class SegPredictor(BasePredictor):
         Returns 'probability' of each pixel
         in image(s) belonging to an atom/defect
         """
-        images.to(self.device)
+        images = images.to(self.device)
         self.model.eval()
         with torch.no_grad():
             prob = self.model(images)
