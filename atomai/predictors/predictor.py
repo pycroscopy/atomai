@@ -110,7 +110,7 @@ class BasePredictor:
         """
         Make a prediction on the new data with a trained model
         """
-        out_shape = (*data.shape, 1)
+        out_shape = data.shape
         data = self.preprocess(data)
         prediction = self.batch_predict(data, out_shape, num_batches)
         return prediction
