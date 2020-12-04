@@ -128,7 +128,7 @@ def check_signal_dims(X_train: np.ndarray,
 
         same_dim1 = X_train.shape[1:] == X_test.shape[1:]
         same_dim2 = y_train.shape[1:] == y_test.shape[1:]
-        if not all(same_dim1, same_dim2):
+        if not all([same_dim1, same_dim2]):
             raise ValueError("The image/spectra dimensions must be" +
                              " the same for training and test data")
 
