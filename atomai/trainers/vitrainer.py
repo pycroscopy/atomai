@@ -5,7 +5,9 @@ from ..utils import set_train_rng
 
 
 class viBaseTrainer:
-
+    """
+    Initializes base trainer for VAE and VED models
+    """
     def __init__(self):
         set_train_rng(1)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -23,7 +25,13 @@ class viBaseTrainer:
         self.training_cycles = 1
         self.batch_size = 1
 
-    def set_model(self, encoder_net, decoder_net):
+    def set_model(self,
+                  encoder_net: Type[torch.nn.Module],
+                  decoder_net: Type[torch.nn.Module]
+                  ) -> None:
+        """
+        Sets encoder and decoder models
+        """
         self.encoder_net = encoder_net
         self.decoder_net = decoder_net
         self.encoder_net.to(self.device)
@@ -35,7 +43,9 @@ class viBaseTrainer:
                  X_test: Union[torch.Tensor, np.ndarray] = None,
                  y_test: Union[torch.Tensor, np.ndarray] = None,
                  ) -> None:
-
+        """
+        Initializes train and (optionally) test data loaders
+        """
         self.train_iterator = self._set_data(X_train, y_train)
         if X_test is not None:
             self.test_iterator = self._set_data(X_test, y_test)
@@ -43,16 +53,23 @@ class viBaseTrainer:
     def _2torch(self,
                 X: Union[np.ndarray, torch.Tensor],
                 y: Union[np.ndarray, torch.Tensor] = None
-                ) -> torch.Tensor:
-
+                ) -> Tuple[torch.Tensor]:
+        """
+        ndarray to torch tensor conversion
+        """
         if isinstance(X, np.ndarray):
             X = torch.from_numpy(X)
         if isinstance(y, np.ndarray):
             y = torch.from_numpy(y)
         return X, y
 
-    def _set_data(self, X, y=None):
-        
+    def _set_data(self,
+                  X: Union[np.ndarray, torch.Tensor],
+                  y: Union[np.ndarray, torch.Tensor] = None
+                  ) -> Type[torch.utils.data.DataLoader]:
+        """
+        Initializes PyTorch dataloader given a pair of ndarrays/tensors
+        """
         if X is None:
             raise AssertionError(
                 "You must provide input train/test data")
@@ -75,10 +92,7 @@ class viBaseTrainer:
         """
         raise NotImplementedError
 
-    def forward_compute_elbo(self,
-                             x: torch.Tensor,
-                             y: torch.Tensor
-                             ) -> None:
+    def forward_compute_elbo(self):
         """
         Computes ELBO in "train" and "eval" modes.
         Specifically, it passes input data x through encoder,
@@ -97,27 +111,38 @@ class viBaseTrainer:
                         elbo_fn: Callable = None,
                         training_cycles: int = 100,
                         batch_size: int = 32,
-                        **kwargs
-                        ) -> None:
+                        **kwargs: str) -> None:
+        """
+        Compiles model's trainer
 
+        Args:
+            train_data (tuple):
+                Train data and (optionally) corresponding targets or labels
+            train_data (tuple):
+                Test data and (optionally) corresponding targets or labels
+            optimizer:
+                Weights optimizer. Defaults to Adam with learning rate 1e-4
+            elbo_fn (python function):
+                function that calculates elbo loss
+            training_cycles (int):
+                Number of training iterations (aka "epochs")
+            batch_size (int):
+                Size of mini-batch for training
+        """
         self.training_cycles = training_cycles
         self.batch_size = batch_size
-        
         if elbo_fn is not None:
             self.elbo_fn = elbo_fn
-
         if test_data is not None:
             self.set_data(*train_data, *test_data)
         else:
             self.set_data(*train_data)
-
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
         if optimizer is None:
             self.optim = torch.optim.Adam(params, lr=1e-4)
         else:
             self.optim = optimizer(params)
-
         self.filename = kwargs.get("filename", "./model")
 
     @classmethod
