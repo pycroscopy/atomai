@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from .blocks import ConvBlock, DilatedBlock, UpsampleBlock
 
 
-class dilUnet(nn.Module):
+class Unet(nn.Module):
     """
     Builds a fully convolutional Unet-like neural network model
 
@@ -24,21 +24,26 @@ class dilUnet(nn.Module):
             Number of classes in the ground truth
         nb_filters (int):
             Number of filters in 1st convolutional block
-            (gets multibplied by 2 in each next block)
+            (gets multiplied by 2 in each next block)
         dropout (bool):
-            Use / not use dropout in the 3 inner layers
+            Use dropouts in the 3 inner layers
+            Default: False
         batch_norm (bool):
-            Use / not use batch normalization after each convolutional layer
+            Use batch normalization after each convolutional layer
+            (Default: True)
         upsampling mode (str):
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
+        with_dilation (bool):
+            Use dilated convolutions instead of regular ones in the
+            bottleneck layers (Default: Fasle)
         **layers (list):
             List with a number of layers in each block.
             For U-Net the first 4 elements in the list
             are used to determine the number of layers
-            in each block of the encoder (incluidng bottleneck layer),
+            in each block of the encoder (incluidng bottleneck layers),
             and the number of layers in the decoder  is chosen accordingly
             (to maintain symmetry between encoder and decoder)
     """
@@ -48,12 +53,12 @@ class dilUnet(nn.Module):
                  dropout: bool = False,
                  batch_norm: bool = True,
                  upsampling_mode: str = "bilinear",
-                 with_dilation: bool = True,
+                 with_dilation: bool = False,
                  **kwargs: List[int]) -> None:
         """
         Initializes model parameters
         """
-        super(dilUnet, self).__init__()
+        super(Unet, self).__init__()
         nbl = kwargs.get("layers", [1, 2, 2, 3])
         dilation_values = torch.arange(2, 2*nbl[-1]+1, 2).tolist()
         padding_values = dilation_values.copy()
@@ -242,11 +247,11 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
                 'dropout': dropout,
                 'upsampling': upsampling,
             }
-    if isinstance(model, str) and model == 'dilUnet':
+    if isinstance(model, str) and model == 'Unet':
         with_dilation = kwargs.get('with_dilation', True)
         nb_filters = kwargs.get('nb_filters', 16)
         layers = kwargs.get("layers", [1, 2, 2, 3])
-        net = dilUnet(
+        net = Unet(
             nb_classes, nb_filters, dropout,
             batch_norm, upsampling, with_dilation,
             layers=layers
@@ -262,7 +267,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         )
     else:
         raise NotImplementedError(
-            "Currently implemented models are 'dilUnet' and 'dilnet'"
+            "Currently implemented models are 'Unet' and 'dilnet'"
         )
     meta_state_dict["nb_filters"] = nb_filters
     meta_state_dict["layers"] = layers

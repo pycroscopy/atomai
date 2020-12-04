@@ -13,7 +13,7 @@ class Segmentor(SegTrainer):
 
     Args:
         model (str):
-            Type of model to train: 'dilUnet' or 'dilnet' (Default: 'dilUnet').
+            Type of model to train: 'Unet' or 'dilnet' (Default: 'Unet').
             See atomai.nets for more details. One can also pass a custom fully
             convolutional neural network model.
         **batch_norm (bool):
@@ -27,10 +27,10 @@ class Segmentor(SegTrainer):
         **nb_filters (int):
             Number of convolutional filters in the first convolutional block
             (this number doubles in the consequtive block(s),
-            see definition of dilUnet and dilnet models for details)
+            see definition of Unet and dilnet models for details)
         **with_dilation (bool):
-            Use dilated convolutions in the bottleneck of dilUnet
-            (Default: True)
+            Use dilated convolutions in the bottleneck of Unet
+            (Default: False)
         **layers (list):
             List with a number of layers in each block.
             For U-Net the first 4 elements in the list
@@ -40,7 +40,7 @@ class Segmentor(SegTrainer):
             (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
-                 model: Type[Union[str, torch.nn.Module]] = "dilUnet",
+                 model: Type[Union[str, torch.nn.Module]] = "Unet",
                  nb_classes: int = 1,
                  **kwargs) -> None:
         super(Segmentor, self).__init__(model, nb_classes, **kwargs)

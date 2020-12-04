@@ -49,7 +49,7 @@ class BaseTrainer:
     >>> # Initialize a trainer
     >>> t = BaseTrainer()
     >>> # Set a model
-    >>> t.set_model(atomai.nets.dilUnet(), nb_classes=1)
+    >>> t.set_model(atomai.nets.Unet(), nb_classes=1)
     >>> # Compile trainer
     >>> t.compile_trainer(
     >>>     (images, labels, images_test_1, labels_test_1),
@@ -554,7 +554,7 @@ class SegTrainer(BaseTrainer):
     Args:
 
         model (str):
-            Type of model to train: 'dilUnet' or 'dilnet' (Default: 'dilUnet').
+            Type of model to train: 'Unet' or 'dilnet' (Default: 'Unet').
             See atomai.nets for more details. One can also pass a custom fully
             convolutional neural network model.
         nb_classes (int):
@@ -576,10 +576,10 @@ class SegTrainer(BaseTrainer):
         **nb_filters (int):
             Number of convolutional filters in the first convolutional block
             (this number doubles in the consequtive block(s),
-            see definition of dilUnet and dilnet models for details)
+            see definition of Unet and dilnet models for details)
         **with_dilation (bool):
-            Use dilated convolutions in the bottleneck of dilUnet
-            (Default: True)
+            Use dilated convolutions in the bottleneck of Unet
+            (Default: False)
         **layers (list):
             List with a number of layers in each block.
             For U-Net the first 4 elements in the list
@@ -589,7 +589,7 @@ class SegTrainer(BaseTrainer):
             (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
-                 model: str = 'dilUnet',
+                 model: str = 'Unet',
                  nb_classes: int = 1,
                  **kwargs: Union[int, List, str, bool]) -> None:
         """

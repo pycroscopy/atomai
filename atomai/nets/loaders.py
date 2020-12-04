@@ -10,7 +10,7 @@ Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 from typing import Type, Tuple, Dict
 
 import torch
-from .fcnn import dilnet, dilUnet
+from .fcnn import dilnet, Unet
 from atomai.utils import average_weights
 
 
@@ -40,8 +40,8 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
     else:
         (model_type, num_classes, batchnorm, dropout, upsampling,
          nb_filters, layers, checkpoint) = meta_dict.values()
-    if model_type == 'dilUnet':
-        model = dilUnet(
+    if model_type == 'Unet':
+        model = Unet(
             num_classes, nb_filters, dropout,
             batchnorm, upsampling, with_dilation,
             layers=layers)
@@ -51,7 +51,7 @@ def load_model(meta_state_dict: str) -> Type[torch.nn.Module]:
             batchnorm, upsampling, layers=layers)
     else:
         raise NotImplementedError(
-            "Select between 'dilUnet' and 'dilnet' neural networks"
+            "Select between 'Unet' and 'dilnet' neural networks"
         )
     model.load_state_dict(checkpoint)
     return model.eval()
@@ -82,8 +82,8 @@ def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int
     else:
         (model_type, num_classes, batchnorm, dropout, upsampling,
          nb_filters, layers, checkpoint) = meta_dict.values()
-    if model_type == 'dilUnet':
-        model = dilUnet(
+    if model_type == 'Unet':
+        model = Unet(
             num_classes, nb_filters, dropout,
             batchnorm, upsampling, with_dilation,
             layers=layers)
@@ -93,7 +93,7 @@ def load_ensemble(meta_state_dict: str) -> Tuple[Type[torch.nn.Module], Dict[int
             batchnorm, upsampling, layers=layers)
     else:
         raise NotImplementedError(
-            "The network must be either 'dilUnet' or 'dilnet'"
+            "The network must be either 'Unet' or 'dilnet'"
         )
     model.load_state_dict(average_weights(checkpoint))
     return model.eval(), checkpoint
