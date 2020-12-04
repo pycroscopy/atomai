@@ -35,6 +35,8 @@ class BaseVAE(viBaseTrainer):
             (height, width) or (height, width, channel) of input images
         latent_dim (int):
             latent dimension in deep latent variable model
+        nb_classes (int):
+            Number of classes (for class-conditional VAEs)
         seed (int):
             seed for torch and numpy (pseudo-)random numbers generators
         **conv_encoder (bool):
@@ -416,8 +418,8 @@ class BaseVAE(viBaseTrainer):
 
         Args:
             **d (int): grid size
-            l1 (list): range of 1st latent varianle
-            l2 (list): range of 2nd latent variable
+            **l1 (list): range of 1st latent varianle
+            **l2 (list): range of 2nd latent variable
             **cmap (str): color map (Default: gnuplot)
             **draw_grid (bool): plot semi-transparent grid
             **origin (str): plot origin (e.g. 'lower')
@@ -549,7 +551,7 @@ class BaseVAE(viBaseTrainer):
                 "the test data dimensions. " +
                 "Expected {} but got {}".format(self.in_dim, X_test.shape[1:]))
         if y_train is not None and self.nb_classes == 0:
-            raise ValueError(
+            raise RuntimeError(
                 "You must have forgotten to specify number of classes " + 
                 "during the initialization. Example of correct usage: " + 
                 "vae = VAE(in_dim=(28, 28), nb_classes=10)); " +
@@ -574,6 +576,26 @@ class BaseVAE(viBaseTrainer):
             **kwargs) -> None:
         """
         Trains VAE model
+
+        Args:
+            X_train (numpy aarray):
+                For images, 3D or 4D stack of training images with dimensions
+                (n_images, height, width) for grayscale data or
+                or (n_images, height, width, channels) for multi-channel data.
+                For spectra, 2D stack of spectra with dimensions (length,)
+            X_test (numpy array, optional):
+                3D or 4D stack of test images or 2D stack of spectra with
+                the same dimensions as for the X_train (Default: None)
+            y_train (numpy array, optional):
+                Vector with labels of dimension (n_images,), where n_images
+                is a number of training images/spectra
+            y_train (numpy array, optional):
+                Vector with labels of dimension (n_images,), where n_images
+                is a number of test images/spectra
+            loss (str):
+                reconstruction loss function, "ce" or "mse" (Default: "mse")
+            **filename (str):
+                file path for saving model aftereach training cycle ("epoch")
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.compile_trainer(
@@ -591,6 +613,9 @@ class BaseVAE(viBaseTrainer):
         return
 
     def print_statistics(self, e):
+        """
+        Prints training and (optionally) test loss after each training cycle
+        """
         if self.test_iterator is not None:
             template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
             print(template.format(e+1, self.training_cycles,
@@ -607,22 +632,18 @@ class VAE(BaseVAE):
     Implements a standard Variational Autoencoder (VAE)
 
     Args:
-        X_train (numpy array):
-            3D or 4D stack of training images ( n x w x h or n x w x h x c )
+        in_dim (tuple):
+            Input dimensions for image data passed as (heigth, width)
+            for grayscale data or (height, width, channels)
+            for multichannel data
         latent_dim (int):
-            number of VAE latent dimensions associated with image content
-        training_cycles (int):
-            number of training 'epochs' (Default: 300)
-        batch_size (int):
-            size of training batch for each training epoch (Default: 200)
-        test_size (float):
-            proportion of the dataset for model evaluation (Default: 0.15)
-        seed (int):
+            Number of VAE latent dimensions associated with image content
+        nb_classes (int):
+            Number of classes for class-conditional rVAE
+        seed(int):
             seed for torch and numpy (pseudo-)random numbers generators
         **conv_encoder (bool):
             use convolutional layers in encoder
-        **conv_decoder (bool):
-            use convolutional layers in decoder
         **numlayers_encoder (int):
             number of layers in encoder (Default: 2)
         **numlayers_decoder (int):
@@ -630,9 +651,7 @@ class VAE(BaseVAE):
         **numhidden_encoder (int):
             number of hidden units OR conv filters in encoder (Default: 128)
         **numhidden_decoder (int):
-            number of hidden units OR conv filters in decoder (Default: 128)
-        **savename (str):
-            file name/path for saving model at the end of training
+            number of hidden units in decoder (Default: 128)
     """
     def __init__(self,
                  in_dim: int = None,
@@ -656,6 +675,40 @@ class VAE(BaseVAE):
 
 
 class rVAE(BaseVAE):
+    """
+    Implements rotationally and translationally invariant
+    Variational Autoencoder (VAE) based on the idea of "spatial decoder"
+    by Bepler et al. in arXiv:1909.11663. In addition, this class allows
+    the implementation of class-conditioned VAE with rotational and
+    translational variance
+
+    Args:
+        in_dim (tuple):
+            Input dimensions for image data passed as (heigth, width)
+            for grayscale data or (height, width, channels)
+            for multichannel data
+        latent_dim (int):
+            Number of VAE latent dimensions associated with image content
+        nb_classes (int):
+            Number of classes for class-conditional rVAE
+        translation (bool):
+            account for xy shifts of image content (Default: True)
+        seed(int):
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units in decoder (Default: 128)
+        **skip (bool):
+            uses generative skip model with residual paths between
+            latents and decoder layers (Default: False)
+    """
 
     def __init__(self,
                  in_dim: int = None,
@@ -665,6 +718,9 @@ class rVAE(BaseVAE):
                  seed: int = 0,
                  **kwargs: Union[int, bool, str]
                  ) -> None:
+        """
+        Initializes rVAE model
+        """
         coord = 3 if translation else 1  # xy translations and/or rotation
         args = (in_dim, latent_dim, nb_classes, coord)
         super(rVAE, self).__init__(*args, **kwargs)
@@ -679,16 +735,23 @@ class rVAE(BaseVAE):
                 X: Union[np.ndarray, torch.Tensor],
                 y: Union[np.ndarray, torch.Tensor] = None
                 ) -> torch.Tensor:
+        """
+        Transforms a pair numpy arrays (images, labels) to torch tensors
+        """
         if isinstance(X, np.ndarray):
             X = torch.from_numpy(X).float()
         if isinstance(y, np.ndarray):
             y = torch.from_numpy(y).long()
         return X, y
 
-    def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
-                *args: torch.Tensor, **kwargs: float) -> torch.Tensor:
+    def elbo_fn(self,
+                x: torch.Tensor,
+                x_reconstr: torch.Tensor,
+                *args: torch.Tensor,
+                **kwargs: float
+                ) -> torch.Tensor:
         """
-        Calculates ELBO
+        Computes ELBO
         """
         return rvae_loss(self.loss, self.in_dim, x_reconstr, x, *args, **kwargs)
 
@@ -698,7 +761,7 @@ class rVAE(BaseVAE):
                              mode: str = "train"
                              ) -> torch.Tensor:
         """
-        Single training/test step
+        rVAE's forward pass with training/test loss computation
         """
         x_coord_ = self.x_coord.expand(x.size(0), *self.x_coord.size())
         if mode == "eval":
@@ -739,6 +802,31 @@ class rVAE(BaseVAE):
             **kwargs) -> None:
         """
         Trains rVAE model
+
+        Args:
+            X_train (numpy aarray):
+                3D or 4D stack of training images with dimensions
+                (n_images, height, width) for grayscale data or
+                or (n_images, height, width, channels) for multi-channel data
+            X_test (numpy array, optional):
+                3D or 4D stack of test images with the same dimensions
+                as for the X_train (Default: None)
+            y_train (numpy array, optional):
+                Vector with labels of dimension (n_images,), where n_images
+                is a number of training images
+            y_train (numpy array, optional):
+                Vector with labels of dimension (n_images,), where n_images
+                is a number of test images
+            loss (str):
+                reconstruction loss function, "ce" or "mse" (Default: "mse")
+            **translation_prior (float):
+                translation prior
+            **rotation_prior (float):
+                rotational prior
+            **filename (str):
+                file path for saving model aftereach training cycle ("epoch")
+            **recording (bool):
+                saves a learned 2d manifold at each training step
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.x_coord = imcoordgrid(X_train.shape[1:]).to(self.device)
@@ -762,11 +850,6 @@ class rVAE(BaseVAE):
             self.visualize_manifold_learning("./vae_learning")
 
 
-
-
-
-
-
 def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor: # move to utils!
     """
     One-hot encoding of label
@@ -781,125 +864,3 @@ def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor: # move to utils!
     onehot = torch.zeros(idx.size(0), n, device=device_)
     onehot.scatter_(1, idx, 1)
     return onehot
-
-
-def load_vae_model(meta_dict: str) -> Type[BaseVAE]:
-    """
-    Loads trained AtomAI's VAE model
-
-    Args:
-        meta_state_dict (str):
-            filepath to dictionary with trained weights and key information
-            about model's structure
-
-    Returns:
-        VAE module
-    """
-    torch.manual_seed(0)
-    if torch.cuda.device_count() > 0:
-        meta_dict = torch.load(meta_dict)
-    else:
-        meta_dict = torch.load(meta_dict, map_location='cpu')
-    in_dim = meta_dict.pop("in_dim")
-    latent_dim = meta_dict.pop("latent_dim")
-    coord = meta_dict.pop("coord")
-    encoder_weights = meta_dict.pop("encoder")
-    decoder_weights = meta_dict.pop("decoder")
-    m = BaseVAE(in_dim, latent_dim, coord, **meta_dict)
-    m.encoder_net.load_state_dict(encoder_weights)
-    m.encoder_net.eval()
-    m.decoder_net.load_state_dict(decoder_weights)
-    m.decoder_net.eval()
-    return m
-
-
-def rvae(imstack: np.ndarray,
-         latent_dim: int = 2,
-         training_cycles: int = 300,
-         minibatch_size: int = 200,
-         test_size: float = 0.15,
-         seed: int = 0,
-         **kwargs: Union[int, bool]) -> Type[BaseVAE]:
-    """
-    "Wrapper function" for initializing rotationally invariant
-    variational autoencoder (rVAE)
-
-    Args:
-        imstack (np.ndarray):
-            3D or 4D stack of training images ( n x w x h or n x w x h x c )
-        latent_dim (int):
-            number of VAE latent dimensions associated with image content
-        training_cycles (int):
-            number of training 'epochs' (Default: 300)
-        minibatch_size (int):
-            size of training batch for each training epoch (Default: 200)
-        test_size (float):
-            proportion of the dataset for model evaluation (Default: 0.15)
-        seed(int):
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units in decoder (Default: 128)
-        **loss (str):
-            reconstruction loss function, "ce" or "mse" (Default: "mse")
-        **translation_prior (float):
-            translation prior
-        **rotation_prior (float):
-            rotational prior
-        **recording (bool):
-            saves a learned 2d manifold at each training step
-    """
-
-    rvae_ = rVAE(
-        imstack, latent_dim, training_cycles,
-        minibatch_size, test_size, seed, **kwargs)
-    return rvae_
-
-
-def vae(imstack: np.ndarray,
-        latent_dim: int = 2,
-        training_cycles: int = 300,
-        minibatch_size: int = 200,
-        test_size: float = 0.15,
-        seed: int = 0,
-        **kwargs: Union[int, bool]) -> Type[BaseVAE]:
-    """
-    "Wrapper function" for initializing standard Variational Autoencoder (VAE)
-
-    Args:
-        imstack (numpy array):
-            3D or 4D stack of training images ( n x w x h or n x w x h x c )
-        latent_dim (int):
-            number of VAE latent dimensions associated with image content
-        training_cycles (int):
-            number of training 'epochs' (Default: 300)
-        minibatch_size (int):
-            size of training batch for each training epoch (Default: 200)
-        test_size (float):
-            proportion of the dataset for model evaluation (Default: 0.15)
-        seed (int):
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **conv_decoder (bool):
-            use convolutional layers in decoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units OR conv filters in decoder (Default: 128)
-    """
-    vae_ = VAE(
-        imstack, latent_dim, training_cycles,
-        minibatch_size, test_size, seed, **kwargs)
-    return vae_
