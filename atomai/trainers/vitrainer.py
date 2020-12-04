@@ -57,6 +57,8 @@ class viBaseTrainer:
             raise AssertionError(
                 "You must provide input train/test data")
         X, y = self._2torch(X, y)
+        X = X.to(self.device)
+        y = y.to(self.device) if y is not None else y
         if y is not None:  # VED or cVAE
             data_train = torch.utils.data.TensorDataset(X, y)
         else:  # VAE
