@@ -80,7 +80,7 @@ class BaseVAE(viBaseTrainer):
         self.in_dim = in_dim
         self.z_dim = latent_dim
         if coord:
-            if len(in_dim) != 2:
+            if len(in_dim) not in (2, 3):
                 raise NotImplementedError(
                     "VAE with rotation and translational invariance are " +
                     "available only for 2D image data")
@@ -499,7 +499,7 @@ class BaseVAE(viBaseTrainer):
         """
         Calculates ELBO
         """
-        return vae_loss(self.loss, self.in_dim, x_reconstr, x, *args)
+        return vae_loss(self.loss, self.in_dim, x, x_reconstr, *args)
 
     def forward_compute_elbo(self,
                              x: torch.Tensor,
@@ -751,7 +751,7 @@ class rVAE(BaseVAE):
         """
         Computes ELBO
         """
-        return rvae_loss(self.loss, self.in_dim, x_reconstr, x, *args, **kwargs)
+        return rvae_loss(self.loss, self.in_dim, x, x_reconstr, *args, **kwargs)
 
     def forward_compute_elbo(self,
                              x: torch.Tensor,
