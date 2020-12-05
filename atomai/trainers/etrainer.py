@@ -1,3 +1,12 @@
+"""
+etrainer.py
+===========
+
+Module for deeep ensemble training of neural networks
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+"""
+
 from copy import deepcopy as dc
 from typing import Callable, Dict, Optional, Tuple, Type, Union
 import warnings
@@ -9,9 +18,7 @@ from sklearn.model_selection import train_test_split
 from ..losses_metrics import IoU
 from ..nets import init_fcnn_model, init_imspec_model
 from ..utils import (average_weights, check_image_dims, check_signal_dims,
-                     init_fcnn_dataloaders, init_imspec_dataloaders,
-                     num_classes_from_labels, preprocess_training_image_data,
-                     preprocess_training_imspec_data, sample_weights)
+                     num_classes_from_labels, sample_weights)
 from .trainer import BaseTrainer
 
 augfn_type = Callable[[torch.Tensor, torch.Tensor, int], Tuple[torch.Tensor, torch.Tensor]]
@@ -20,7 +27,9 @@ ensemble_type = Dict[int, Dict[str, torch.Tensor]]
 
 
 class BaseEnsembleTrainer(BaseTrainer):
-
+    """
+    Base class for deep ensemble training
+    """
     def __init__(self,
                  model: Type[torch.nn.Module] = None,
                  nb_classes=None
@@ -35,33 +44,18 @@ class BaseEnsembleTrainer(BaseTrainer):
         self.ensemble_state_dict = {}
 
     def compile_ensemble_trainer(self,
-                                 strategy: str = "from_scratch",
                                  **kwargs: compile_kwargs_type
                                  ) -> None:
         """
         Compile ensemble trainer.
 
         Args:
-            strategy (str): 
-                Select between 'from_scratch', 'from_baseline' and 'swag'.
-                If 'from_scratch' is selected, the *n* models are trained independently
-                starting each time with a different random initialization. If
-                'from_baseline' is selected, a basemodel is trained for *N* epochs
-                and then its weights are used as a baseline to train multiple ensemble models
-                for n epochs (*n* << *N*), each with different random shuffling of batches
-                (and different seed for data augmentation if any). If 'swag' is
-                selected, a SWAG-like sampling of weights is performed at the end of
-                a single model training.
             kwargs:
                 Keyword arguments to be passed to BaseTrainer.compile_trainer
                 (loss, optimizer, compute_accuracy, full_epoch, swa,
                 perturb_weights, batch_size, training_cycles, accuracy_metrics,
                 filename, print_loss, plot_training_history)
         """
-        self.strategy = strategy
-        if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
-            raise NotImplementedError(
-                "Select 'from_baseline' 'from_scratch', or 'swag'  strategy")
         self.kdict = kwargs
 
     def train_baseline(self,
@@ -87,7 +81,7 @@ class BaseEnsembleTrainer(BaseTrainer):
                 peforms some transforms, and returns the transformed tensors.
                 The dimensions of the transformed tensors must be the same as
                 the dimensions of the original ones.
-        
+
         Returns:
             Trained baseline model
         """
@@ -128,11 +122,11 @@ class BaseEnsembleTrainer(BaseTrainer):
                 the dimensions of the original ones.
             **kwargs: Updates kwargs from initial compilation
                 (can be useful for iterative training)
-        
+
         Returns:
             The last trained model and dictionary with ensemble weights
         """
-        
+
         batch_seed = kwargs.get("batch_seed")
         self.update_training_parameters(kwargs)
 
@@ -160,7 +154,12 @@ class BaseEnsembleTrainer(BaseTrainer):
                                      **kwargs
                                      ) -> Tuple[Type[torch.nn.Module], ensemble_type]:
         """
-        Trains ensemble of models starting each time from baseline weights
+        Trains ensemble of models starting each time from baseline model.
+        Each ensemble model is trained each with different random shuffling
+        of batches (and different seed for data augmentation if any).
+        If a baseline model is not provided, the baseline weights are trained
+        for *N* epochs and then used as a baseline to train multiple ensemble
+        models for *n* epochs (*n* << *N*),
 
         Args:
             X_train (numpy array): Training features
@@ -180,7 +179,7 @@ class BaseEnsembleTrainer(BaseTrainer):
                 the dimensions of the original ones.
             **kwargs: Updates kwargs from initial compilation
                 (can be useful for iterative training)
-        
+
         Returns:
             Model with averaged weights and dictionary with ensemble weights
         """
@@ -243,7 +242,7 @@ class BaseEnsembleTrainer(BaseTrainer):
                 the dimensions of the original ones.
             **kwargs: Updates kwargs from initial compilation
                 (can be useful for iterative training)
-        
+
         Returns:
             Baseline model and dictionary with sampled weights
         """
@@ -278,7 +277,16 @@ class BaseEnsembleTrainer(BaseTrainer):
 
 
 class EnsembleTrainer(BaseEnsembleTrainer):
+    """
+    Deep ensemble trainer
 
+    Args:
+        model:
+            Built-in AtomAI model (passed as string)
+            or initialized custom PyTorch model
+        nb_classes (int):
+            Number of classes (if any) in the model's output
+    """
     def __init__(self,
                  model: Union[str, Type[torch.nn.Module]] = None,
                  nb_classes: int = 1,
@@ -300,7 +308,7 @@ class EnsembleTrainer(BaseEnsembleTrainer):
                         keys_check.append(k)
                 if len(keys_check) > 0:
                     raise AssertionError(
-                        "Specify input, output, and latent dimensions " + 
+                        "Specify input, output, and latent dimensions " +
                         "(Missing dimensions: {})".format(str(keys_check)[1:-1]))
                 self.in_dim = kwargs.pop("in_dim")
                 self.out_dim = kwargs.pop("out_dim")
@@ -315,34 +323,18 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         self.meta_state_dict["optimizer"] = self.optimizer
 
     def compile_ensemble_trainer(self,
-                                 strategy: str = "from_scratch",
                                  **kwargs: compile_kwargs_type
                                  ) -> None:
         """
         Compile ensemble trainer.
 
         Args:
-            strategy (str): 
-                Select between 'from_scratch', 'from_baseline' and 'swag'.
-                If 'from_scratch' is selected, the *n* models are trained independently
-                starting each time with a different random initialization. If
-                'from_baseline' is selected, a basemodel is trained for *N* epochs
-                and then its weights are used as a baseline to train multiple ensemble models
-                for n epochs (*n* << *N*), each with different random shuffling of batches
-                (and different seed for data augmentation if any). If 'swag' is
-                selected, a SWAG-like sampling of weights is performed at the end of
-                a single model training.
             kwargs:
                 Keyword arguments to be passed to BaseTrainer.compile_trainer
                 (loss, optimizer, compute_accuracy, full_epoch, swa,
                 perturb_weights, batch_size, training_cycles, accuracy_metrics,
                 filename, print_loss, plot_training_history)
         """
-
-        self.strategy = strategy
-        if self.strategy not in ["from_baseline", "from_scratch", "swag"]:
-            raise NotImplementedError(
-                "Select 'from_baseline' 'from_scratch', or 'swag'  strategy")
         self.kdict = kwargs
         self.full_epoch = self.kdict.get("full_epoch", False)
         self.batch_size = self.kdict.get("batch_size", 32)

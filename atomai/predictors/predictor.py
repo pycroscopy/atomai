@@ -2,8 +2,8 @@
 predictor.py
 ========
 
-Module for making predictions with trained semantic segmentation
-and im2spec models.
+Module for making predictions with pre-trained neural networks,
+including semantic segmentation models and im2spec models.
 
 Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 """

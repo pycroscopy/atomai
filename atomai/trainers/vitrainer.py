@@ -1,3 +1,13 @@
+"""
+vitrainer.py
+===========
+
+Module for training VAE/VED models
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+"""
+
+
 from typing import Tuple, Type, Optional, Union, Callable
 import torch
 import numpy as np

@@ -1,3 +1,12 @@
+"""
+epredictor.py
+===========
+
+Module for predicting with ensembles of pre-trained neural networks
+
+Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+"""
+
 from typing import Dict, Tuple, Type, Union
 
 import numpy as np
