@@ -44,7 +44,7 @@ class EnsemblePredictor(BasePredictor):
         self.nb_classes = nb_classes
         self.in_dim, self.out_dim = in_dim, out_dim
         self.downsample_factor = None
-        self.logits = kwargs.get("logits", False)
+        self.logits = kwargs.get("logits", True)
         self.output_shape = kwargs.get("output_shape")
         verbose = kwargs.get("verbose", 1)
         if verbose:
@@ -163,6 +163,7 @@ class EnsemblePredictor(BasePredictor):
     def predict(self,
                 data: np.ndarray,
                 num_batches: int = 10,
+                format_out: str = "channel_last",
                 ) -> Tuple[np.ndarray]:
         """
         Predicts mean and variance for all the data points
@@ -178,8 +179,17 @@ class EnsemblePredictor(BasePredictor):
         
         prediction = self.ensemble_batch_predict(data, num_batches)
         prediction_mean, prediction_var = prediction
+
+        # channel transpose
+        if format_out == "channel_last":
+            size_dim = np.arange(prediction_mean.ndim - 2) + 2
+            c_tr = (0, *size_dim, 1)
+        elif format_out == "channel_first":
+            c_tr = np.arange(prediction_mean.ndim)
+        else:
+            raise ValueError("Specify channel_last or channel_first output format")
         
-        return prediction_mean, prediction_var 
+        return prediction_mean.transpose(c_tr), prediction_var.transpose(c_tr)
 
 
 def ensemble_locate(nn_output_ensemble: np.ndarray,

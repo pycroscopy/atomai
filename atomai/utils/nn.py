@@ -67,7 +67,8 @@ def average_weights(ensemble: Dict[int, Dict[str, torch.Tensor]]) -> Dict[str, t
         Averaged weights (as model's state_dict)
     """
     ensemble_state_dict = dc(ensemble[0])
-    names = [name for name in ensemble_state_dict.keys()]
+    names = [name for name in ensemble_state_dict.keys() if
+             name.split('_')[-1] not in ["mean", "var", "tracked"]]
     for name in names:
         w_aver = []
         for model in ensemble.values():
@@ -96,7 +97,8 @@ def sample_weights(ensemble: Dict[int, Dict[str, torch.Tensor]],
     ensemble_ = {i: dc(ensemble[0])
                  for i in range(n_samples)}
     ensemble_state_dict = ensemble[0]
-    names = [name for name in ensemble_state_dict.keys()]
+    names = [name for name in ensemble_state_dict.keys() if
+             name.split('_')[-1] not in ["mean", "var", "tracked"]]
     for name in names:
         w_all = []
         for model in ensemble.values():
