@@ -38,7 +38,8 @@ class BaseEnsembleTrainer(BaseTrainer):
         Initialize base ensemble trainer
         """
         super(BaseEnsembleTrainer, self).__init__()
-
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         if model is not None:
             self.set_model(model, nb_classes)
         self.ensemble_state_dict = {}
@@ -90,6 +91,10 @@ class BaseEnsembleTrainer(BaseTrainer):
         self._reset_rng(seed)
         self._reset_weights()
         self._reset_training_history()
+        (X_train, y_train,
+         X_test, y_test) = self.preprocess_train_data(
+            X_train, y_train, X_test, y_test)
+
         self.compile_trainer(
             (X_train, y_train, X_test, y_test), **self.kdict)
         self.data_augmentation(augment_fn)
@@ -191,6 +196,10 @@ class BaseEnsembleTrainer(BaseTrainer):
             print("Training baseline model...")
             basemodel = self.train_baseline(
                 X_train, y_train, X_test, y_test, 1, augment_fn)
+        else:  # this is the only time when we do not use train_from_baseline
+            (X_train, y_train,
+             X_test, y_test) = self.preprocess_train_data(
+                X_train, y_train, X_test, y_test)
 
         self.set_model(basemodel)
         basemodel_state_dict = dc(self.net.state_dict())
@@ -265,6 +274,11 @@ class BaseEnsembleTrainer(BaseTrainer):
                         warn_msg.format(self.kdict[k], k, kwargs[k]),
                         UserWarning)
                 self.kdict[k] = v
+
+    def preprocess_train_data(self, 
+                              train_data: Tuple[np.ndarray]
+                              ) -> Tuple[np.ndarray]:
+        return train_data
 
     def save_ensemble_metadict(self) -> None:
         """
@@ -370,14 +384,8 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         if self.net is None:
             raise AssertionError("You need to set a model first")
 
-        if self.meta_state_dict.get("model_type") == "seg":
-            train_data = set_data_seg(
-                X_train, y_train, X_test, y_test,
-                self.nb_classes)
-        elif self.meta_state_dict.get("model_type") == "imspec":
-            train_data = set_data_imspec(
-                X_train, y_train, X_test, y_test,
-                (self.in_dim, self.out_dim))
+        train_data = self.preprocess_train_data(
+            X_train, y_train, X_test, y_test)
         self.set_data(*train_data)
 
         self._reset_rng(seed)
@@ -390,6 +398,18 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         self.fit()
 
         return self.net
+
+    def preprocess_train_data(self,
+                              *args: np.ndarray
+                              ) -> Tuple[torch.Tensor]:
+        """
+        Training and test data preprocessing
+        """
+        if self.meta_state_dict.get("model_type") == "seg":
+            train_data = set_data_seg(*args, self.nb_classes)
+        elif self.meta_state_dict.get("model_type") == "imspec":
+            train_data = set_data_imspec(*args, (self.in_dim, self.out_dim))
+        return train_data
 
 
 def set_data_seg(X_train: np.ndarray,
