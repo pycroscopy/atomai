@@ -85,6 +85,7 @@ class EnsemblePredictor(BasePredictor):
 
     def preprocess(self,
                    data: np.ndarray,
+                   norm: bool = True
                    ) -> torch.Tensor:
         """
         Preprocesses data depending on type (image or spectra)
@@ -92,11 +93,11 @@ class EnsemblePredictor(BasePredictor):
         if self.data_type == "image":
             if data.ndim == 2:
                 data = data[np.newaxis, ...]
-            data = torch_format_image(data)
+            data = torch_format_image(data, norm)
         elif self.data_type == "spectra":
             if data.ndim == 1:
                 data = data[np.newaxis, ...]
-            data = torch_format_spectra(data)
+            data = torch_format_spectra(data, norm)
         return data
 
     def ensemble_forward_(self,
@@ -173,12 +174,13 @@ class EnsemblePredictor(BasePredictor):
                 data: np.ndarray,
                 num_batches: int = 10,
                 format_out: str = "channel_last",
+                norm: bool = True
                 ) -> Tuple[np.ndarray]:
         """
         Predicts mean and variance for all the data points
         with ensemble of models
         """
-        data = self.preprocess(data)
+        data = self.preprocess(data, norm)
         if not self.output_shape:
             self._set_output_shape(data)
 
