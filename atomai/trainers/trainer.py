@@ -319,6 +319,10 @@ class BaseTrainer:
         return features, targets
 
     def save_model(self, *args: str) -> None:
+        """
+        Saves trained weights, optimizer and key information about model's
+        architecture (the latter works only for built-in AtomAI models)
+        """
         try:
             filename = args[0]
         except IndexError:
