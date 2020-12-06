@@ -148,6 +148,7 @@ class Segmentor(SegTrainer):
                 imgdata: Union[np.ndarray, torch.Tensor],
                 refine: bool = False,
                 logits: bool = True,
+                resize: Tuple[int, int] = None,
                 **kwargs) -> Tuple[np.ndarray, Dict[int, np.ndarray]]:
         """
         Apply (trained) model to new data
@@ -162,6 +163,9 @@ class Segmentor(SegTrainer):
                 Indicates whether the features are passed through
                 a softmax/sigmoid layer at the end of a neural network
                 (logits=True for AtomAI models)
+            resize:
+                Resizes input data to (new_height, new_width) before passing
+                to a neural network
             **thresh (float):
                 Value between 0 and 1 for thresholding the NN output
                 (Default: 0.5)
@@ -181,7 +185,7 @@ class Segmentor(SegTrainer):
             self.downsample_factor = get_downsample_factor(self.net)
         use_gpu = self.device == 'cuda'
         nn_output, coords = SegPredictor(
-            self.net, refine, None, use_gpu, logits,
+            self.net, refine, resize, use_gpu, logits,
             nb_classes=self.nb_classes, downsampling=self.downsample_factor,
             **kwargs).run(imgdata, **kwargs)
 
