@@ -18,7 +18,7 @@ from .vae import BaseVAE
 from ..utils import average_weights
 
 
-def load_model(filepath: str) -> Union[Type[torch.nn.Module]]:
+def load_model(filepath: str) -> Union[Segmentor, BaseVAE, ImSpec]:
     """
     Loads trained AtomAI models
 
@@ -149,4 +149,4 @@ def load_ensemble(filepath: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[
                       "You will need to load them into your model's" +
                       "skeleton by yourself")
         return None, ensemble_weights
-    return smodel, ensemble_weights
+    return smodel.net, ensemble_weights
