@@ -14,7 +14,7 @@ from typing import Type, Tuple, Dict, Union
 import torch
 from .segmentor import Segmentor
 from .imspec import ImSpec
-from vae import BaseVAE
+from .vae import BaseVAE
 from ..utils import average_weights
 
 
