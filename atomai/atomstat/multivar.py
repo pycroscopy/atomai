@@ -1,5 +1,5 @@
 """
-atomstat.py
+multivar.py
 ===========
 
 Module for statistical analysis of local image descriptors
