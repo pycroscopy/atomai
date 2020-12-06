@@ -1,13 +1,13 @@
 """
 trainer.py
-========
+==========
 
 Module for training fully convolutional neural networs
 for atom/defect/particle finding and encoder-decoder neural networks
-for prediction of spectra/images from images/spectra.
+for prediction of spectra/images from images/spectra. It can also be
+used for training custom PyTorch neural networks
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
-
 """
 
 
@@ -37,6 +37,7 @@ class BaseTrainer:
     """
     Base trainer class for training semantic segmentation
     and image-to-spectrum/spectrum-to-image deep learning models
+    as well as custom PyTorch neural networks
 
     Example:
 
@@ -107,7 +108,7 @@ class BaseTrainer:
         """
         self.loss_acc = {"train_loss": [], "test_loss": [],
                          "train_accuracy": [], "test_accuracy": []}
-    
+
     def set_data(self,
                  X_train: Union[torch.Tensor, np.ndarray],
                  y_train: Union[torch.Tensor, np.ndarray],
@@ -119,10 +120,10 @@ class BaseTrainer:
         choose an element at each training iteration.
 
         Args:
-            X_train (pytorch tensor or ndarray): Training data
-            y_train (pytorch tensor or ndarray): Training data labels
-            X_test (pytorch tensor or ndarray): Test data
-            y_test (pytorch tensor or ndarray): Test data labels
+            X_train: Training data
+            y_train: Training data labels
+            X_test: Test data
+            y_test: Test data labels
         """
         tor = lambda x: torch.from_numpy(x) if isinstance(x, np.ndarray) else x
         X_train, y_train = tor(X_train), tor(y_train)
@@ -170,6 +171,10 @@ class BaseTrainer:
         Propagates image(s) through a network to get model's prediction
         and compares predicted value with ground truth; then performs
         backpropagation to compute gradients and optimizes weights.
+
+        Args:
+            feat: input features
+            tar: targets
         """
         self.net.train()
         self.optimizer.zero_grad()
@@ -187,6 +192,10 @@ class BaseTrainer:
                   tar: torch.Tensor) -> float:
         """
         Forward pass for test data with deactivated autograd engine
+
+        Args:
+            feat: input features
+            tar: targets
         """
         self.net.eval()
         with torch.no_grad():
@@ -330,7 +339,7 @@ class BaseTrainer:
         else:
             gpu_usage = ['N/A ', ' N/A']
         if self.compute_accuracy:
-            print('Epoch {} ...'.format(e+1),
+            print('Epoch {}/{} ...'.format(e+1, self.training_cycles),
                   'Training loss: {} ...'.format(
                       np.around(self.loss_acc["train_loss"][-1], 4)),
                   'Test loss: {} ...'.format(
@@ -344,7 +353,7 @@ class BaseTrainer:
                   'GPU memory usage: {}/{}'.format(
                       gpu_usage[0], gpu_usage[1]))
         else:
-            print('Epoch {} ...'.format(e+1),
+            print('Epoch {}/{} ...'.format(e+1, self.training_cycles),
                   'Training loss: {} ...'.format(
                       np.around(self.loss_acc["train_loss"][-1], 4)),
                   'Test loss: {} ...'.format(
@@ -411,30 +420,32 @@ class BaseTrainer:
         Compile a trainer
 
         Args:
-            train_data (tuple):
+            train_data:
                 4-element tuple of ndarrays or torch tensors
                 (train_data, train_labels, test_data, test_labels)
-            loss (str):
+            loss:
                 loss function. Available loss functions are: 'mse' (MSE),
                 'ce' (cross-entropy), 'focal' (focal loss; single class only),
                 and 'dice' (dice loss; for semantic segmentation problems)
             optimizer:
                 weights optimizer (defaults to Adam optimizer with lr=1e-3)
-            training_cycles (int): Number of training 'epochs'.
+            training_cycles:
+                Number of training 'epochs'.
                 If full_epoch argument is set to False, 1 epoch == 1 batch.
                 Otherwise, each cycle corresponds to all mini-batches of data
                 passing through a NN.
-            batch_size (int): Size of training and test batches
-            compute_accuracy (bool):
+            batch_size:
+                Size of training and test batches
+            compute_accuracy:
                 Computes accuracy function at each training cycle
-            full_epoch (bool):
+            full_epoch:
                 If True, passes all mini-batches of training/test data
                 at each training cycle and computes the average loss. If False,
                 passes a single (randomly chosen) mini-batch at each cycle.
-            swa (bool):
+            swa:
                 Saves the recent stochastic weights and averages
                 them at the end of training
-            perturb_weights (bool or dict):
+            perturb_weights:
                 Time-dependent weight perturbation, :math:`w\\leftarrow w + a / (1 + e)^\\gamma`,
                 where parameters *a* and *gamma* can be passed as a dictionary,
                 together with parameter *e_p* determining every n-th epoch at
@@ -491,7 +502,7 @@ class BaseTrainer:
                 len(self.X_train)).repeat(r+1)[:self.training_cycles]
             r_ = self.training_cycles // len(self.X_test)
             batch_idx_test = np.arange(
-                len(self.X_test)).repeat(r_+1)[:self.training_cycles] 
+                len(self.X_test)).repeat(r_+1)[:self.training_cycles]
             self.batch_idx_train = shuffle(
                 batch_idx_train, random_state=kwargs.get("batch_seed", 1))
             self.batch_idx_test = shuffle(
@@ -552,12 +563,11 @@ class SegTrainer(BaseTrainer):
     for semantic segmentation of noisy experimental data
 
     Args:
-
-        model (str):
+        model:
             Type of model to train: 'Unet' or 'dilnet' (Default: 'Unet').
             See atomai.nets for more details. One can also pass a custom fully
             convolutional neural network model.
-        nb_classes (int):
+        nb_classes:
             Number of classes in the classification scheme adopted
             (must match the number of classes in training data)
         **seed (int):
@@ -589,7 +599,7 @@ class SegTrainer(BaseTrainer):
             (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
-                 model: str = 'Unet',
+                 model: Union[Type[torch.nn.Module], str],
                  nb_classes: int = 1,
                  **kwargs: Union[int, List, str, bool]) -> None:
         """
@@ -617,37 +627,37 @@ class SegTrainer(BaseTrainer):
         self.meta_state_dict["optimizer"] = self.optimizer
 
     def set_data(self,
-                 X_train: np.ndarray,
-                 y_train: np.ndarray,
-                 X_test: Optional[np.ndarray] = None,
-                 y_test: Optional[np.ndarray] = None,
+                 X_train: Tuple[np.ndarray, torch.Tensor],
+                 y_train: Tuple[np.ndarray, torch.Tensor],
+                 X_test: Optional[Tuple[np.ndarray, torch.Tensor]] = None,
+                 y_test: Optional[Tuple[np.ndarray, torch.Tensor]] = None,
                  **kwargs: Union[float, int]) -> None:
         """
         Sets training and test data.
 
         Args:
-
-        X_train (numpy array):
-            4D numpy array (3D image tensors stacked along the first dim)
-            representing training images
-        y_train (numpy array):
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D images stacked along the first array dimension
-            represent training labels (aka masks aka ground truth).
-            The reason why in the multiclass case the images are 4-dimensional
-            tensors and the labels are 3-dimensional tensors is because of how
-            the cross-entropy loss is calculated in PyTorch
-            (see https://pytorch.org/docs/stable/nn.html#nllloss).
-        X_test (numpy array):
-            4D numpy array (3D image tensors stacked along the first dim)
-            representing test images
-        y_test (numpy array):
-            4D (binary) / 3D (multiclass) numpy array
-            where 3D / 2D images stacked along the first array dimension
-            represent test labels (aka masks aka ground truth)
-        kwargs:
-            Parameters for train_test_split ('test_size' and 'seed') when
-            separate test set is not provided
+            X_train:
+                4D numpy array or pytorch tensor of training images
+                (n_samples, 1, height, width). One can also pass a regular
+                3D image stack without a channel dimension of 1 which will
+                be added automatically
+            y_train:
+                4D (binary) / 3D (multiclass) numpy array or pytorch tensor
+                of training masks (aka ground truth) stacked along
+                the first dimension. The reason why in the multiclass case
+                the X_train is 4-dimensional and the y_train is 3-dimensional
+                is because of how the cross-entropy loss is calculated in PyTorch
+                (see https://pytorch.org/docs/stable/nn.html#nllloss).
+            X_test:
+                4D numpy array or pytorch tensor of test images
+                (stacked along the first dimension)
+            y_test:
+                4D (binary) / 3D (multiclass) numpy array or pytorch tensor
+                of training masks (aka ground truth) stacked along
+                the first dimension.
+            kwargs:
+                Parameters for train_test_split ('test_size' and 'seed') when
+                separate test set is not provided
         """
 
         if X_test is None or y_test is None:
@@ -671,7 +681,10 @@ class SegTrainer(BaseTrainer):
                                  " is different from the number of classes" +
                                  " contained in training data")
 
-    def accuracy_fn(self, y, y_prob, *args):
+    def accuracy_fn(self,
+                    y: torch.Tensor,
+                    y_prob: torch.Tensor,
+                    *args):
         iou_score = losses_metrics.IoU(
                 y, y_prob, self.nb_classes).evaluate()
         return iou_score
@@ -683,13 +696,13 @@ class ImSpecTrainer(BaseTrainer):
     and spectrum-to-image transformations
 
     Args:
-        in_dim (tuple):
+        in_dim:
             Input data dimensions.
             (height, width) for images or (length,) for spectra
-        out_dim (tuple):
+        out_dim:
             output dimensions.
             (length,) for spectra or (height, width) for images
-        latent_dim (int):
+        latent_dim:
             dimensionality of the latent space
             (number of neurons in a fully connected bottleneck layer)
         **seed (int):
@@ -743,41 +756,40 @@ class ImSpecTrainer(BaseTrainer):
         self.meta_state_dict["optimizer"] = self.optimizer
 
     def set_data(self,
-                 X_train: np.ndarray,
-                 y_train: np.ndarray,
-                 X_test: Optional[np.ndarray] = None,
-                 y_test: Optional[np.ndarray] = None,
+                 X_train: Union[np.ndarray, torch.Tesnor],
+                 y_train: Union[np.ndarray, torch.Tesnor],
+                 X_test: Optional[Union[np.ndarray, torch.Tesnor]] = None,
+                 y_test: Optional[Union[np.ndarray, torch.Tesnor]] = None,
                  **kwargs: Union[float, int]) -> None:
         """
         Sets training and test data.
 
         Args:
-
-        X_train (numpy array):
-            4D numpy array with image data (n_samples x 1 x height x width)
-            or 3D numpy array with spectral data (n_samples x 1 x signal_length).
-            It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
-            which will be added automatically.
-        y_train (numpy array):
-            3D numpy array with spectral data (n_samples x 1 x signal_length)
-            or 4D numpy array with image data (n_samples x 1 x height x width).
-            It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
-            which will be added automatically. Note that if your X_train data are images,
-            then your y_train must be spectra and vice versa.
-        X_test (numpy array):
-            4D numpy array with image data (n_samples x 1 x height x width)
-            or 3D numpy array with spectral data (n_samples x 1 x signal_length).
-            It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
-            which will be added automatically.
-        y_test (numpy array):
-            3D numpy array with spectral data (n_samples x 1 x signal_length)
-            or 4D numpy array with image data (n_samples x 1 x height x width).
-            It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
-            which will be added automatically. Note that if your X_train data are images,
-            then your y_train must be spectra and vice versa.
-        kwargs:
-            Parameters for train_test_split ('test_size' and 'seed') when
-            separate test set is not provided
+            X_train:
+                4D numpy array or torch tensor with image data
+                (n_samples x 1 x height x width) or 3D array/tensor
+                with spectral data (n_samples x 1 x signal_length).
+                It is also possible to pass 3D and 2D arrays by ignoring
+                the channel dim of 1, which will be added automatically.
+                The X_train is typically referred to as 'features'
+            y_train:
+                3D numpy array or torch tensor with spectral data
+                (n_samples x 1 x signal_length) or 4D array/tensor with
+                image data (n_samples x 1 x height x width).
+                It is also possible to pass 2D and 3D arrays by ignoring
+                the channel dim of 1, which will be added automatically.
+                Note that if your X_train data are images,
+                then your y_train must be spectra and vice versa.
+                The y_train is typicaly referred to as "targets"
+            X_test:
+                Test data (features) of the same dimesnionality
+                (except for the number of samples) as X_train
+            y_test:
+                Test data (targets) of the same dimesnionality
+                (except for the number of samples) as y_train
+            kwargs:
+                Parameters for train_test_split ('test_size' and 'seed') when
+                separate test set is not provided
         """
 
         if X_test is None or y_test is None:

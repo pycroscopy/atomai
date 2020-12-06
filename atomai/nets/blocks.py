@@ -6,7 +6,7 @@ Customized NN blocks
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
-from typing import List
+from typing import List, Union, Tuple
 
 import torch
 import torch.nn as nn
@@ -19,31 +19,34 @@ class ConvBlock(nn.Module):
     leaky relu and (optionally) dropout and batch normalization
 
     Args:
-        ndim (int):
+        ndim:
             Data dimensionality (1D or 2D)
-        nb_layers (int):
+        nb_layers:
             Number of layers in the block
-        input_channels (int):
+        input_channels:
             Number of input channels for the block
-        output_channels (int):
+        output_channels:
             Number of the output channels for the block
-        kernel_size (int):
+        kernel_size:
             Size of convolutional filter (in pixels)
-        stride (int):
+        stride:
             Stride of convolutional filter
-        padding (int):
+        padding:
             Value for edge padding
-        batch_norm (bool):
+        batch_norm:
             Add batch normalization to each layer in the block
-        lrelu_a (float)
+        lrelu_a:
             Value of alpha parameter in leaky ReLU activation
             for each layer in the block
-        dropout_ (float):
+        dropout_:
             Dropout value for each layer in the block
     """
-    def __init__(self, ndim: int, nb_layers: int, input_channels: int,
-                 output_channels: int, kernel_size: int = 3,
-                 stride: int = 1, padding: int = 1,
+    def __init__(self,
+                 ndim: int, nb_layers: int,
+                 input_channels: int, output_channels: int,
+                 kernel_size: Union[Tuple[int], int] = 3,
+                 stride: Union[Tuple[int], int] = 1,
+                 padding: Union[Tuple[int], int] = 1,
                  batch_norm: bool = False, lrelu_a: float = 0.01,
                  dropout_: float = 0) -> None:
         """
@@ -86,15 +89,15 @@ class UpsampleBlock(nn.Module):
     (the latter can be used to reduce a number of feature channels)
 
     Args:
-        ndim (int):
+        ndim:
             Data dimensionality (1D or 2D)
-        input_channels (int):
+        input_channels:
             Number of input channels for the block
-        output_channels (int):
+        output_channels:
             Number of the output channels for the block
-        scale_factor (positive int):
+        scale_factor:
             Scale factor for upsampling
-        mode (str):
+        mode:
             Upsampling mode. Select between "bilinear" and "nearest"
     """
     def __init__(self,
@@ -134,35 +137,36 @@ class DilatedBlock(nn.Module):
     layers (aka atrous convolutions)
 
     Args:
-        ndim (int):
+        ndim:
             Data dimensionality (1D or 2D)
-        input_channels (int):
+        input_channels:
             Number of input channels for the block
-        output_channels (int):
+        output_channels:
             Number of the output channels for the block
-        dilation_values (list of ints):
+        dilation_values:
             List of dilation rates for each convolution layer in the block
             (for example, dilation_values = [2, 4, 6] means that the dilated
             block will 3 layers with dilation values of 2, 4, and 6).
-        padding_values (list of ints):
+        padding_values:
             Edge padding for each dilated layer. The number of elements in this
             list should be equal to that in the dilated_values list and
             typically they can have the same values.
-        kernel_size (int):
+        kernel_size:
             Size of convolutional filter (in pixels)
-        stride (int):
+        stride:
             Stride of convolutional filter
-        batch_norm (bool):
+        batch_norm:
             Add batch normalization to each layer in the block
-        lrelu_a (float)
+        lrelu_a:
             Value of alpha parameter in leaky ReLU activation
             for each layer in the block
-        dropout_ (float):
+        dropout_:
             Dropout value for each layer in the block
     """
     def __init__(self, ndim: int, input_channels: int, output_channels: int,
                  dilation_values: List[int], padding_values: List[int],
-                 kernel_size: int = 3, stride: int = 1, lrelu_a: float = 0.01,
+                 kernel_size: Union[Tuple[int], int] = 3,
+                 stride: Union[Tuple[int], int] = 1, lrelu_a: float = 0.01,
                  batch_norm: bool = False, dropout_: float = 0) -> None:
         """
         Initializes module parameters
@@ -200,135 +204,3 @@ class DilatedBlock(nn.Module):
             x = conv_layer(x)
             atrous_layers.append(x.unsqueeze(-1))
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
-
-
-class ResBlock(nn.Module):
-    """
-    Builds a residual block
-
-    Args:
-        ndim (int):
-            Data dimensionality (1D or 2D)
-        input_channels (int):
-            Number of input channels for the block
-        output_channels (int):
-            Number of the output channels for the block
-        kernel_size (int):
-            Size of convolutional filter (in pixels)
-        stride (int):
-            Stride of convolutional filter
-        padding (int):
-            Value for edge padding
-        batch_norm (bool):
-            Add batch normalization to each layer in the block
-        lrelu_a (float)
-            Value of alpha parameter in leaky ReLU activation
-            for each layer in the block
-    """
-    def __init__(self,
-                 ndim: int,
-                 input_channels: int,
-                 output_channels: int,
-                 kernel_size: int = 3,
-                 stride: int = 1,
-                 padding: int = 1,
-                 lrelu_a: float = 0.01,
-                 batch_norm: bool = True
-                 ) -> None:
-        """
-        Initializes module parameters
-        """
-        super(ResBlock, self).__init__()
-        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
-        self.lrelu_a = lrelu_a
-        self.batch_norm = batch_norm
-        self.c0 = conv(input_channels,
-                       output_channels,
-                       kernel_size=kernel_size,
-                       stride=stride,
-                       padding=padding)
-        self.c1 = conv(input_channels,
-                       output_channels,
-                       kernel_size=kernel_size,
-                       stride=stride,
-                       padding=padding)
-        self.c2 = conv(input_channels,
-                       output_channels,
-                       kernel_size=kernel_size,
-                       stride=stride,
-                       padding=padding)
-        self.bn1 = nn.BatchNorm2d(output_channels)
-        self.bn2 = nn.BatchNorm2d(output_channels)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Defines forward pass
-        """
-        x = self.c0(x)
-        residual = x
-        out = self.c1(x)
-        if self.use_batchnorm:
-            out = self.bn1(out)
-        out = F.leaky_relu(out, negative_slope=self.lrelu_a)
-        out = self.c2(out)
-        if self.use_batchnorm:
-            out = self.bn2(out)
-        out += residual
-        out = F.leaky_relu(out, negative_slope=self.lrelu_a)
-        return out
-
-
-class ResModule(nn.Module):
-    """
-    Stitches multiple convolutional blocks with residual connections together
-    
-    Args:
-        ndim (int):
-            Data dimensionality (1D or 2D)
-        res_depth (int):
-            Number of residual blocks in the module
-        input_channels (int):
-            Number of input channels for the module
-        output_channels (int):
-            Number of the output channels for the module
-        kernel_size (int):
-            Size of convolutional filter (in pixels)
-        stride (int):
-            Stride of convolutional filter
-        padding (int):
-            Value for edge padding
-        batch_norm (bool):
-            Batch normalization for each convolutional layer in the module
-        lrelu_a (float)
-            Value of alpha parameter in leaky ReLU activation
-            for each convolutional layer in the module
-    """
-    def __init__(self,
-                 ndim: int,
-                 res_depth: int,
-                 input_channels: int,
-                 output_channels: int,
-                 kernel_size: int = 3,
-                 stride: int = 1,
-                 padding: int = 1,
-                 lrelu_a: float = 0.01,
-                 batch_norm: bool = True
-                 ) -> None:
-        """
-        Initializes module parameters
-        """
-        super(ResModule, self).__init__()
-        res_module = []
-        for i in range(res_depth):
-            input_channels = output_channels if i > 0 else input_channels
-            res_module.append(
-                ResBlock(ndim, input_channels, output_channels,
-                         kernel_size, stride, padding, lrelu_a, batch_norm))
-        self.res_module = nn.Sequential(*res_module)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Defines a forward pass
-        """
-        x = self.res_module(x)
-        return x

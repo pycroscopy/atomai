@@ -19,7 +19,25 @@ from .predictor import BasePredictor, Locator
 
 
 class EnsemblePredictor(BasePredictor):
+    """
+    Prediction with ensemble of models
 
+    Args:
+        skeleton: Model skeleton (cam be with randomly initialized weights)
+        ensemble: Ensemble of trained weights
+        data_type: Input data type (image or spectra)
+        output_type: Output data type (image or spectra)
+        nb_classes: Number of classes (e.g. for semantic segmentation)
+        in_dim: Input data size (for models with fully-connected layers)
+        out_dim: Output data size (for models with fully-connected layers)
+        **output_shape: Optionally one may specify the exact output shape
+        **verbose: verbosity
+    
+    Example:
+
+        >>> p = aoi.predictors.EnsemblePredictor(skeleton, ensemble, nb_classes=3)
+        >>> nn_out_mean, nn_out_var = p.predict(expdata)
+    """
     def __init__(self,
                  skeleton: Type[torch.nn.Module],
                  ensemble: Dict[int, Dict[str, torch.Tensor]],
@@ -109,7 +127,7 @@ class EnsemblePredictor(BasePredictor):
         """
         eprediction = self.ensemble_forward(data, out_shape)
 
-        return np.mean(eprediction, axis=0), np.var(eprediction, axis=0) 
+        return np.mean(eprediction, axis=0), np.var(eprediction, axis=0)
 
     def ensemble_forward(self,
                          data: torch.Tensor,
@@ -141,7 +159,7 @@ class EnsemblePredictor(BasePredictor):
             eprediction[i] = prob.cpu().numpy()
 
         return eprediction
-    
+
     def ensemble_batch_predict(self,
                                data: np.ndarray,
                                num_batches: int = 10
@@ -169,7 +187,7 @@ class EnsemblePredictor(BasePredictor):
             prediction_mean[(i+1)*batch_size:] = pred_mean
             prediction_var[(i+1)*batch_size:] = pred_var
         return prediction_mean, prediction_var
-  
+
     def predict(self,
                 data: np.ndarray,
                 num_batches: int = 10,
@@ -179,7 +197,23 @@ class EnsemblePredictor(BasePredictor):
         """
         Predicts mean and variance for all the data points
         with ensemble of models
+
+        Args:
+            data: input data
+            num_batches:
+                number of batches for batch-by-batch prediction (Default: 10)
+            format_out:
+                'channel_last' of 'channel_first' dimension order in output
+            norm: Normalize input data to (0, 1)
+
+        Returns:
+            Tuple of numpy arrays with predicted mean and variance
         """
+
+        if format_out not in ["channel_first", "channel_last"]:
+            raise ValueError(
+                "Specify channel_last or channel_first output format")
+
         data = self.preprocess(data, norm)
         if not self.output_shape:
             self._set_output_shape(data)
@@ -187,7 +221,7 @@ class EnsemblePredictor(BasePredictor):
         if (self.data_type == self.output_type == "image"
            and self.downsample_factor is None):
             self.downsample_factor = get_downsample_factor(self.model)
-        
+
         prediction = self.ensemble_batch_predict(data, num_batches)
         prediction_mean, prediction_var = prediction
 
@@ -197,9 +231,7 @@ class EnsemblePredictor(BasePredictor):
             c_tr = (0, *size_dim, 1)
         elif format_out == "channel_first":
             c_tr = np.arange(prediction_mean.ndim)
-        else:
-            raise ValueError("Specify channel_last or channel_first output format")
-        
+
         return prediction_mean.transpose(c_tr), prediction_var.transpose(c_tr)
 
 
@@ -207,7 +239,6 @@ def ensemble_locate(nn_output_ensemble: np.ndarray,
                     **kwargs: Dict) -> Tuple[np.ndarray, np.ndarray]:
     """
     Finds coordinates for each ensemble predictions
-    (basically, an atomnet.locator for ensembles)
 
     Args:
         nn_output_ensembles (numpy array):

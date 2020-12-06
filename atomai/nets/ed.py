@@ -17,17 +17,36 @@ import torch.nn.functional as F
 from .blocks import ConvBlock, DilatedBlock
 
 
-class signal_encoder(nn.Module):
+class SignalEncoder(nn.Module):
     """
     Encodes 1D/2D signal into a latent vector
+
+    Args:
+        signal_dim:
+            Size of input signal. For images, it is (height, width).
+            For spectra, it is (length,)
+        z_dim:
+            Number of fully-connected neurons in a "bottleneck layer"
+            (latent dimensions)
+        nb_layers:
+            Number of convolutional layers
+        nb_filters:
+            Number of convolutional filters (aka "kernels") in each layer
+        **batch_norm (bool):
+            Apply batch normalization after each convolutional layer
+            (Default: True)
+        **downsampling (int):
+            Downsamples input data by this factor before passing
+            to convolutional layers (Default: no downsampling)
+
     """
     def __init__(self, signal_dim: Tuple[int],
                  z_dim: int, nb_layers: int, nb_filters: int,
                  **kwargs: int) -> None:
         """
-        Initialize NN parameters
+        Initialize module parameters
         """
-        super(signal_encoder, self).__init__()
+        super(SignalEncoder, self).__init__()
         if isinstance(signal_dim, int):
             signal_dim = (signal_dim,)
         if not 0 < len(signal_dim) < 3:
@@ -60,16 +79,36 @@ class signal_encoder(nn.Module):
         return self.fc(x)
 
 
-class signal_decoder(nn.Module):
+class SignalDecoder(nn.Module):
     """
-    Decodes a ltent vector into 1D/2D signal
+    Decodes a latent vector into 1D/2D signal
+
+    Args:
+        signal_dim:
+            Size of input signal. For images, it is (height, width).
+            For spectra, it is (length,)
+        z_dim:
+            Number of fully-connected neurons in a "bottleneck layer"
+            (latent dimensions)
+        nb_layers:
+            Number of convolutional layers
+        nb_filters:
+            Number of convolutional filters (aka "kernels") in each layer
+        **batch_norm (bool):
+            Apply batch normalization after each convolutional layer
+            (Default: True)
+        **upsampling (bool):
+            Performs upsampling+convolution operation twice on the reshaped latent
+            vector (starting from image/spectra dims 4x smaller than the target dims)
+            before passing  to the decoder
     """
     def __init__(self, signal_dim: Tuple[int],
                  z_dim: int, nb_layers: int, nb_filters: int,
                  **kwargs: bool) -> None:
         """
+        Initializes module parameters
         """
-        super(signal_decoder, self).__init__()
+        super(SignalDecoder, self).__init__()
         self.upsampling = kwargs.get("upsampling", False)
         bn = kwargs.get('batch_norm', True)
         if isinstance(signal_dim, int):
@@ -118,9 +157,39 @@ class signal_decoder(nn.Module):
         return self.out(x)
 
 
-class signal_ed(nn.Module):
+class SignalED(nn.Module):
     """
     Transforms image into spectra (im2spec) and vice versa (spec2im)
+
+    Args:
+        feature_dim:
+            Input data dimensions.
+            (height, width) for images or (length,) for spectra
+        target_dim:
+            Output dimensions.
+            (length,) for spectra or (height, width) for images
+        latent_dim:
+            Dimensionality of the latent space
+            (number of neurons in a fully connected "bottleneck" layer)
+        nblayers_encoder:
+            Number of convolutional layers in the encoder
+        nblayers_decoder:
+            Number of convolutional layers in the decoder
+        nbfilters_encoder:
+            number of convolutional filters in each layer of the encoder
+        nbfilters_decoder:
+            Number of convolutional filters in each layer of the decoder
+        batch_norm:
+            Apply batch normalization after each convolutional layer
+            (Default: True)
+        encoder_downsampling:
+            Downsamples input data by this factor before passing
+            to convolutional layers (Default: no downsampling)
+        decoder_upsampling:
+            Performs upsampling+convolution operation twice on the reshaped latent
+            vector (starting from image/spectra dims 4x smaller than the target dims)
+            before passing  to the decoder
+
     """
     def __init__(self, feature_dim: Tuple[int],
                  target_dim: Tuple[int], latent_dim: int,
@@ -132,10 +201,10 @@ class signal_ed(nn.Module):
         Initializes im2spec/spec2im parameters
         """
         super(signal_ed, self).__init__()
-        self.encoder = signal_encoder(
+        self.encoder = SignalEncoder(
             feature_dim, latent_dim, nblayers_encoder, nbfilters_encoder,
             batch_norm=batch_norm, downsampling=encoder_downsampling)
-        self.decoder = signal_decoder(
+        self.decoder = SignalDecoder(
             target_dim, latent_dim, nblayers_decoder, nbfilters_decoder,
             batch_norm=batch_norm, upsampling=decoder_upsampling)
 
@@ -164,16 +233,16 @@ class convEncoderNet(nn.Module):
     Convolutional rncoder/inference network (for variational autoencoder)
 
     Args:
-        dim (tuple):
+        dim:
             Input dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
-        latent_dim (int):
+        latent_dim:
             number of latent dimensions
             (the first 3 latent dimensions are angle & translations by default)
-        num_layers (int):
+        num_layers:
             number of NN layers
-        hidden_dim (int):
+        hidden_dim:
             number of neurons in each fully connnected layer (for mlp=True)
             or number of filters in each convolutional layer (for mlp=False)
     """
@@ -200,7 +269,7 @@ class convEncoderNet(nn.Module):
         self.reshape_ = hidden_dim * np.product(in_dim[:2])
         self.fc11 = nn.Linear(self.reshape_, latent_dim)
         self.fc12 = nn.Linear(self.reshape_, latent_dim)
-        
+
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor]:
         """
         Forward pass
@@ -221,16 +290,16 @@ class fcEncoderNet(nn.Module):
     Encoder/inference network (for variational autoencoder)
 
     Args:
-        dim (tuple):
+        dim:
             Input dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
-        latent_dim (int):
+        latent_dim:
             number of latent dimensions
             (the first 3 latent dimensions are angle & translations by default)
-        num_layers (int):
+        num_layers:
             number of NN layers
-        hidden_dim (int):
+        hidden_dim:
             number of neurons in each fully connnected layer (for mlp=True)
             or number of filters in each convolutional layer (for mlp=False)
     """
@@ -270,15 +339,15 @@ class convDecoderNet(nn.Module):
     Convolutional decoder network (for variational autoencoder)
 
     Args:
-        out_dim (tuple):
+        out_dim:
             Output dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
-        latent_dim (int):
+        latent_dim:
             number of latent dimensions associated with images content
-        num_layers (int):
+        num_layers:
             number of fully connected layers
-        hidden_dim (int):
+        hidden_dim:
             number of neurons in each fully connected layer
     """
     def __init__(self,
@@ -297,7 +366,7 @@ class convDecoderNet(nn.Module):
                 "The output dimensions must be (length,) for 1D data and " +
                 "(height, width) or (height, width, channel) for 2D data")
         dim = 2 if len(out_dim) > 1 else 1
-        c = out_dim[-1] if len(out_dim) > 2 else 1    
+        c = out_dim[-1] if len(out_dim) > 2 else 1
         self.fc_linear = nn.Linear(
             latent_dim + num_classes, hidden_dim * np.product(out_dim[:2]),
             bias=False)
@@ -330,15 +399,15 @@ class fcDecoderNet(nn.Module):
     Decoder network (for variational autoencoder)
 
     Args:
-        out_dim (tuple):
+        out_dim:
             Output dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
-        latent_dim (int):
+        latent_dim:
             number of latent dimensions associated with images content
-        num_layers (int):
+        num_layers:
             number of fully connected layers
-        hidden_dim (int):
+        hidden_dim:
             number of neurons in each fully connected layer
     """
     def __init__(self,
@@ -355,7 +424,7 @@ class fcDecoderNet(nn.Module):
             raise ValueError(
                 "The output dimensions must be (length,) for 1D data and " +
                 "(height, width) or (height, width, channel) for 2D data")
-        c = out_dim[-1] if len(out_dim) > 2 else 1    
+        c = out_dim[-1] if len(out_dim) > 2 else 1
         decoder = []
         for i in range(num_layers):
             hidden_dim_ = latent_dim + num_classes if i == 0 else hidden_dim
@@ -383,15 +452,15 @@ class rDecoderNet(nn.Module):
     Spatial decoder network with (optional) skip connections
 
     Args:
-        out_dim (tuple):
+        out_dim:
             output dimensions: (height, width) or (height, width, channels)
-        latent_dim (int):
+        latent_dim:
             number of latent dimensions associated with images content
-        num_layers (int):
+        num_layers:
             number of fully connected layers
-        hidden_dim (int):
+        hidden_dim:
             number of neurons in each fully connected layer
-        skip (bool):
+        skip:
             Use skip connections to propagate latent variables
             through decoder network (Default: False)
     """
@@ -446,13 +515,13 @@ class coord_latent(nn.Module):
     and rotational invariance (based on https://arxiv.org/abs/1909.11663)
 
     Args:
-        latent_dim (int):
+        latent_dim:
             number of latent dimensions associated with images content
-        out_dim (int):
+        out_dim:
             number of output dimensions
             (usually equal to number of hidden units
              in the first layer of the corresponding VAE's decoder)
-        activation (bool):
+        activation:
             Applies tanh activation to the output (Default: False)
     """
     def __init__(self,
@@ -485,9 +554,9 @@ class coord_latent(nn.Module):
         return h
 
 
-
 def init_imspec_model(in_dim, out_dim, latent_dim, **kwargs):
     """
+    Initializes ImSpec model
     """
     nblayers_encoder = kwargs.get("nblayers_encoder", 3)
     nblayers_decoder = kwargs.get("nblayers_decoder", 4)

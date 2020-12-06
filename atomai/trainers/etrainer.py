@@ -71,13 +71,17 @@ class BaseEnsembleTrainer(BaseTrainer):
         Trains baseline weights
 
         Args:
-            X_train (numpy array): Training features
-            y_train (numpy array): Training targets
-            X_test (numpy array): Test features
-            y_test (numpy array): Test targets
-            seed (int):
+            X_train:
+                Training features
+            y_train:
+                Training targets
+            X_test:
+                Test features
+            y_test:
+                Test targets
+            seed:
                 seed to be used for pytorch and numpy random numbers generator
-            augment_fn (python callable):
+            augment_fn:
                 function that takes two torch tensors (features and targets),
                 peforms some transforms, and returns the transformed tensors.
                 The dimensions of the transformed tensors must be the same as
@@ -115,12 +119,12 @@ class BaseEnsembleTrainer(BaseTrainer):
         different initialization
 
         Args:
-            X_train (numpy array): Training features
-            y_train (numpy array): Training targets
-            X_test (numpy array): Test features
-            y_test (numpy array): Test targets
-            n_models (int): number of models to be trained
-            augment_fn (python callable):
+            X_train: Training features
+            y_train: Training targets
+            X_test: Test features
+            y_test: Test targets
+            n_models: number of models to be trained
+            augment_fn:
                 function that takes two torch tensors (features and targets),
                 peforms some transforms, and returns the transformed tensors.
                 The dimensions of the transformed tensors must be the same as
@@ -167,17 +171,17 @@ class BaseEnsembleTrainer(BaseTrainer):
         models for *n* epochs (*n* << *N*),
 
         Args:
-            X_train (numpy array): Training features
-            y_train (numpy array): Training targets
-            X_test (numpy array): Test features
-            y_test (numpy array): Test targets
-            basemodel (pytorch object): Provide a baseline model (Optional)
-            n_models (int): number of models in ensemble
-            training_cycles_base (int):
+            X_train: Training features
+            y_train: Training targets
+            X_test: Test features
+            y_test: Test targets
+            basemodel: Provide a baseline model (Optional)
+            n_models: number of models in ensemble
+            training_cycles_base:
                 Number of training iterations for baseline model
-            training_cycles_ensemble (int):
+            training_cycles_ensemble:
                 Number of training iterations for every ensemble model
-            augment_fn (python callable):
+            augment_fn:
                 function that takes two torch tensors (features and targets),
                 peforms some transforms, and returns the transformed tensors.
                 The dimensions of the transformed tensors must be the same as
@@ -239,12 +243,12 @@ class BaseEnsembleTrainer(BaseTrainer):
         Performs SWAG-like weights sampling at the end of single model training
 
         Args:
-            X_train (numpy array): Training features
-            y_train (numpy array): Training targets
-            X_test (numpy array): Test features
-            y_test (numpy array): Test targets
-            n_models (int): number fo samples to be drawn
-            augment_fn (python callable):
+            X_train: Training features
+            y_train: Training targets
+            X_test: Test features
+            y_test: Test targets
+            n_models: number fo samples to be drawn
+            augment_fn:
                 function that takes two torch tensors (features and targets),
                 peforms some transforms, and returns the transformed tensors.
                 The dimensions of the transformed tensors must be the same as
@@ -275,10 +279,12 @@ class BaseEnsembleTrainer(BaseTrainer):
                         UserWarning)
                 self.kdict[k] = v
 
-    def preprocess_train_data(self, 
+    def preprocess_train_data(self,
                               train_data: Tuple[np.ndarray]
                               ) -> Tuple[np.ndarray]:
-        return train_data
+        X, y, X_, y_ = train_data
+        tor = lambda x: torch.from_numpy(x)
+        return tor(X), tor(y), tor(X_), tor(y_)
 
     def save_ensemble_metadict(self) -> None:
         """
@@ -298,8 +304,18 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         model:
             Built-in AtomAI model (passed as string)
             or initialized custom PyTorch model
-        nb_classes (int):
+        nb_classes:
             Number of classes (if any) in the model's output
+    
+    Example:
+
+        >>> # Train an ensemble of Unet-s
+        >>> etrainer = aoi.trainers.EnsembleTrainer(
+        >>>    "Unet", batch_norm=True, nb_classes=3, with_dilation=False)
+        >>> etrainer.compile_ensemble_trainer(training_cycles=500)
+        >>> # Train 10 different models from scratch
+        >>> smodel, ensemble = etrainer.train_ensemble_from_scratch(
+        >>>    images, labels, images_test, labels_test, n_models=10)
     """
     def __init__(self,
                  model: Union[str, Type[torch.nn.Module]] = None,
@@ -366,13 +382,13 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         Trains baseline weights
 
         Args:
-            X_train (numpy array): Training features
-            y_train (numpy array): Training targets
-            X_test (numpy array): Test features
-            y_test (numpy array): Test targets
-            seed (int):
+            X_train: Training features
+            y_train: Training targets
+            X_test: Test features
+            y_test: Test targets
+            seed:
                 seed to be used for pytorch and numpy random numbers generator
-            augment_fn (python callable):
+            augment_fn:
                 function that takes two torch tensors (features and targets),
                 peforms some transforms, and returns the transformed tensors.
                 The dimensions of the transformed tensors must be the same as

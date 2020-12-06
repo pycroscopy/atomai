@@ -1,10 +1,10 @@
-Neural Networks
-===============
+Neural Nets
+===========
 
 
 Fully convolutional neural networks
 -----------------------------------
-.. autoclass:: atomai.nets.dilUnet
+.. autoclass:: atomai.nets.Unet
     :members:
     :undoc-members:
     :member-order: bysource
@@ -18,13 +18,25 @@ Fully convolutional neural networks
 
 Neural Networks for VAE
 ------------------------
-.. autoclass:: atomai.nets.EncoderNet
+.. autoclass:: atomai.nets.fcEncoderNet
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-.. autoclass:: atomai.nets.DecoderNet
+.. autoclass:: atomai.nets.convEncoderNet
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+.. autoclass:: atomai.nets.fcDecoderNet
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+.. autoclass:: atomai.nets.convDecoderNet
     :members:
     :undoc-members:
     :member-order: bysource
@@ -36,21 +48,42 @@ Neural Networks for VAE
     :member-order: bysource
     :show-inheritance:
 
+Neural Networks for ImSpec
+---------------------------
+.. autoclass:: atomai.nets.SignalEncoder
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+.. autoclass:: atomai.nets.SignalDecoder
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+.. autoclass:: atomai.nets.SignalED
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+
 Building blocks
 ----------------
-.. autoclass:: atomai.nets.conv2dblock
+.. autoclass:: atomai.nets.ConvBlock
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-.. autoclass:: atomai.nets.dilated_block
+.. autoclass:: atomai.nets.DilatedBlock
     :members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
 
-.. autoclass:: atomai.nets.upsample_block
+.. autoclass:: atomai.nets.UpsampleBlock
     :members:
     :undoc-members:
     :member-order: bysource

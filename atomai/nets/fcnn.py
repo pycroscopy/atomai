@@ -20,23 +20,23 @@ class Unet(nn.Module):
     Builds a fully convolutional Unet-like neural network model
 
     Args:
-        nb_classes (int):
+        nb_classes:
             Number of classes in the ground truth
-        nb_filters (int):
+        nb_filters:
             Number of filters in 1st convolutional block
             (gets multiplied by 2 in each next block)
-        dropout (bool):
-            Use dropouts in the 3 inner layers
-            Default: False
-        batch_norm (bool):
+        dropout:
+            Use dropouts to the 3 inner layers
+            (Default: False)
+        batch_norm:
             Use batch normalization after each convolutional layer
             (Default: True)
-        upsampling mode (str):
+        upsampling mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
-        with_dilation (bool):
+        with_dilation:
             Use dilated convolutions instead of regular ones in the
             bottleneck layers (Default: Fasle)
         **layers (list):
@@ -148,16 +148,16 @@ class dilnet(nn.Module):
     by utilizing a combination of regular and dilated convolutions
 
     Args:
-        nb_classes (int):
+        nb_classes:
             Number of classes in the ground truth
-        nb_filters (int):
+        nb_filters:
             Number of filters in 1st convolutional block
             (gets multiplied by 2 in each next block)
-        dropout (bool):
+        dropout:
             Use / not use dropout in the 3 inner layers
-        batch_norm (bool):
+        batch_norm:
             Use / not use batch normalization after each convolutional layer
-        upsampling mode (str):
+        upsampling mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
@@ -248,7 +248,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
                 'upsampling': upsampling,
             }
     if isinstance(model, str) and model == 'Unet':
-        with_dilation = kwargs.get('with_dilation', True)
+        with_dilation = kwargs.get('with_dilation', False)
         nb_filters = kwargs.get('nb_filters', 16)
         layers = kwargs.get("layers", [1, 2, 2, 3])
         net = Unet(

@@ -1,6 +1,6 @@
 """
 predictor.py
-========
+============
 
 Module for making predictions with pre-trained neural networks,
 including semantic segmentation models and im2spec models.
@@ -9,20 +9,21 @@ Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 """
 
 import time
-import warnings
 from typing import Dict, List, Tuple, Type, Union
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from atomai.utils import (Hook, cv_thresh, find_com, get_downsample_factor,
-                          get_nb_classes, img_pad, img_resize, mock_forward,
-                          peak_refinement, set_train_rng, torch_format_image,
+from atomai.utils import (cv_thresh, find_com, get_downsample_factor,
+                          get_nb_classes, img_pad, img_resize, peak_refinement,
+                          set_train_rng, torch_format_image,
                           torch_format_spectra)
 
 
 class BasePredictor:
-
+    """
+    Base predictor class
+    """
     def __init__(self,
                  model: Type[torch.nn.Module] = None,
                  use_gpu: bool = False,
@@ -45,7 +46,7 @@ class BasePredictor:
         if self.model is not None:
             self.model.to(self.device)
         self.verbose = kwargs.get("verbose", False)
-    
+
     def preprocess(self,
                    data: Union[torch.Tensor, np.ndarray]
                    ) -> None:
@@ -121,20 +122,21 @@ class SegPredictor(BasePredictor):
     Prediction with a trained fully convolutional neural network
 
     Args:
-        trained_model (pytorch object):
+        trained_model:
             Trained pytorch model (skeleton+weights)
-        refine (bool):
+        refine:
             Atomic positions refinement with 2d Gaussian peak fitting
-        resize (tuple or 2-element list):
+        resize:
             Target dimensions for optional image(s) resizing
-        use_gpu (bool):
+        use_gpu:
             Use gpu device for inference
-        logits (bool):
+        logits:
             Indicates that the image data is passed through
             a softmax/sigmoid layer when set to False
             (logits=True for AtomAI models)
         **thresh (float):
             value between 0 and 1 for thresholding the NN output
+            (Default: 0.5)
         **d (int):
             half-side of a square around each atomic position used
             for refinement with 2d Gaussian peak fitting. Defaults to 1/4
@@ -150,7 +152,6 @@ class SegPredictor(BasePredictor):
         >>> # Here we load new experimental data (as 2D or 3D numpy array)
         >>> expdata = np.load('expdata-test.npy')
         >>> # Get prediction from a trained model
-        >>> # (it also returns the input to NN in case the image was resized, etc.)
         >>> pseg = atomnet.SegPredictor(trained_model)
         >>> nn_output, coords = pseg.run(expdata)
 
@@ -167,13 +168,12 @@ class SegPredictor(BasePredictor):
         """
         super(SegPredictor, self).__init__(trained_model, use_gpu)
         set_train_rng(1)
-        model = trained_model
         self.nb_classes = kwargs.get('nb_classes', None)
         if self.nb_classes is None:
-            self.nb_classes = get_nb_classes(model)
+            self.nb_classes = get_nb_classes(trained_model)
         self.downsampling = kwargs.get('downsampling', None)
         if self.downsampling is None:
-            self.downsampling = get_downsample_factor(model)
+            self.downsampling = get_downsample_factor(trained_model)
 
         self.resize = resize
         self.logits = logits
@@ -234,9 +234,9 @@ class SegPredictor(BasePredictor):
         Make prediction
 
         Args:
-            image_data (2D or 3D numpy array):
-                Image stack or a single image (all greyscale)
-            return_image (bool):
+            image_data:
+                3D image stack or a single 2D image (all greyscale)
+            return_image:
                 Returns images used as input into NN
             **num_batches: number of batches
             **norm (bool): Normalize data to (0, 1) during pre-processing
@@ -266,7 +266,10 @@ class SegPredictor(BasePredictor):
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
-            **num_batches: number of batches (Default: 10)
+            **num_batches:
+                number of batches for batch-by-batch prediction
+                which ensures that one doesn't run out of memory
+                (Default: 10)
             **norm (bool): Normalize data to (0, 1) during pre-processing
         """
         start_time = time.time()
@@ -284,16 +287,35 @@ class SegPredictor(BasePredictor):
 
 
 class ImSpecPredictor(BasePredictor):
+    """
+    Prediction with a trained im2spec or spec2im model
 
+    Args:
+        trained_model:
+            Pre-trained neural network
+        output_dim:
+            Output dimensions. For im2spec, the output_dim is (length,).
+            For spec2im, the output_dim is (height, width)
+        use_gpu:
+            Use GPU accelration for prediction
+        verbose:
+            Verbosity
+    
+    Example:
+
+        >>> # Predict spectra from images with pretrained im2spec model
+        >>> out_dim = (16,)  # spectra length
+        >>> prediction = ImSpecPredictor(trained_model, out_dim).run(data)
+    """
     def __init__(self,
-                 model: Type[torch.nn.Module],
+                 trained_model: Type[torch.nn.Module],
                  output_dim: Tuple[int],
                  use_gpu: bool = False,
-                 **kwargs) -> None:
+                 **kwargs: str) -> None:
         """
         Initialize predictor
         """
-        super(ImSpecPredictor, self).__init__(model, use_gpu)
+        super(ImSpecPredictor, self).__init__(trained_model, use_gpu)
         if isinstance(output_dim, int):
             output_dim = (output_dim,)
         if len(output_dim) not in [1, 2]:
@@ -324,6 +346,11 @@ class ImSpecPredictor(BasePredictor):
                 **kwargs: int) -> np.ndarray:
         """
         Predict spectra from images or vice versa
+
+        Args:
+            signal (numpy array): Input image/spectrum or batch of images/spectra
+            **num_batches (int): number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
         """
         signal = self.preprocess(signal, kwargs.get("norm", True))
         num_batches = kwargs.get("num_batches", 10)
@@ -373,7 +400,7 @@ class Locator:
     Example:
 
         >>> # Transform output of atomnet.predictor to atomic classes and coordinates
-        >>> coordinates = atomnet.locator(dist_edge=10, refine=False).run(nn_output)
+        >>> coordinates = locator(dist_edge=10, refine=False).run(nn_output)
     """
     def __init__(self,
                  threshold: float = 0.5,

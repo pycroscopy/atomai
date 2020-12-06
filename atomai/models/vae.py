@@ -29,13 +29,13 @@ class BaseVAE(viBaseTrainer):
     General class for encoder-decoder type of deep latent variable models
 
     Args:
-        in_dim (tuple):
+        in_dim:
             (height, width) or (height, width, channel) of input images
-        latent_dim (int):
-            latent dimension in deep latent variable model
-        nb_classes (int):
+        latent_dim:
+            Number of latent dimensions
+        nb_classes:
             Number of classes (for class-conditional VAEs)
-        seed (int):
+        seed:
             seed for torch and numpy (pseudo-)random numbers generators
         **conv_encoder (bool):
             use convolutional layers in encoder
@@ -172,9 +172,9 @@ class BaseVAE(viBaseTrainer):
         Encodes input image data using a trained VAE's encoder
 
         Args:
-            x_test (numpy array or torch tensor):
+            x_test:
                 image array to encode
-            **num_batches (int):
+            **num_batches:
                 number of batches (Default: 10)
 
         Returns:
@@ -219,8 +219,8 @@ class BaseVAE(viBaseTrainer):
         via the learned generative model
 
         Args:
-            z_sample (numpy array or torch tensor):
-                point(s) in latent space
+            z_sample: point(s) in latent space
+            y: label
 
         Returns:
             Generated ("decoded") image(s)
@@ -268,9 +268,9 @@ class BaseVAE(viBaseTrainer):
         the encoded mean and std. Works only for regular VAE (and not for rVAE)
 
         Args:
-            x_new (numpy array or torch tensor):
+            x_new:
                 image array to encode
-            **num_samples (int):
+            **num_samples:
                 number of samples to generate from normal distribution
 
         Returns:
@@ -301,7 +301,7 @@ class BaseVAE(viBaseTrainer):
         Encodes every pixel of every image in image stack
 
         Args:
-            imgdata (numpy array):
+            imgdata:
                 3D numpy array. Can also be a single 2D image
             **num_batches (int):
                 number of batches for for encoding pixels of a single image
@@ -329,7 +329,7 @@ class BaseVAE(viBaseTrainer):
         The size of subimage is determined by size of images in VAE training data.
 
         Args:
-            img (numpy array):
+            img:
                 2D numpy array
             **num_batches (int):
                 number of batches for encoding subimages
@@ -380,15 +380,15 @@ class BaseVAE(viBaseTrainer):
         for each point in a trajectory.
 
         Args:
-            imgdata (np.array):
+            imgdata:
                 NN output (preferable) or raw data
-            coord_class_dict (dict):
+            coord_class_dict:
                 atomic/defect/particle coordinates
-            window_size (int):
+            window_size:
                 size of subimages to crop
-            min_length (int):
+            min_length:
                 minimum length of trajectory to be included
-            rmax (int):
+            rmax:
                 maximum allowed distance (projected on xy plane) between defect
                 in one frame and the position of its nearest neigbor in the next one
             **num_batches (int):
@@ -416,8 +416,9 @@ class BaseVAE(viBaseTrainer):
 
         Args:
             **d (int): grid size
-            **l1 (list): range of 1st latent varianle
+            **l1 (list): range of 1st latent variable
             **l2 (list): range of 2nd latent variable
+            **label(int): label in class-conditioned (r)VAE
             **cmap (str): color map (Default: gnuplot)
             **draw_grid (bool): plot semi-transparent grid
             **origin (str): plot origin (e.g. 'lower')
@@ -483,7 +484,7 @@ class BaseVAE(viBaseTrainer):
         learned 2D manifold during rVAE's training
 
         Args:
-            frames_dir (str):
+            frames_dir:
                 directory with snapshots of manifold as .png files
                 (the files should be named as "1.png", "2.png", etc.)
             **moviename (str): name of the movie
@@ -566,31 +567,31 @@ class BaseVAE(viBaseTrainer):
                 "equal the the number of classes in train and test labels")
 
     def fit(self,
-            X_train: np.ndarray,
-            y_train: Optional[np.ndarray] = None,
-            X_test: Optional[np.ndarray] = None,
-            y_test: Optional[np.ndarray] = None,
+            X_train: Union[np.ndarray, torch.Tensor],
+            y_train: Optional[Union[np.ndarray, torch.Tensor]] = None,
+            X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
+            y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
             loss: str = "mse",
             **kwargs) -> None:
         """
         Trains VAE model
 
         Args:
-            X_train (numpy aarray):
+            X_train:
                 For images, 3D or 4D stack of training images with dimensions
                 (n_images, height, width) for grayscale data or
                 or (n_images, height, width, channels) for multi-channel data.
                 For spectra, 2D stack of spectra with dimensions (length,)
-            X_test (numpy array, optional):
+            X_test:
                 3D or 4D stack of test images or 2D stack of spectra with
                 the same dimensions as for the X_train (Default: None)
-            y_train (numpy array, optional):
+            y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of training images/spectra
-            y_train (numpy array, optional):
+            y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of test images/spectra
-            loss (str):
+            loss:
                 reconstruction loss function, "ce" or "mse" (Default: "mse")
             **filename (str):
                 file path for saving model aftereach training cycle ("epoch")
@@ -630,15 +631,15 @@ class VAE(BaseVAE):
     Implements a standard Variational Autoencoder (VAE)
 
     Args:
-        in_dim (tuple):
+        in_dim:
             Input dimensions for image data passed as (heigth, width)
             for grayscale data or (height, width, channels)
             for multichannel data
-        latent_dim (int):
-            Number of VAE latent dimensions associated with image content
-        nb_classes (int):
+        latent_dim:
+            Number of VAE latent dimensions
+        nb_classes:
             Number of classes for class-conditional rVAE
-        seed(int):
+        seed:
             seed for torch and numpy (pseudo-)random numbers generators
         **conv_encoder (bool):
             use convolutional layers in encoder
@@ -650,6 +651,25 @@ class VAE(BaseVAE):
             number of hidden units OR conv filters in encoder (Default: 128)
         **numhidden_decoder (int):
             number of hidden units in decoder (Default: 128)
+
+    Example:
+
+    >>> input_dim = (28, 28) # Input data dimensions (without n_samples)
+    >>> # Intitialize model
+    >>> vae = aoi.models.VAE(input_dim)
+    >>> # Train
+    >>> vae.fit(imstack_train, training_cycles=100, batch_size=100)
+    >>> # Visualize learned manifold (for 2 latent dimesnions)
+    >>> vae.manifold2d(origin="upper", cmap="gnuplot2)
+
+    One can also pass labels to train a class-conditioned VAE
+    
+    >>> # Intitialize model
+    >>> vae = aoi.models.VAE(input_dim, nb_classes=10)
+    >>> # Train
+    >>> vae.fit(imstack_train, labels_train, training_cycles=100, batch_size=100)
+    >>> # Visualize learned manifold for class 1
+    >>> vae.manifold2d(label=1, origin="upper", cmap="gnuplot2")
     """
     def __init__(self,
                  in_dim: int = None,
@@ -681,17 +701,17 @@ class rVAE(BaseVAE):
     translational variance
 
     Args:
-        in_dim (tuple):
+        in_dim:
             Input dimensions for image data passed as (heigth, width)
             for grayscale data or (height, width, channels)
             for multichannel data
-        latent_dim (int):
+        latent_dim:
             Number of VAE latent dimensions associated with image content
-        nb_classes (int):
+        nb_classes:
             Number of classes for class-conditional rVAE
-        translation (bool):
+        translation:
             account for xy shifts of image content (Default: True)
-        seed(int):
+        seed:
             seed for torch and numpy (pseudo-)random numbers generators
         **conv_encoder (bool):
             use convolutional layers in encoder
@@ -706,6 +726,26 @@ class rVAE(BaseVAE):
         **skip (bool):
             uses generative skip model with residual paths between
             latents and decoder layers (Default: False)
+
+    Example:
+
+    >>> input_dim = (28, 28)  # intput dimensions
+    >>> # Intitialize model
+    >>> rvae = aoi.models.rVAE(input_dim)
+    >>> # Train
+    >>> rvae.fit(imstack_train, training_cycles=100,
+                 batch_size=100, rotation_prior=np.pi/2)
+    >>> rvae.manifold2d(origin="upper", cmap="gnuplot2")
+    
+    One can also pass labels to train a class-conditioned rVAE
+    
+    >>> # Intitialize model
+    >>> rvae = aoi.models.rVAE(input_dim, nb_classes=10)
+    >>> # Train
+    >>> rvae.fit(imstack_train, labels_train, training_cycles=100,
+    >>>            batch_size=100, rotation_prior=np.pi/2)
+    >>> # Visualize learned manifold for class 1
+    >>> rvae.manifold2d(label=1, origin="upper", cmap="gnuplot2")
     """
 
     def __init__(self,
@@ -728,19 +768,6 @@ class rVAE(BaseVAE):
         self.dx_prior = None
         self.phi_prior = None
         self.recording = kwargs.get("recording", False)
-
-    def _2torch(self,
-                X: Union[np.ndarray, torch.Tensor],
-                y: Union[np.ndarray, torch.Tensor] = None
-                ) -> torch.Tensor:
-        """
-        Transforms a pair numpy arrays (images, labels) to torch tensors
-        """
-        if isinstance(X, np.ndarray):
-            X = torch.from_numpy(X).float()
-        if isinstance(y, np.ndarray):
-            y = torch.from_numpy(y).long()
-        return X, y
 
     def elbo_fn(self,
                 x: torch.Tensor,
@@ -792,30 +819,30 @@ class rVAE(BaseVAE):
         return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, phi_prior=self.phi_prior)
 
     def fit(self,
-            X_train: np.ndarray,
-            y_train: Optional[np.ndarray] = None,
-            X_test: Optional[np.ndarray] = None,
-            y_test: Optional[np.ndarray] = None,
+            X_train: Optional[Union[np.ndarray, torch.Tensor]],
+            y_train: Optional[Union[np.ndarray, torch.Tensor]] = None,
+            X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
+            y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
             loss: str = "mse",
             **kwargs) -> None:
         """
         Trains rVAE model
 
         Args:
-            X_train (numpy aarray):
+            X_train:
                 3D or 4D stack of training images with dimensions
                 (n_images, height, width) for grayscale data or
                 or (n_images, height, width, channels) for multi-channel data
-            X_test (numpy array, optional):
+            X_test:
                 3D or 4D stack of test images with the same dimensions
                 as for the X_train (Default: None)
-            y_train (numpy array, optional):
+            y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of training images
-            y_train (numpy array, optional):
+            y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of test images
-            loss (str):
+            loss:
                 reconstruction loss function, "ce" or "mse" (Default: "mse")
             **translation_prior (float):
                 translation prior
@@ -846,6 +873,19 @@ class rVAE(BaseVAE):
         self.save_model(self.filename)
         if self.recording and self.z_dim in [3, 5]:
             self.visualize_manifold_learning("./vae_learning")
+
+    def _2torch(self,
+                X: Union[np.ndarray, torch.Tensor],
+                y: Union[np.ndarray, torch.Tensor] = None
+                ) -> torch.Tensor:
+        """
+        Transforms a pair numpy arrays (images, labels) to torch tensors
+        """
+        if isinstance(X, np.ndarray):
+            X = torch.from_numpy(X).float()
+        if isinstance(y, np.ndarray):
+            y = torch.from_numpy(y).long()
+        return X, y
 
 
 def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor: # move to utils!
