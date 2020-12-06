@@ -565,7 +565,7 @@ def init_imspec_model(in_dim, out_dim, latent_dim, **kwargs):
     batch_norm = kwargs.get("batch_norm", True)
     encoder_downsampling = kwargs.get("encoder_downsampling", 0)
     decoder_upsampling = kwargs.get("decoder_upsampling", False)
-    net = signal_ed(
+    net = SignalED(
         in_dim, out_dim, latent_dim, nblayers_encoder, nblayers_decoder,
         nbfilters_encoder, nbfilters_decoder, batch_norm, encoder_downsampling,
         decoder_upsampling)
