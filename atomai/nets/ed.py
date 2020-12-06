@@ -200,7 +200,7 @@ class SignalED(nn.Module):
         """
         Initializes im2spec/spec2im parameters
         """
-        super(signal_ed, self).__init__()
+        super(SignalED, self).__init__()
         self.encoder = SignalEncoder(
             feature_dim, latent_dim, nblayers_encoder, nbfilters_encoder,
             batch_norm=batch_norm, downsampling=encoder_downsampling)
