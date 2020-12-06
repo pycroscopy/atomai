@@ -155,6 +155,40 @@ def array2list(X_train: np.ndarray, y_train: np.ndarray,
     return X_train, y_train, X_test, y_test
 
 
+def preprocess_training_image_data_(images_all: Union[np.ndarray, torch.Tensor],
+                                    labels_all: Union[np.ndarray, torch.Tensor],
+                                    images_test_all: Union[np.ndarray, torch.Tensor],
+                                    labels_test_all: Union[np.ndarray, torch.Tensor],
+                                    ) -> Tuple[torch.Tensor]:
+    """
+    Preprocess training and test image data
+    """
+    all_data = (images_all, labels_all, images_test_all, labels_test_all)
+    all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
+    all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
+    if not all_numpy and not all_torch:
+        raise TypeError(
+            "Provide training and test data in the form" +
+            " of numpy arrays or torch tensors")
+    num_classes = num_classes_from_labels(labels_all)
+    (images_all, labels_all,
+     images_test_all, labels_test_all) = check_image_dims(*all_data, num_classes)
+    if all_numpy:
+        images_all = torch.from_numpy(images_all)
+        images_test_all = torch.from_numpy(images_test_all)
+        labels_all = torch.from_numpy(labels_all)
+        labels_test_all = torch.from_numpy(labels_test_all)
+    images_all, images_test_all = images_all.float(), images_test_all.float()
+    if num_classes > 1:
+        labels_all, labels_test_all = labels_all.long(), labels_test_all.long()
+    else:
+        labels_all, labels_test_all = labels_all.float(), labels_test_all.float()
+
+    return (images_all, labels_all, images_test_all,
+            labels_test_all, num_classes)
+
+
+
 def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
                                    labels_all: Union[np.ndarray, torch.Tensor],
                                    images_test_all: Union[np.ndarray, torch.Tensor],
@@ -162,7 +196,7 @@ def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
                                    batch_size: int
                                    ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], int]:
     """
-    Preprocess training and test data
+    Preprocess training and test image data
 
     Args:
         images_all (numpy array):
@@ -187,31 +221,49 @@ def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
         training and test data, and an integer corresponding to the number of
         classes inferred from the data.
     """
-    all_data = (images_all, labels_all, images_test_all, labels_test_all)
-    all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
-    all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
-    if not all_numpy and not all_torch:
-        raise TypeError(
-            "Provide training and test data in the form" +
-            " of numpy arrays or torch tensors")
-    num_classes = num_classes_from_labels(labels_all)
-    (images_all, labels_all,
-     images_test_all, labels_test_all) = check_image_dims(*all_data, num_classes)
-    if all_numpy:
-        images_all = torch.from_numpy(images_all)
-        images_test_all = torch.from_numpy(images_test_all)
-        labels_all = torch.from_numpy(labels_all)
-        labels_test_all = torch.from_numpy(labels_test_all)
-    images_all, images_test_all = images_all.float(), images_test_all.float()
-    if num_classes > 1:
-        labels_all, labels_test_all = labels_all.long(), labels_test_all.long()
-    else:
-        labels_all, labels_test_all = labels_all.float(), labels_test_all.float()
+    data_all = preprocess_training_image_data_(
+        images_all, labels_all, images_test_all, labels_test_all)
+    num_classes = data_all[-1]
     images_all, labels_all, images_test_all, labels_test_all = array2list(
-        images_all, labels_all, images_test_all, labels_test_all, batch_size)
+        *data_all[:-1], batch_size)
 
     return (images_all, labels_all, images_test_all,
             labels_test_all, num_classes)
+
+
+def preprocess_training_imspec_data_(X_train: Union[np.ndarray, torch.Tensor],
+                                     y_train: Union[np.ndarray, torch.Tensor],
+                                     X_test: Union[np.ndarray, torch.Tensor],
+                                     y_test: Union[np.ndarray, torch.Tensor],
+                                     ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], Tuple[Tuple[int]]]:
+        """
+        Preprocesses training and test data for im2spec/spec2im models
+        """
+        all_data = (X_train, y_train, X_test, y_test)
+        all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
+        all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
+        if not all_numpy and not all_torch:
+            raise TypeError(
+                "Provide training and test data in the form" +
+                " of numpy arrays or torch tensors")
+
+        X_train, y_train, X_test, y_test = check_signal_dims(
+            X_train, y_train, X_test, y_test)
+        in_dim = X_train.shape[2:]
+        out_dim = y_train.shape[2:]
+
+        if all_numpy:
+            X_train = torch.from_numpy(X_train).float()
+            y_train = torch.from_numpy(y_train).float()
+            X_test = torch.from_numpy(X_test).float()
+            y_test = torch.from_numpy(y_test).float()
+        else:
+            X_train = X_train.float()
+            y_train = y_train.float()
+            X_test = X_test.float()
+            y_test = y_test.float()
+
+        return X_train, y_train, X_test, y_test, (in_dim, out_dim)
 
 
 def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
@@ -251,34 +303,14 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
         4-element tuple containing lists of numpy arrays or torch tensors
         with training and test data
         """
-        all_data = (X_train, y_train, X_test, y_test)
-        all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
-        all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
-        if not all_numpy and not all_torch:
-            raise TypeError(
-                "Provide training and test data in the form" +
-                " of numpy arrays or torch tensors")
-
-        X_train, y_train, X_test, y_test = check_signal_dims(
+        data_all = preprocess_training_imspec_data_(
             X_train, y_train, X_test, y_test)
-        in_dim = X_train.shape[2:]
-        out_dim = y_train.shape[2:]
-
-        if all_numpy:
-            X_train = torch.from_numpy(X_train).float()
-            y_train = torch.from_numpy(y_train).float()
-            X_test = torch.from_numpy(X_test).float()
-            y_test = torch.from_numpy(y_test).float()
-        else:
-            X_train = X_train.float()
-            y_train = y_train.float()
-            X_test = X_test.float()
-            y_test = y_test.float()
+        dims = data_all[-1]
 
         X_train, y_train, X_test, y_test = array2list(
-                X_train, y_train, X_test, y_test, batch_size)
+                *data_all[:-1], batch_size)
 
-        return X_train, y_train, X_test, y_test, (in_dim, out_dim)
+        return X_train, y_train, X_test, y_test, dims
 
 
 def init_dataloaders(X_train: torch.Tensor,
@@ -313,21 +345,11 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
     Returns two pytorch dataloaders for training and test data
     for semantic segmentation tasks
     """
-    if num_classes is None:
-        num_classes = num_classes_from_labels(y_train)
-    X_train, y_train, X_test, y_test = check_image_dims(
-        X_train, y_train, X_test, y_test, num_classes)
-    tor = lambda x: torch.from_numpy(x)
-    X_train, y_train = tor(X_train).float(), tor(y_train)
-    X_test, y_test = tor(X_test).float(), tor(y_test)
-    if num_classes > 1:
-        y_train = y_train.long()
-        y_test = y_test.long()
-    else:
-        y_train = y_train.float()
-        y_test = y_test.float()
+    data_all = preprocess_training_image_data_(
+        X_train, y_train, X_test, y_test)
+    num_classes = data_all[-1]
     train_loader, test_loader = init_dataloaders(
-        X_train, y_train, X_test, y_test, batch_size)
+        *data_all[:-1], batch_size)
 
     return train_loader, test_loader, num_classes
 
@@ -343,18 +365,12 @@ def init_imspec_dataloaders(X_train: np.ndarray,
     in a native PyTorch format
     """
 
-    X_train, y_train, X_test, y_test = check_signal_dims(
-        X_train, y_train, X_test, y_test)
-    in_dim = X_train.shape[2:]
-    out_dim = y_train.shape[2:]
-    X_train = torch.from_numpy(X_train).float()
-    y_train = torch.from_numpy(y_train).float()
-    X_test = torch.from_numpy(X_test).float()
-    y_test = torch.from_numpy(y_test).float()
-
+    data_all = preprocess_training_imspec_data_(
+            X_train, y_train, X_test, y_test)
+    dims = data_all[-1]
     train_loader, test_loader = init_dataloaders(
-        X_train, y_train, X_test, y_test, batch_size)
-    return train_loader, test_loader, (in_dim, out_dim)
+        *data_all[:-1], batch_size)
+    return train_loader, test_loader, dims
 
 
 def init_vae_dataloaders(X_train: np.ndarray,
