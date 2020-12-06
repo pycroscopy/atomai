@@ -27,10 +27,15 @@ Variational Autoencoder (VAE)
     :show-inheritance:
 
 Rotational Variational Autoencoder (rVAE)
------------------------------
+------------------------------------------
 .. autoclass:: atomai.models.rVAE
     :members:
     :inherited-members:
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
+
+Load trained models
+--------------------
+.. autofunction:: atomai.models.load_model
+.. autofunction:: atomai.models.load_ensemble

@@ -88,8 +88,3 @@ Building blocks
     :undoc-members:
     :member-order: bysource
     :show-inheritance:
-
-Load trained models
---------------------
-.. autofunction:: atomai.nets.load_model
-.. autofunction:: atomai.nets.load_ensemble

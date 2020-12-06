@@ -1,6 +1,6 @@
 """
 vae.py
-===========
+=======
 
 Module for analysis of system "building blocks"" with variational autoencoders
 
