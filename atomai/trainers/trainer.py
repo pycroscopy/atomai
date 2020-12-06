@@ -756,10 +756,10 @@ class ImSpecTrainer(BaseTrainer):
         self.meta_state_dict["optimizer"] = self.optimizer
 
     def set_data(self,
-                 X_train: Union[np.ndarray, torch.Tesnor],
-                 y_train: Union[np.ndarray, torch.Tesnor],
-                 X_test: Optional[Union[np.ndarray, torch.Tesnor]] = None,
-                 y_test: Optional[Union[np.ndarray, torch.Tesnor]] = None,
+                 X_train: Union[np.ndarray, torch.Tensor],
+                 y_train: Union[np.ndarray, torch.Tensor],
+                 X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
+                 y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
                  **kwargs: Union[float, int]) -> None:
         """
         Sets training and test data.
