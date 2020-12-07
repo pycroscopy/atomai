@@ -27,13 +27,10 @@ ReadMe
 
 What is AtomAI
 --------------
-
-AtomAI is a simple Python package for machine learning-based analysis of experimental atom-resolved data from electron and scanning probe microscopes, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the `AICrystallographer project <https://github.com/pycroscopy/AICrystallographer>`_.
+AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the `AICrystallographer project <https://github.com/pycroscopy/AICrystallographer>`_. The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib.
 
 How to use it
 -------------
-
-AtomAI has two main modules: *atomnet* and *atomstat*. The *atomnet* is for training neural networks (with just one line of code) and for applying trained models to finding atoms and defects in image data (which also takes  a single line of code). The *atomstat* allows taking the *atomnet* predictions and performing the statistical analysis on the local image descriptors associated with the identified atoms and defects (e.g., principal component analysis of atomic distortions in a single image or computing gaussian mixture model components with the transition probabilities for movies).
 
 Quickstart: AtomAI in the Cloud
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -48,96 +45,147 @@ The easiest way to start using AtomAI is via `Google Colab <https://colab.resear
 
 4) `Prepare training data from experimental image with atomic coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
 
-Model training
+Semantic segmentation
+^^^^^^^^^^^^^^^^^^^^^^
+
+If your goal is to train and/or apply deep learning models for semantic segmentation of your experimental images, it is recommended to start with ```atomai.models.Segmentor```, which provides an easy way to train neural networks (with just two lines of code) and to make a prediction with trained models (with just one line of code). Here is an example of how one can train a neural network for atom/particle/defect finding with essentially two lines of code:
+
+>>> import atomai as aoi
+>>> # Initialize model
+>>> model = aoi.models.Segmentor(nb_classes=3)  # uses UNet by default
+>>> # Train
+>>> model.fit(images, labels, images_test, labels_test, # training data (numpy arrays)
+>>>           training_cycles=300, compute_accuracy=True, swa=True) # training parameters
+
+Here ```swa``` stands for `stochastic weight averaging <https://arxiv.org/abs/1803.05407>`_,  which usually allows improving the model's accuracy and leads to better generalization. The trained model can be used to find atoms/particles/defects in new, previously unseen (by a model) data:
+
+>>> nn_output, coordinates = model.predict(expdata)
+
+ImSpec models
+^^^^^^^^^^^^^^
+AtomAI also provides models that can be used for converting image data into spectra and vice versa. These models can be used for predicting property from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
+
+>>> in_dim = (16, 16)  # Input dimensions (image height and width)
+>>> out_dim = (64,)  # Output dimensions (spectra length)
+>>>
+>>> # Initialize and train model
+>>> model = aoi.models.ImSpec(in_dim, out_dim, latent_dim=10)
+>>> model.fit(imgs_train, spectra_train, imgs_test, spectra_test,  # trainig data (numpy arrays)
+>>>       full_epoch=True, training_cycles=120, swa=True)  # training parameters
+
+Make a prediction with the trained ImSpec model by running
+
+>>> prediction = model.predict(imgs_val, norm=False)
+
+Deep ensembles
+^^^^^^^^^^^^^^^
+
+One can also use AtomAI to train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the `uncertainty in our prediction <https://arxiv.org/abs/1612.01474>`_ for each pixel/point.
+
+>>> # Ititialize and compile ensemble trainer
+>>> etrainer = aoi.trainers.EnsembleTrainer("Unet", batch_norm=True, nb_classes=3, with_dilation=False)
+>>> etrainer.compile_ensemble_trainer(training_cycles=500, compute_accuracy=True, swa=True)
+
+>>> # Train ensemble of models starting every time with new randomly initialized weights
+>>> smodel, ensemble = etrainer.train_ensemble_from_scratch(
+>>>     images, labels, images_test, labels_test, n_models=10)
+
+The ensemble of models can be then used to make a prediction with uncertainty estimates for each point (e.g. each pixel in the image):
+
+>>> predictor = aoi.predictors.EnsemblePredictor(smodel, ensemble, nb_classes=3)
+>>> nn_out_mean, nn_out_var = predictor.predict(expdata)
+
+Variational autoencoders (VAE)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AtomAI also has built-in `variational autoencoders (VAEs) <https://arxiv.org/abs/1906.02691>`_ for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotationally and/or translationally invariant VAE (rVAE), and class-conditined VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
+
+>>> # Get a stack of subimages from experimental data (e.g. a semantically segmented atomic movie)
+>>> imstack, com, frames = utils.extract_subimages(nn_output, coords, window_size=32)
+
+>>> # Intitialize rVAE model
+>>> input_dim = (32, 32)
+>>> rvae = aoi.models.rVAE(input_dim) 
+
+>>> # Train
+>>> rvae.fit(
+>>>    imstack_train, latent_dim=2,
+>>>    rotation_prior=np.pi/3, training_cycles=100,
+>>>    batch_size=100)   
+>>> # Visualize the learned manifold
+>>> rvae.manifold2d()
+
+One can also use the trained VAE to view the data distribution in the latent space. In this example the first 3 latent variables are associated with rotations and xy-translations (they are automatically added in rVAE to whatever number of latent dimensions is specified), whereas the last 2 latent variables are associated with images content.
+
+>>> encoded_mean, encoded_sd = rvae.encode(imstack)
+>>> z1, z2, z3 = encoded_mean[:,0], encoded_mean[:, 1:3], encoded_mean[:, 3:]
+
+Custom models
 ^^^^^^^^^^^^^^
 
-Below is an example of how one can train a neural network for atom/defect finding with essentially one line of code:
+Finally, it is possible to use AtomAI trainers and predictors for easy work with custom PyTorch models. Suppose we define a custom Pytorch neural network as
 
+>>> # Here ConvBlock and UpsampleBlock are from atomai.nets module
+>>> torch_encoder = torch.nn.Sequential(
+>>>    ConvBlock(ndim=2, nb_layers=1, input_channels=1, output_channels=8, batch_norm=True),
+>>>    torch.nn.MaxPool2d(2, 2),
+>>>    ConvBlock(2, 2, 8, 16, batch_norm=False),
+>>>    torch.nn.MaxPool2d(2, 2),
+>>>    ConvBlock(2, 2, 16, 32, batch_norm=False),
+>>>    torch.nn.MaxPool2d(2, 2),
+>>>    ConvBlock(2, 2, 32, 64, batch_norm=False)
+>>>)
+>>> torch_decoder = torch.nn.Sequential(
+>>>    UpsampleBlock(ndim=2, input_channels=64, output_channels=64, mode="nearest"),
+>>>    ConvBlock(2, 2, 64, 32, batch_norm=False),
+>>>    UpsampleBlock(2, 32, 32, mode="nearest"),
+>>>    ConvBlock(2, 2, 32, 16, batch_norm=False),
+>>>    UpsampleBlock(2, 16, 16, mode="nearest"),
+>>>    ConvBlock(2, 1, 16, 8, batch_norm=False),
+>>>    torch.nn.Conv2d(8, 1, 1)
+>>>)
+>>>torch_DAE = torch.nn.Sequential(torch_encoder, torch_decoder)
 
->>> from atomai import atomnet
->>>
->>> # Here you load your training data
->>> dataset = np.load('training_data.npz')
->>> images_all = dataset['X_train']
->>> labels_all = dataset['y_train']
->>> images_test_all = dataset['X_test']
->>> labels_test_all = dataset['y_test']
->>>
->>> # Train a model
->>> trained_model = atomnet.trainer(
->>> images_all, labels_all, 
->>> images_test_all, labels_test_all,
->>> training_cycles=500).run()   
+We can easily train this model using AtomAI's trainers:
 
+>>> # Initialize trainer and pass our model to it
+>>> trainer = aoi.trainers.BaseTrainer()
+>>> trainer.set_model(torch_DAE)
+>>> # Fix the initialization parameters (for reproducibility)
+>>> set_train_rng(1)
+>>> trainer._reset_weights() # start each time with the same initialization
+>>> trainer._reset_training_history()
+>>> # Compile trainer
+>>> trainer.compile_trainer(
+>>>    (imgdata_noisy, imgdata, imgdata_noisy_test, imgdata_test), # training data
+>>>    loss="mse", training_cycles=500, swa=True)  # training parameters
+>>> # Train
+>>> trained_model = trainer.run()
 
-One can also train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the `uncertainty in our prediction <https://arxiv.org/abs/1612.01474>`_ for each pixel. Note that in the example below, we "augmnent" our data on-the-fly by applying various image transformations (e.g. adding Gaussian noise, changing contrast, rotating and zooming). The sequence of these transformations is different for every model in the ensemble ensuring a unique "training trajectory" for each model.
+The trained model can be used to make predictions on new data using AtomAI's predictors:
 
->>> # Initialize ensemble trainer
->>> trainer = atomnet.ensemble_trainer(X_train, y_train, n_models=12,
->>>                                    rotation=True, zoom=True, contrast=True, 
->>>                                    gauss=True, blur=True, background=True, 
->>>                                    loss='ce', batch_size=16, training_cycles_base=1000,
->>>                                    training_cycles_ensemble=100, filename='ensemble')
->>> # train deep ensemble of models
->>> basemodel, ensemble, ensemble_aver = trainer.run()
+>>> p = aoi.predictors.BasePredictor(trained_model, use_gpu=True)
+>>> prediction = p.predict(imgdata_noisy_test)
 
-Prediction with trained model(s)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Trained models are used to find atoms/particles/defects in the previously unseen (by a model) experimental data:
-
->>> # Here we load new experimental data (as 2D or 3D numpy array)
->>> expdata = np.load('expdata-test.npy')
->>>
->>> # Get model's "raw" prediction, atomic coordinates and classes
->>> nn_input, (nn_output, coord_class) = atomnet.predictor(trained_model, refine=False).run(expdata)
->>>
->>> # Get ensemble prediction (mean and variance for "raw" prediction and coordinates)
->>> epredictor = atomnet.ensemble_predictor(basemodel, ensemble, calculate_coordinates=True)
->>> (img_mu, img_var), (coord_mu, coord_var) = epredictor.run(expdata)
-
-Statistical analysis
-^^^^^^^^^^^^^^^^^^^^
+Not just deep learning
+^^^^^^^^^^^^^^^^^^^^^^^
 
 The information extracted by *atomnet* can be used for statistical analysis of raw and "decoded" data. For example, for a single atom-resolved image of ferroelectric material, one can identify domains with different ferroic distortions:
 
->>> from atomai import atomstat
->>>
 >>> # Get local descriptors
->>> imstack = atomstat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
->>>
+>>> imstack = aoi.stat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
 >>> # Compute distortion "eigenvectors" with associated loading maps and plot results:
 >>> pca_results = imstack.imblock_pca(n_components=4, plot_results=True)
 
 For movies, one can extract trajectories of individual defects and calculate the transition probabilities between different classes:
 
 >>> # Get local descriptors (such as subimages centered around impurities)
->>> imstack = atomstat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
->>>
+>>> imstack = aoi.stat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
 >>> # Calculate Gaussian mixture model (GMM) components
 >>> components, imgs, coords = imstack.gmm(n_components=10, plot_results=True)
->>>
 >>> # Calculate GMM components and transition probabilities for different trajectories
 >>> transitions_dict = imstack.transition_matrix(n_components=10, rmax=10)
->>>
 >>> # and more
-
-Variational autoencoders
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-In addition to multivariate statistical analysis, one can also use `variational autoencoders (VAEs) <https://arxiv.org/abs/1906.02691>`_ in AtomAI to find in the unsupervised fashion the most effective reduced representation of system's local descriptors. The VAEs can be applied to both raw data and NN output, but typically work better with the latter.
-
->>> from atomai import atomstat, utils
->>>
->>> # Get stack of subimages from a movie
->>> imstack, com, frames = utils.extract_subimages(decoded_imgs, coords, window_size=32)
->>>
->>> # Initialize and train rotationally-invariant VAE
->>> rvae = atomstat.rVAE(imstack, latent_dim=2, training_cycles=200)
->>> rvae.run()
->>>
->>> # Visualize the learned manifold
->>> rvae.manifold2d()
 
 Installation
 ------------
