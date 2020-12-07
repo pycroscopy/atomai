@@ -6,7 +6,7 @@ from numpy.testing import assert_allclose
 import matplotlib
 matplotlib.use('Agg')
 
-sys.path.append("../../../")
+#sys.path.append("../../../")
 
 from atomai.stat import imlocal
 
