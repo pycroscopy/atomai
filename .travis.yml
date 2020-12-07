@@ -16,9 +16,8 @@ os:
 cache: pip
 
 before_install:
-    -  sudo apt-get update && apt-get install --assume-yes --no-install-recommends python3-pip>=20.0.2
-
-sudo: true
+    -  sudo apt-get update -qq
+    -  sudo apt-get install python3-pip>=20.0.2
 
 install:
     - python setup.py install
