@@ -11,12 +11,14 @@ python:
 
 os:
     - linux
+    
 
 cache: pip
 
 before_install:
-    - pip install --upgrade pip
-    - pip install setuptools>=50.3.2
+    -  sudo apt-get update && apt-get install --assume-yes --no-install-recommends python3-pip>=20.0.2
+
+sudo: true
 
 install:
     - python setup.py install
