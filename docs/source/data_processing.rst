@@ -1,6 +1,10 @@
-Utility Functions
-==================
+Image transforms
+=================
 
+.. autoclass:: atomai.transforms.datatransform
+    :members:
+    :undoc-members:
+    :member-order: bysource
 
 Training data preparation
 -------------------------
@@ -24,7 +28,6 @@ Training data preparation
 Image pre/post processing
 -------------------------
 
-.. autofunction:: atomai.utils.preprocess_training_data
 .. autofunction:: atomai.utils.torch_format
 .. autofunction:: atomai.utils.img_resize
 .. autofunction:: atomai.utils.img_pad
@@ -52,11 +55,3 @@ Visualization
 .. autofunction:: atomai.utils.plot_trajectories
 .. autofunction:: atomai.utils.plot_transitions
 .. autofunction:: atomai.utils.plot_trajectories_transitions
-
-
-Trained weights
-----------------
-.. autofunction:: atomai.utils.load_weights
-.. autofunction:: atomai.utils.average_weights
-.. autofunction:: atomai.utils.sample_weights
-.. autofunction:: atomai.utils.nb_filters_classes

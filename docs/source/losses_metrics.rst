@@ -1,4 +1,4 @@
-Loss functions and metrics
+Loss Functions and Metrics
 =============================
 
 Losses for imbalanced classes

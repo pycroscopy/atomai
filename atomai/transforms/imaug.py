@@ -62,7 +62,7 @@ class datatransform:
             [downscale factor (default: 2), upscale factor (default:1.5)]
     """
     def __init__(self,
-                 n_channels: int,
+                 n_channels: int = None,
                  dim_order_in: str = 'channel_last',
                  dim_order_out: str = 'channel_first',
                  squeeze_channels: bool = False,
@@ -303,55 +303,58 @@ class datatransform:
             y_batch_r[i] = gt
         return X_batch_r, y_batch_r
 
-    def run(self, images: np.ndarray, masks: np.ndarray) -> Tuple[np.ndarray]:
+    def run(self, images: np.ndarray, targets: np.ndarray) -> Tuple[np.ndarray]:
         """
         Applies a sequence of augmentation procedures to images
-        and (except for noise) ground truth. Starts with user defined
+        and (except for noise) targets. Starts with user defined
         custom_transform if available. Then proceeds with
         rotation->zoom->resize->gauss->jitter->poisson->sp->blur->contrast->background.
         The operations that are not specified in kwargs are skipped.
         """
-        if self.dim_order_in == 'channel_first':
-            masks = np.transpose(masks, [0, 2, 3, 1])
+        same_dim = images.ndim + 1 == targets.ndim == 4 and self.ch is not None
+        if self.dim_order_in == 'channel_first' and same_dim:
+            targets = np.transpose(targets, [0, 2, 3, 1])
         elif self.dim_order_in == 'channel_last':
             pass
         else:
             raise NotImplementedError("Use 'channel_first' or 'channel_last'")
         images = (images - images.min()) / images.ptp()
         if self.custom_transform is not None:
-            images, masks = self.custom_transform(images, masks)
-        if self.rotation:
-            images, masks = self.apply_rotation(images, masks)
-        if isinstance(self.zoom, int):
-            images, masks = self.apply_zoom(images, masks)
+            images, targets = self.custom_transform(images, targets)
+        if self.rotation and same_dim:
+            images, targets = self.apply_rotation(images, targets)
+        if isinstance(self.zoom, int) and same_dim:
+            images, targets = self.apply_zoom(images, targets)
         if isinstance(self.resize, list) or isinstance(self.resize, tuple):
-            images, masks = self.apply_imresize(images, masks)
+            if same_dim:
+                images, targets = self.apply_imresize(images, targets)
         if isinstance(self.gauss, list) or isinstance(self.gauss, tuple):
-            images, masks = self.apply_gauss(images, masks)
+            images, targets = self.apply_gauss(images, targets)
         if isinstance(self.jitter, list) or isinstance(self.jitter, tuple):
-            images, masks = self.apply_jitter(images, masks)
+            images, targets = self.apply_jitter(images, targets)
         if isinstance(self.poisson, list) or isinstance(self.poisson, tuple):
-            images, masks = self.apply_poisson(images, masks)
+            images, targets = self.apply_poisson(images, targets)
         if isinstance(self.salt_and_pepper, list) or isinstance(self.salt_and_pepper, tuple):
-            images, masks = self.apply_sp(images, masks)
+            images, targets = self.apply_sp(images, targets)
         if isinstance(self.blur, list) or isinstance(self.blur, tuple):
-            images, masks = self.apply_blur(images, masks)
+            images, targets = self.apply_blur(images, targets)
         if isinstance(self.contrast, list) or isinstance(self.contrast, tuple):
-            images, masks = self.apply_contrast(images, masks)
+            images, targets = self.apply_contrast(images, targets)
         if self.background:
-            images, masks = self.apply_background(images, masks)
-        if self.squeeze:
-            images, masks = squeeze_channels(images, masks)
+            images, targets = self.apply_background(images, targets)
+        if self.squeeze and same_dim:
+            images, targets = squeeze_channels(images, targets)
         if self.dim_order_out == 'channel_first':
             images = np.expand_dims(images, axis=1)
-            if self.squeeze is None or self.ch == 1:
-                masks = np.transpose(masks, (0, 3, 1, 2))
+            if same_dim:
+                if self.squeeze is None or self.ch == 1:
+                    targets = np.transpose(targets, (0, 3, 1, 2))
         elif self.dim_order_out == 'channel_last':
             images = np.expand_dims(images, axis=3)
         else:
             raise NotImplementedError("Use 'channel_first' or 'channel_last'")
         images = (images - images.min()) / images.ptp()
-        return images, masks
+        return images, targets
 
 
 def squeeze_channels(images: np.ndarray,

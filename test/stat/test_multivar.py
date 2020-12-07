@@ -1,10 +1,14 @@
+import sys
 import os
 import numpy as np
-from atomai import atomstat
 import pytest
 from numpy.testing import assert_allclose
 import matplotlib
 matplotlib.use('Agg')
+
+sys.path.append("../../../")
+
+from atomai.stat import imlocal
 
 
 test_coord_m_ = os.path.join(
@@ -24,7 +28,7 @@ def imstack_():
     test_nn_output = np.load(test_nn_output_)
     test_coord_m = np.load(test_coord_m_)
     test_coord_m = {'0': test_coord_m}
-    imstack = atomstat.imlocal(
+    imstack = imlocal(
         test_nn_output, test_coord_m, crop_size=32, coord_class=1)
     return imstack
 
