@@ -29,7 +29,7 @@ if __name__ == "__main__":
             'torch>=1.6.0',
             'numpy>=1.18.5',
             'scipy>=1.4.0',
-            'scikit-learn>=0.22.2',
+            'scikit-learn>=0.23.0',
             'scikit-image==0.16.2',
             'opencv-python>=4.1.0,<=4.3.0',
             'networkx>=2.5',
