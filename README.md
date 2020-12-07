@@ -30,7 +30,7 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 
 ### Semantic segmentation
 
-If your goal is to train and/or apply deep learning models for semantic segmentation of your experimental images, it is recommended to start with atomai.models.Segmentor, which provides an easy way to train neural networks (with just two lines of code) and to make a prediction with trained models (with just one line of code). Here is an example of how one can train a neural network for atom/particle/defect finding with essentially two lines of code:
+If your goal is to train and/or apply deep learning models for semantic segmentation of your experimental images, it is recommended to start with ```atomai.models.Segmentor```, which provides an easy way to train neural networks (with just two lines of code) and to make a prediction with trained models (with just one line of code). Here is an example of how one can train a neural network for atom/particle/defect finding with essentially two lines of code:
 ```python
 import atomai as aoi
 # Initialize model
@@ -57,14 +57,14 @@ model.fit(imgs_train, spectra_train, imgs_test, spectra_test,  # trainig data (n
        full_epoch=True, training_cycles=120, swa=True  # training parameters
 )
 ```
-Make a prediction with the trained ImSpec model
+Make a prediction with the trained ImSpec model by running
 ```python
 prediction = model.predict(imgs_val, norm=False)
 ```
 
 ### Deep ensembles
 
-One can also us AtomAI to train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel/point.
+One can also use AtomAI to train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the [uncertainty in our prediction](https://arxiv.org/abs/1612.01474) for each pixel/point.
 
 ```python
 # Ititialize and compile ensemble trainer
@@ -84,7 +84,7 @@ nn_out_mean, nn_out_var = predictor.predict(expdata)
 
 ### Variational autoencoders (VAE)
 
-AtomAI also has built-in [variational autoencoders (VAEs)](https://arxiv.org/abs/1906.02691) for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotaionally and/or translationally invariant VAE (rVAE), and class-conditined VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
+AtomAI also has built-in [variational autoencoders (VAEs)](https://arxiv.org/abs/1906.02691) for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotationally and/or translationally invariant VAE (rVAE), and class-conditined VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
 ```python
 # Get a stack of subimages from experimental data (e.g. a semantically segmented atomic movie)
 imstack, com, frames = utils.extract_subimages(nn_output, coords, window_size=32)
@@ -102,7 +102,7 @@ rvae.fit(
 # Visualize the learned manifold
 rvae.manifold2d()
 ```
-One can also use the trained VAE to view the data distribution in the latent space. Here the first 3 latent variables are associated with rotations and xy-translations (they are automatically added in rVAE to whatever number of latent dimensions is specified), whereas the last 2 latent variables are associated with images content.
+One can also use the trained VAE to view the data distribution in the latent space. In this example the first 3 latent variables are associated with rotations and xy-translations (they are automatically added in rVAE to whatever number of latent dimensions is specified), whereas the last 2 latent variables are associated with images content.
 ```python
 encoded_mean, encoded_sd = rvae.encode(imstack)
 z1, z2, z3 = encoded_mean[:,0], encoded_mean[:, 1:3], encoded_mean[:, 3:]
@@ -112,7 +112,7 @@ z1, z2, z3 = encoded_mean[:,0], encoded_mean[:, 1:3], encoded_mean[:, 3:]
 
 Finally, it is possible to use AtomAI trainers and predictors for easy work with custom PyTorch models. Suppose we define a custom Pytorch neural network as
 ```python
-# Here ConvBlock is from atomai.nets module
+# Here ConvBlock and UpsampleBlock are from atomai.nets module
 torch_encoder = torch.nn.Sequential(
     ConvBlock(ndim=2, nb_layers=1, input_channels=1, output_channels=8, batch_norm=True),
     torch.nn.MaxPool2d(2, 2),
@@ -129,11 +129,11 @@ torch_decoder = torch.nn.Sequential(
     ConvBlock(2, 2, 32, 16, batch_norm=False),
     UpsampleBlock(2, 16, 16, mode="nearest"),
     ConvBlock(2, 1, 16, 8, batch_norm=False),
-    torch.nn.Conv2d(8, 1, 1) # vanilla 2D convolutional layer without activation
+    torch.nn.Conv2d(8, 1, 1)
 )
 torch_DAE = torch.nn.Sequential(torch_encoder, torch_decoder)
 ```
-We can easily train this model using AtomAI's trainer:
+We can easily train this model using AtomAI's trainers:
 ```python
 # Initialize trainer and pass our model to it
 trainer = aoi.trainers.BaseTrainer()
