@@ -1,4 +1,5 @@
 import sys
+import os
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -10,11 +11,16 @@ sys.path.append("../../../")
 from atomai.stat import imlocal
 
 
-test_coord_m_ = '../test_data/test_coord_m.npy'
-test_nn_output_ = '../test_data/test_output_m.npy'
-test_pca_ = '../test_data/test_pca.npy'
-test_ica_ = '../test_data/test_ica.npy'
-test_nmf_ = '../test_data/test_nmf.npy'
+test_coord_m_ = os.path.join(
+    os.path.dirname(__file__), 'test_data/test_coord_m.npy')
+test_nn_output_ = os.path.join(
+    os.path.dirname(__file__), 'test_data/test_output_m.npy')
+test_pca_ = os.path.join(
+    os.path.dirname(__file__), 'test_data/test_pca.npy')
+test_ica_ = os.path.join(
+    os.path.dirname(__file__), 'test_data/test_ica.npy')
+test_nmf_ = os.path.join(
+    os.path.dirname(__file__), 'test_data/test_nmf.npy')
 
 
 @pytest.fixture
