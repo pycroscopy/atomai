@@ -12,7 +12,7 @@
 
 ## What is AtomAI
 
-AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the [AICrystallographer project](https://github.com/pycroscopy/AICrystallographer). The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib
+AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the [AICrystallographer project](https://github.com/pycroscopy/AICrystallographer). The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib.
 
 ## How to use it
 
