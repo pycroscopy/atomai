@@ -343,7 +343,7 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
                           ) -> Tuple[Type[torch.utils.data.DataLoader], int]:
     """
     Returns two pytorch dataloaders for training and test data
-    for semantic segmentation tasks
+    for semantic segmentation tasks, and the number of classes
     """
     data_all = preprocess_training_image_data_(
         X_train, y_train, X_test, y_test)
@@ -361,8 +361,8 @@ def init_imspec_dataloaders(X_train: np.ndarray,
                             batch_size: int
                             ) -> Tuple[Type[torch.utils.data.DataLoader], Tuple[Tuple[int]]]:
     """
-    Returns train and test dataloaders for training images
-    in a native PyTorch format
+    Returns train and test dataloaders for training images/spectra
+    in a native PyTorch format and the (input, output) dimensions
     """
 
     data_all = preprocess_training_imspec_data_(
