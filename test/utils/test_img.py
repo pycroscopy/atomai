@@ -5,11 +5,11 @@ import torch
 import pytest
 from numpy.testing import assert_equal, assert_
 
-sys.path.append("../../atomai/")
+sys.path.append("../../../")
 
-from utils.preproc import (check_image_dims, check_signal_dims,
+from atomai.utils.preproc import (check_image_dims, check_signal_dims,
                            init_fcnn_dataloaders, init_imspec_dataloaders,
-                           ndarray2list, num_classes_from_labels,
+                           array2list, num_classes_from_labels,
                            preprocess_training_image_data)
 
 
@@ -87,11 +87,11 @@ def test_check_signal_dims(img_dims_in, lbl_dims_in,
     assert_equal(y_.ndim, lbl_dims_out)
 
 
-def test_ndarray2list():
+def test_array2list():
     batch_size = 2
     X, X_ = gen_data(dims=4)
     y, y_ = gen_labels(dims=3)
-    X, y, X_, y_ = ndarray2list(X, y, X_, y_, batch_size)
+    X, y, X_, y_ = array2list(X, y, X_, y_, batch_size)
     assert_(isinstance(X, list))
     assert_(isinstance(y, list))
     assert_(isinstance(X_, list))
@@ -116,7 +116,7 @@ def test_preprocess_training_image_data():
 def test_init_fcnn_dataloaders():
     X, X_ = gen_data(dims=4)
     y, y_ = gen_labels(dims=3)
-    train_loader, test_loader = init_fcnn_dataloaders(X, y, X_, y_, 2)
+    train_loader, test_loader, _ = init_fcnn_dataloaders(X, y, X_, y_, 2)
     assert_(isinstance(train_loader, torch.utils.data.dataloader.DataLoader))
     assert_(isinstance(test_loader, torch.utils.data.dataloader.DataLoader))
 
@@ -124,6 +124,6 @@ def test_init_fcnn_dataloaders():
 def test_init_imspec_dataloaders():
     X, X_ = gen_data(dims=3)
     y, y_ = gen_labels(dims=2)
-    train_loader, test_loader = init_imspec_dataloaders(X, y, X_, y_, 2)
+    train_loader, test_loader, _ = init_imspec_dataloaders(X, y, X_, y_, 2)
     assert_(isinstance(train_loader, torch.utils.data.dataloader.DataLoader))
     assert_(isinstance(test_loader, torch.utils.data.dataloader.DataLoader))
