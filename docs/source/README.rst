@@ -133,8 +133,8 @@ Finally, it is possible to use AtomAI trainers and predictors for easy work with
 >>>    torch.nn.MaxPool2d(2, 2),
 >>>    ConvBlock(2, 2, 16, 32, batch_norm=False),
 >>>    torch.nn.MaxPool2d(2, 2),
->>>    ConvBlock(2, 2, 32, 64, batch_norm=False)
->>>)
+>>>    ConvBlock(2, 2, 32, 64, batch_norm=False))
+>>>
 >>> torch_decoder = torch.nn.Sequential(
 >>>    UpsampleBlock(ndim=2, input_channels=64, output_channels=64, mode="nearest"),
 >>>    ConvBlock(2, 2, 64, 32, batch_norm=False),
@@ -142,9 +142,9 @@ Finally, it is possible to use AtomAI trainers and predictors for easy work with
 >>>    ConvBlock(2, 2, 32, 16, batch_norm=False),
 >>>    UpsampleBlock(2, 16, 16, mode="nearest"),
 >>>    ConvBlock(2, 1, 16, 8, batch_norm=False),
->>>    torch.nn.Conv2d(8, 1, 1)
->>>)
->>>torch_DAE = torch.nn.Sequential(torch_encoder, torch_decoder)
+>>>    torch.nn.Conv2d(8, 1, 1))
+>>>
+>>> torch_DAE = torch.nn.Sequential(torch_encoder, torch_decoder)
 
 We can easily train this model using AtomAI's trainers:
 
