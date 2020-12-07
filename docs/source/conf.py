@@ -40,7 +40,8 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
     'sphinx_autodoc_typehints',
-    'recommonmark'
+    'recommonmark',
+    'sphinx.ext.viewcode'
 ]
 
 napoleon_use_ivar = True

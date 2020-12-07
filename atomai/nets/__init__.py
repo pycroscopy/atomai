@@ -1,10 +1,11 @@
-from .blocks import convblock, upsample_block, dilated_block
-from .fcnn import dilUnet, dilnet
-from .ed import EncoderNet, DecoderNet, rDecoderNet, coord_latent
-from .imspec import signal_encoder, signal_decoder, signal_ed
-from .loaders import load_model, load_ensemble
+from .blocks import ConvBlock, DilatedBlock, UpsampleBlock
+from .ed import (SignalDecoder, SignalED, SignalEncoder, convDecoderNet,
+                 convEncoderNet, coord_latent, fcDecoderNet, fcEncoderNet,
+                 init_imspec_model, rDecoderNet)
+from .fcnn import Unet, dilnet, init_fcnn_model
 
-__all__ = ['convblock', 'upsample_block', 'dilated_block',
-           'dilUnet', 'dilnet', 'EncoderNet', 'DecoderNet', 'rDecoderNet',
-           'coord_latent', 'load_model', 'load_ensemble',
-           'signal_encoder', 'signal_decoder', 'signal_ed']
+__all__ = ['ConvBlock', 'UpsampleBlock', 'DilatedBlock',
+           'init_fcnn_model', 'Unet', 'dilnet', 'fcEncoderNet',
+           'fcDecoderNet',  'convEncoderNet', 'convDecoderNet', 'rDecoderNet',
+           'coord_latent', 'load_model', 'load_ensemble', 'init_imspec_model',
+           'SignalEncoder', 'SignalDecoder', 'SignalED']

@@ -17,9 +17,8 @@ Welcome to AtomAI's documentation!
    :maxdepth: 3
    :caption: Package Content
 
-   atomnet
-   atomstat
+   atomai_models
+   trainers_predictors
    nets
-   transforms
    losses_metrics
-   utils
+   data_processing

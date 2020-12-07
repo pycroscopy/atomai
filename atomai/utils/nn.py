@@ -8,12 +8,14 @@ Includes utility function for monitoring GPU usage during NN training.
 Created by: Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 """
 
-from typing import Type, Dict, Tuple, List
-
 import copy
-import numpy as np
 import subprocess
+from typing import Dict, List, Tuple, Type
+
+import numpy as np
 import torch
+from torch.nn import (BatchNorm1d, BatchNorm2d, Conv1d, Conv2d,
+                      ConvTranspose1d, ConvTranspose2d, Linear)
 
 dc = copy.deepcopy
 
@@ -65,7 +67,8 @@ def average_weights(ensemble: Dict[int, Dict[str, torch.Tensor]]) -> Dict[str, t
         Averaged weights (as model's state_dict)
     """
     ensemble_state_dict = dc(ensemble[0])
-    names = [name for name in ensemble_state_dict.keys()]
+    names = [name for name in ensemble_state_dict.keys() if
+             name.split('_')[-1] not in ["mean", "var", "tracked"]]
     for name in names:
         w_aver = []
         for model in ensemble.values():
@@ -94,7 +97,8 @@ def sample_weights(ensemble: Dict[int, Dict[str, torch.Tensor]],
     ensemble_ = {i: dc(ensemble[0])
                  for i in range(n_samples)}
     ensemble_state_dict = ensemble[0]
-    names = [name for name in ensemble_state_dict.keys()]
+    names = [name for name in ensemble_state_dict.keys() if
+             name.split('_')[-1] not in ["mean", "var", "tracked"]]
     for name in names:
         w_all = []
         for model in ensemble.values():
@@ -131,6 +135,7 @@ def set_train_rng(seed: int = 1):
     """
     For reproducibility
     """
+    np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -170,11 +175,53 @@ def mock_forward(model: Type[torch.nn.Module],
     """
     Passes a dummy variable throuh a network
     """
-    x = torch.randn(1, dims[0], dims[1], dims[2])
+
+    x = torch.randn(1, *dims)
     if next(model.parameters()).is_cuda:
         x = x.cuda()
     out = model(x)
     return out
+
+
+def get_nb_classes(model: Type[torch.nn.Module]) -> int:
+    """
+    Gets number of classes used in a fully convolutional NN
+    """
+    hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
+    mock_forward(model)
+    nb_classes = [hook.output.shape for hook in hookF][-1][1]
+    return nb_classes
+
+
+def get_downsample_factor(model: Type[torch.nn.Module]) -> int:
+    """
+    Gets a downsample factor for UNet-like architectures
+    """
+    hookF = [Hook(layer[1]) for layer in list(model._modules.items())]
+    mock_forward(model)
+    imsize = [hook.output.shape[-1] for hook in hookF]
+    return max(imsize) / min(imsize)
+
+
+def dummy_optimizer() -> Type[torch.optim.Optimizer]:
+    """
+    Returns initialized "dummy" optimizer
+    """
+    return torch.optim.Optimizer([torch.zeros(1)], dict())
+
+
+def weights_init(module):
+    imodules = (Conv1d, Conv2d, ConvTranspose1d, ConvTranspose2d, Linear)
+    if isinstance(module, imodules):
+        torch.nn.init.xavier_uniform_(module.weight.data)
+        torch.nn.init.zeros_(module.bias)
+
+
+def reset_bnorm(module):
+    imodules = (BatchNorm1d, BatchNorm2d)
+    if isinstance(module, imodules):
+        module.reset_running_stats()
+        module.reset_parameters()
 
 
 def nb_filters_classes(weights_path: str) -> Tuple[int]:
