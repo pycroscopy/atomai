@@ -603,7 +603,7 @@ class SegTrainer(BaseTrainer):
             (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
-                 model: Union[Type[torch.nn.Module], str],
+                 model: Union[Type[torch.nn.Module], str] = "Unet",
                  nb_classes: int = 1,
                  **kwargs: Union[int, List, str, bool]) -> None:
         """
