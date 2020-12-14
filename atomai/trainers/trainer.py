@@ -327,6 +327,10 @@ class BaseTrainer:
             filename = args[0]
         except IndexError:
             filename = self.filename
+        self.meta_state_dict["weights"] = self.meta_state_dict.get(
+            "weights", self.net.state_dict())
+        self.meta_state_dict["optimizer"] = self.meta_state_dict.get(
+            "optimizer", self.optimizer)
         torch.save(self.meta_state_dict,
                    filename + '.tar')
 
