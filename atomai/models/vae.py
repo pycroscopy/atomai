@@ -767,7 +767,6 @@ class rVAE(BaseVAE):
         self.translation = translation
         self.dx_prior = None
         self.phi_prior = None
-        self.recording = kwargs.get("recording", False)
 
     def elbo_fn(self,
                 x: torch.Tensor,
@@ -860,6 +859,7 @@ class rVAE(BaseVAE):
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
+        self.recording = kwargs.get("recording", False)
 
         for e in range(self.training_cycles):
             elbo_epoch = self.train_epoch()
