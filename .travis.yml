@@ -11,6 +11,8 @@ cache: pip
 
 before_install:
     - pip3 install -U pip
+    - pip3 install "scipy<=1.5.4"
+    - pip3 install "pandas<=1.1.5"
 
 install:
     - python3 setup.py install
