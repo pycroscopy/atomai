@@ -388,14 +388,18 @@ class Locator:
     Transforms pixel data from NN output into coordinate data
 
     Args:
-        decoded_imgs (4D numpy array):
-            Output of a neural network
-        threshold (float):
+        threshold:
             Value at which the neural network output is thresholded
-        dist_edge (int):
+        dist_edge:
             Distance within image boundaries not to consider
-        dim_order (str):
+        dim_order:
             'channel_last' or 'channel_first' (Default: 'channel last')
+        **refine (bool):
+            2D gaussian base peak fitting of atomic positions using the
+            NN prediction as initial guess (requires original image)
+        **d (float):
+            Size of the box for 2D Gaussian fitting
+            (only pixels within the box are used)
 
     Example:
 
