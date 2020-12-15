@@ -1,9 +1,9 @@
-from typing import Type, Union, Tuple, Optional, Dict, Callable
+from typing import Type, Union, Tuple, Optional, Dict
 import torch
 import numpy as np
 from ..trainers import SegTrainer
 from ..predictors import SegPredictor
-from ..transforms import datatransform, unsqueeze_channels
+from ..transforms import seg_augmentor
 from ..utils import get_downsample_factor
 
 
@@ -197,32 +197,3 @@ class Segmentor(SegTrainer):
         """
         weight_dict = torch.load(filepath, map_location=self.device)
         self.net.load_state_dict(weight_dict)
-
-
-def seg_augmentor(nb_classes: int,
-                  **kwargs
-                  ) -> Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
-
-    auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
-               "poisson_noise", "contrast", "salt_and_pepper", "blur",
-               "resize", "rotation", "background"]
-    augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
-    if len(augdict) == 0:
-        return
-
-    def augmentor(images, labels, seed):
-        images = images.cpu().numpy().astype(np.float64)
-        labels = labels.cpu().numpy().astype(np.float64)
-        dt = datatransform(
-                nb_classes, "channel_first", 'channel_first',
-                True, seed, **augdict)
-        images, labels = dt.run(
-            images[:, 0, ...], unsqueeze_channels(labels, nb_classes))
-        images = torch.from_numpy(images).float()
-        if nb_classes == 1:
-            labels = torch.from_numpy(labels).float()
-        else:
-            labels = torch.from_numpy(labels).long()
-        return images, labels
-
-    return augmentor

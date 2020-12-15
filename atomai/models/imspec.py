@@ -1,9 +1,9 @@
-from typing import Type, Union, Tuple, Optional, Dict, Callable
+from typing import Type, Union, Tuple, Optional
 import torch
 import numpy as np
 from ..trainers import ImSpecTrainer
 from ..predictors import ImSpecPredictor
-from ..transforms import datatransform
+from ..transforms import imspec_augmentor
 
 
 class ImSpec(ImSpecTrainer):
@@ -168,29 +168,3 @@ class ImSpec(ImSpecTrainer):
         """
         weight_dict = torch.load(filepath, map_location=self.device)
         self.net.load_state_dict(weight_dict)
-
-
-def imspec_augmentor(in_dim: Tuple[int],
-                     out_dim: Tuple[int],
-                     **kwargs
-                     ) -> Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
-    auglist = ["custom_transform", "gauss_noise", "jitter",
-               "poisson_noise", "contrast", "salt_and_pepper", "blur",
-               "background"]
-    augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
-    if len(augdict) == 0:
-        return
-    if len(in_dim) < len(out_dim):
-        raise NotImplementedError("The built-in data augmentor works only" +
-                                  " for img->spec models (i.e. input is image)")
-
-    def augmentor(features, targets, seed):
-        features = features.cpu().numpy().astype(np.float64)
-        targets = targets.cpu().numpy().astype(np.float64)
-        dt = datatransform(seed, **augdict)
-        features, targets = dt.run(features[:, 0, ...], targets)
-        features = torch.from_numpy(features).float()
-        targets = torch.from_numpy(targets).float()
-        return features, targets
-
-    return augmentor
