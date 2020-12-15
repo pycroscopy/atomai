@@ -155,7 +155,7 @@ class BaseTrainer:
             self.nb_classes = nb_classes
 
     def get_loss_fn(self,
-                    loss: str = 'mse',
+                    loss: Union[str, Callable] = 'mse',
                     nb_classes: int = None) -> None:
         """
         Returns a loss function. Available loss functions are: 'mse' (MSE),
@@ -415,7 +415,7 @@ class BaseTrainer:
 
     def compile_trainer(self,
                         train_data: Union[Tuple[torch.Tensor], Tuple[np.ndarray]] = None,
-                        loss: str = 'ce',
+                        loss: Union[str, Callable] = 'ce',
                         optimizer: Optional[Type[torch.optim.Optimizer]] = None,
                         training_cycles: int = 1000,
                         batch_size: int = 32,
@@ -434,7 +434,9 @@ class BaseTrainer:
             loss:
                 loss function. Available loss functions are: 'mse' (MSE),
                 'ce' (cross-entropy), 'focal' (focal loss; single class only),
-                and 'dice' (dice loss; for semantic segmentation problems)
+                and 'dice' (dice loss; for semantic segmentation problems).
+                One can also pass a custom loss function that takes prediction
+                and ground truth and computes a loss score.
             optimizer:
                 weights optimizer (defaults to Adam optimizer with lr=1e-3)
             training_cycles:
