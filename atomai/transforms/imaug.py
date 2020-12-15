@@ -324,7 +324,7 @@ class datatransform:
             images, targets = self.custom_transform(images, targets)
         if self.rotation and same_dim:
             images, targets = self.apply_rotation(images, targets)
-        if isinstance(self.zoom, int) and same_dim:
+        if self.zoom and same_dim:
             images, targets = self.apply_zoom(images, targets)
         if isinstance(self.resize, list) or isinstance(self.resize, tuple):
             if same_dim:
