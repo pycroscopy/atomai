@@ -13,7 +13,7 @@ class Segmentor(SegTrainer):
 
     Args:
         model:
-            Type of model to train: 'Unet' or 'dilnet' (Default: 'Unet').
+            Type of model to train: 'Unet', 'Uplusnet' or 'dilnet' (Default: 'Unet').
             See atomai.nets for more details. One can also pass here a custom
             fully convolutional neural network model.
         nb_classes:

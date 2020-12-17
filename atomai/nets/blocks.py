@@ -131,9 +131,74 @@ class UpsampleBlock(nn.Module):
         return self.conv(x)
 
 
+class ConvPlusBlock(nn.Module):
+    """
+    Creates a cascade of convolutional layers
+
+    Args:
+        ndim:
+            Data dimensionality (1D or 2D)
+        input_channels:
+            Number of input channels for the block
+        output_channels:
+            Number of the output channels for the block
+        kernel_size:
+            Size of convolutional filter (in pixels)
+        stride:
+            Stride of convolutional filter
+        padding:
+            Value for edge padding
+        batch_norm:
+            Add batch normalization to each layer in the block
+        lrelu_a:
+            Value of alpha parameter in leaky ReLU activation
+            for each layer in the block
+        dropout_:
+            Dropout value for each layer in the block
+    """
+    def __init__(self,
+                 ndim: int, nb_layers: int,
+                 input_channels: int, output_channels: int,
+                 kernel_size: Union[Tuple[int], int] = 3,
+                 stride: Union[Tuple[int], int] = 1,
+                 padding: Union[Tuple[int], int] = 1,
+                 batch_norm: bool = False, lrelu_a: float = 0.01,
+                 dropout_: float = 0) -> None:
+        """
+        Initializes module parameters
+        """
+        super(ConvPlusBlock, self).__init__()
+        if not 0 < ndim < 3:
+            raise AssertionError("ndim must be equal to 1 or 2")
+        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
+        convplus_module = []
+        for idx in range(nb_layers):
+            input_channels = output_channels if idx > 0 else input_channels
+            convplus_module.append(conv(input_channels, output_channels,
+                                        kernel_size=kernel_size, stride=stride,
+                                        padding=padding))
+            if dropout_ > 0:
+                convplus_module.append(nn.Dropout(dropout_))
+            convplus_module.append(nn.LeakyReLU(negative_slope=lrelu_a))
+            if batch_norm:
+                bnorm = nn.BatchNorm2d if ndim == 2 else nn.BatchNorm1d
+                convplus_module.append(bnorm(output_channels))
+        self.convplus_module = nn.Sequential(*convplus_module)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Defines a forward pass
+        """
+        convplus_layers = []
+        for conv_layer in self.convplus_module:
+            x = conv_layer(x)
+            convplus_layers.append(x.unsqueeze(-1))
+        return torch.sum(torch.cat(convplus_layers, dim=-1), dim=-1)
+
+
 class DilatedBlock(nn.Module):
     """
-    Creates a "pyramid" with dilated convolutional
+    Creates a "cascade" with dilated convolutional
     layers (aka atrous convolutions)
 
     Args:

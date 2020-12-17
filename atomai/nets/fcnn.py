@@ -12,7 +12,7 @@ from typing import List, Union, Type
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .blocks import ConvBlock, DilatedBlock, UpsampleBlock
+from .blocks import ConvBlock, ConvPlusBlock, DilatedBlock, UpsampleBlock
 
 
 class Unet(nn.Module):
@@ -38,10 +38,10 @@ class Unet(nn.Module):
             (this assumes that all other sources of randomness are fixed)
         with_dilation:
             Use dilated convolutions instead of regular ones in the
-            bottleneck layers (Default: Fasle)
+            bottleneck layers (Default: False)
         **layers (list):
             List with a number of layers in each block.
-            For U-Net the first 4 elements in the list
+            The first 4 elements in the list
             are used to determine the number of layers
             in each block of the encoder (incluidng bottleneck layers),
             and the number of layers in the decoder  is chosen accordingly
@@ -109,6 +109,119 @@ class Unet(nn.Module):
             2, nb_filters*2, nb_filters,
             mode=upsampling_mode)
         self.c6 = ConvBlock(
+            2, nbl[0], nb_filters*2, nb_filters,
+            batch_norm=batch_norm
+        )
+        self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Defines a forward pass
+        """
+        # Contracting path
+        c1 = self.c1(x)
+        d1 = F.max_pool2d(c1, kernel_size=2, stride=2)
+        c2 = self.c2(d1)
+        d2 = F.max_pool2d(c2, kernel_size=2, stride=2)
+        c3 = self.c3(d2)
+        d3 = F.max_pool2d(c3, kernel_size=2, stride=2)
+        # Bottleneck layer
+        bn = self.bn(d3)
+        # Expanding path
+        u3 = self.upsample_block1(bn)
+        u3 = torch.cat([c3, u3], dim=1)
+        u3 = self.c4(u3)
+        u2 = self.upsample_block2(u3)
+        u2 = torch.cat([c2, u2], dim=1)
+        u2 = self.c5(u2)
+        u1 = self.upsample_block3(u2)
+        u1 = torch.cat([c1, u1], dim=1)
+        u1 = self.c6(u1)
+        # Final layer used for pixel-wise convolution
+        px = self.px(u1)
+        return px
+
+
+class Uplusnet(nn.Module):
+    """
+    Builds a fully convolutional Unet-like neural network model
+    where each block is a cascade of convolutional layers
+
+    Args:
+        nb_classes:
+            Number of classes in the ground truth
+        nb_filters:
+            Number of filters in 1st convolutional block
+            (gets multiplied by 2 in each next block)
+        dropout:
+            Use dropouts to the 3 inner layers
+            (Default: False)
+        batch_norm:
+            Use batch normalization after each convolutional layer
+            (Default: True)
+        upsampling mode:
+            Select between "bilinear" or "nearest" upsampling method.
+            Bilinear is usually more accurate,but adds additional (small)
+            randomness. For full reproducibility, consider using 'nearest'
+            (this assumes that all other sources of randomness are fixed)
+        **layers (list):
+            List with a number of layers in each block.
+            The first 4 elements in the list
+            are used to determine the number of layers
+            in each block of the encoder (incluidng bottleneck layers),
+            and the number of layers in the decoder  is chosen accordingly
+            (to maintain symmetry between encoder and decoder)
+    """
+    def __init__(self,
+                 nb_classes: int = 1,
+                 nb_filters: int = 16,
+                 dropout: bool = False,
+                 batch_norm: bool = True,
+                 upsampling_mode: str = "bilinear",
+                 **kwargs: List[int]) -> None:
+        """
+        Initializes model parameters
+        """
+        super(Uplusnet, self).__init__()
+        nbl = kwargs.get("layers", [2, 3, 3, 3])
+        dropout_vals = [.1, .2, .1] if dropout else [0, 0, 0]
+        self.c1 = ConvPlusBlock(
+            2, nbl[0], 1, nb_filters,
+            batch_norm=batch_norm
+        )
+        self.c2 = ConvPlusBlock(
+            2, nbl[1], nb_filters, nb_filters*2,
+            batch_norm=batch_norm
+        )
+        self.c3 = ConvPlusBlock(
+            2, nbl[2], nb_filters*2, nb_filters*4,
+            batch_norm=batch_norm,
+            dropout_=dropout_vals[0]
+        )
+        self.bn = ConvPlusBlock(
+            2, nbl[3], nb_filters*4, nb_filters*8,
+            batch_norm=batch_norm,
+            dropout_=dropout_vals[1]
+        )
+        self.upsample_block1 = UpsampleBlock(
+            2, nb_filters*8, nb_filters*4,
+            mode=upsampling_mode)
+        self.c4 = ConvPlusBlock(
+            2, nbl[2], nb_filters*8, nb_filters*4,
+            batch_norm=batch_norm,
+            dropout_=dropout_vals[2]
+        )
+        self.upsample_block2 = UpsampleBlock(
+            2, nb_filters*4, nb_filters*2,
+            mode=upsampling_mode)
+        self.c5 = ConvPlusBlock(
+            2, nbl[1], nb_filters*4, nb_filters*2,
+            batch_norm=batch_norm
+        )
+        self.upsample_block3 = UpsampleBlock(
+            2, nb_filters*2, nb_filters,
+            mode=upsampling_mode)
+        self.c6 = ConvPlusBlock(
             2, nbl[0], nb_filters*2, nb_filters,
             batch_norm=batch_norm
         )
@@ -257,9 +370,16 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
             layers=layers
         )
         meta_state_dict["with_dilation"] = with_dilation
+    elif isinstance(model, str) and model == 'Uplusnet':
+        nb_filters = kwargs.get('nb_filters', 16)
+        layers = kwargs.get("layers", [2, 3, 3, 3])
+        net = Uplusnet(
+            nb_classes, nb_filters, dropout,
+            batch_norm, upsampling, layers=layers
+        )
     elif isinstance(model, str) and model == 'dilnet':
         nb_filters = kwargs.get('nb_filters', 25)
-        layers = kwargs.get("layers", [1, 3, 3, 3])
+        layers = kwargs.get("layers", [1, 3, 3, 1])
         net = dilnet(
             nb_classes, nb_filters,
             dropout, batch_norm, upsampling,
@@ -267,7 +387,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         )
     else:
         raise NotImplementedError(
-            "Currently implemented models are 'Unet' and 'dilnet'"
+            "Currently implemented models are 'Unet', 'Uplusnet' and 'dilnet'"
         )
     meta_state_dict["nb_filters"] = nb_filters
     meta_state_dict["layers"] = layers

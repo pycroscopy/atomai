@@ -574,7 +574,7 @@ class SegTrainer(BaseTrainer):
 
     Args:
         model:
-            Type of model to train: 'Unet' or 'dilnet' (Default: 'Unet').
+            Type of model to train: 'Unet', 'Uplusnet' or 'dilnet' (Default: 'Unet').
             See atomai.nets for more details. One can also pass a custom fully
             convolutional neural network model.
         nb_classes:
