@@ -35,10 +35,11 @@ def gen_spectra():
     return X, X_
 
 
-def test_io_segmentor():
+@pytest.mark.parametrize("model", ["Unet", "dilnet", "SegResNet", "ResHedNet"])
+def test_io_segmentor(model):
     X, X_test = gen_image_data()
     y, y_test = gen_image_labels()
-    segmodel = Segmentor(nb_classes=3)
+    segmodel = Segmentor(model, nb_classes=3)
     segmodel.fit(X, y, X_test, y_test, training_cycles=4, batch_size=2)
     loaded_model = load_model("model_metadict_final.tar")
     for p1, p2 in zip(loaded_model.net.parameters(), segmodel.net.parameters()):
