@@ -107,11 +107,15 @@ class BasePredictor:
 
     def predict(self,
                 data: torch.Tensor,
+                out_shape: Tuple[int] = None,
                 num_batches: int = 1) -> torch.Tensor:
         """
         Make a prediction on the new data with a trained model
         """
-        out_shape = data.shape
+        if out_shape is None:
+            out_shape = data.shape
+        else:
+            out_shape = (data.shape[0], *out_shape)
         data = self.preprocess(data)
         prediction = self.batch_predict(data, out_shape, num_batches)
         return prediction
@@ -388,18 +392,14 @@ class Locator:
     Transforms pixel data from NN output into coordinate data
 
     Args:
-        threshold:
+        decoded_imgs (4D numpy array):
+            Output of a neural network
+        threshold (float):
             Value at which the neural network output is thresholded
-        dist_edge:
+        dist_edge (int):
             Distance within image boundaries not to consider
-        dim_order:
+        dim_order (str):
             'channel_last' or 'channel_first' (Default: 'channel last')
-        **refine (bool):
-            2D gaussian base peak fitting of atomic positions using the
-            NN prediction as initial guess (requires original image)
-        **d (float):
-            Size of the box for 2D Gaussian fitting
-            (only pixels within the box are used)
 
     Example:
 
