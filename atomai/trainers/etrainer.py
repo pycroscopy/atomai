@@ -327,7 +327,7 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         """
         self.nb_classes = nb_classes
         if isinstance(model, str):
-            if model in ["Unet", "dilnet"]:
+            if model in ["Unet", "dilnet", "SegResNet", "ResHedNet"]:
                 self.net, self.meta_state_dict = init_fcnn_model(
                     model, self.nb_classes, **kwargs)
                 self.accuracy_fn = accuracy_fn_seg(nb_classes)

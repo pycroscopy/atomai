@@ -131,69 +131,122 @@ class UpsampleBlock(nn.Module):
         return self.conv(x)
 
 
-class ConvPlusBlock(nn.Module):
+class ResBlock(nn.Module):
     """
-    Creates a cascade of convolutional layers
+    Builds a residual block
 
-    Args:
-        ndim:
-            Data dimensionality (1D or 2D)
-        input_channels:
-            Number of input channels for the block
-        output_channels:
-            Number of the output channels for the block
-        kernel_size:
-            Size of convolutional filter (in pixels)
-        stride:
-            Stride of convolutional filter
-        padding:
-            Value for edge padding
-        batch_norm:
-            Add batch normalization to each layer in the block
-        lrelu_a:
-            Value of alpha parameter in leaky ReLU activation
-            for each layer in the block
-        dropout_:
-            Dropout value for each layer in the block
+        Args:
+            ndim:
+                Data dimensionality (1D or 2D)
+            nb_layers:
+                Number of layers in the block
+            input_channels:
+                Number of input channels for the block
+            output_channels:
+                Number of the output channels for the block
+            kernel_size:
+                Size of convolutional filter (in pixels)
+            stride:
+                Stride of convolutional filter
+            padding:
+                Value for edge padding
+            batch_norm:
+                Add batch normalization to each layer in the block
+            lrelu_a:
+                Value of alpha parameter in leaky ReLU activation
+                for each layer in the block
     """
     def __init__(self,
-                 ndim: int, nb_layers: int,
-                 input_channels: int, output_channels: int,
+                 ndim: int,
+                 input_channels: int,
+                 output_channels: int,
                  kernel_size: Union[Tuple[int], int] = 3,
                  stride: Union[Tuple[int], int] = 1,
                  padding: Union[Tuple[int], int] = 1,
-                 batch_norm: bool = False, lrelu_a: float = 0.01,
-                 dropout_: float = 0) -> None:
+                 batch_norm: bool = True,
+                 lrelu_a: float = 0.01
+                 ) -> None:
         """
-        Initializes module parameters
+        Initializes block's parameters
         """
-        super(ConvPlusBlock, self).__init__()
+        super(ResBlock, self).__init__()
         if not 0 < ndim < 3:
             raise AssertionError("ndim must be equal to 1 or 2")
         conv = nn.Conv2d if ndim == 2 else nn.Conv1d
-        convplus_module = []
-        for idx in range(nb_layers):
-            input_channels = output_channels if idx > 0 else input_channels
-            convplus_module.append(conv(input_channels, output_channels,
-                                        kernel_size=kernel_size, stride=stride,
-                                        padding=padding))
-            if dropout_ > 0:
-                convplus_module.append(nn.Dropout(dropout_))
-            convplus_module.append(nn.LeakyReLU(negative_slope=lrelu_a))
-            if batch_norm:
-                bnorm = nn.BatchNorm2d if ndim == 2 else nn.BatchNorm1d
-                convplus_module.append(bnorm(output_channels))
-        self.convplus_module = nn.Sequential(*convplus_module)
+        self.lrelu_a = lrelu_a
+        self.batch_norm = batch_norm
+        self.c0 = conv(input_channels,
+                       output_channels,
+                       kernel_size=1,
+                       stride=1,
+                       padding=0)
+        self.c1 = conv(output_channels,
+                       output_channels,
+                       kernel_size=3,
+                       stride=1,
+                       padding=1)
+        self.c2 = conv(output_channels,
+                       output_channels,
+                       kernel_size=3,
+                       stride=1,
+                       padding=1)
+        if batch_norm:
+            bn = nn.BatchNorm2d if ndim == 2 else nn.BatchNorm1d
+            self.bn1 = bn(output_channels)
+            self.bn2 = bn(output_channels)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
+        """Defines forward pass"""
+        x = self.c0(x)
+        residual = x
+        out = self.c1(x)
+        if self.batch_norm:
+            out = self.bn1(out)
+        out = F.leaky_relu(out, negative_slope=self.lrelu_a)
+        out = self.c2(out)
+        if self.batch_norm:
+            out = self.bn2(out)
+        out += residual
+        out = F.leaky_relu(out, negative_slope=self.lrelu_a)
+        return out
+
+
+class ResModule(nn.Module):
+    """
+    Stitches multiple convolutional blocks with residual connections together
+
+    Args:
+            ndim: Data dimensionality (1D or 2D)
+            res_depth: Number of residual blocks in a residual module
+            input_channels: Number of filters in the input layer
+            output_channels: Number of channels in the output layer
+            batch_norm: Batch normalization for non-unity layers in the block
+            lrelu_a: value of negative slope for LeakyReLU activation
+    """
+    def __init__(self,
+                 ndim: int,
+                 res_depth: int,
+                 input_channels: int,
+                 output_channels: int,
+                 batch_norm: bool = True,
+                 lrelu_a: float = 0.01
+                 ) -> None:
         """
-        Defines a forward pass
+        Initializes module parameters
         """
-        convplus_layers = []
-        for conv_layer in self.convplus_module:
-            x = conv_layer(x)
-            convplus_layers.append(x.unsqueeze(-1))
-        return torch.sum(torch.cat(convplus_layers, dim=-1), dim=-1)
+        super(ResModule, self).__init__()
+        res_module = []
+        for i in range(res_depth):
+            input_channels = output_channels if i > 0 else input_channels
+            res_module.append(
+                ResBlock(ndim, input_channels, output_channels,
+                         lrelu_a=lrelu_a, batch_norm=batch_norm))
+        self.res_module = nn.Sequential(*res_module)
+
+    def forward(self, x):
+        """Defines a forward pass"""
+        x = self.res_module(x)
+        return x
 
 
 class DilatedBlock(nn.Module):

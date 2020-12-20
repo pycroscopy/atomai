@@ -585,7 +585,7 @@ class SegTrainer(BaseTrainer):
         **batch_seed (int):
             Separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
-        **batchnorm (bool):
+        **batch_norm (bool):
             Apply batch normalization after each convolutional layer
             (Default: True)
         **dropout (bool):
