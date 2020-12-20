@@ -271,15 +271,15 @@ class ResHedNet(nn.Module):
         )
         self.net1score = nn.Sequential(
             nn.Conv2d(nb_filters, nb_classes, 1, 1, 0),
-            nn.BatchNorm2d(1)
+            nn.BatchNorm2d(nb_classes)
         )
         self.net2score = nn.Sequential(
             nn.Conv2d(2*nb_filters, nb_classes, 1, 1, 0),
-            nn.BatchNorm2d(1)
+            nn.BatchNorm2d(nb_classes)
         )
         self.net3score = nn.Sequential(
             nn.Conv2d(4*nb_filters, nb_classes, 1, 1, 0),
-            nn.BatchNorm2d(1)
+            nn.BatchNorm2d(nb_classes)
         )
         self.out = torch.nn.Conv2d(3*nb_classes, nb_classes, 1, 1, 0)
 
