@@ -420,7 +420,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         )
     elif isinstance(model, str) and model == 'SegResNet':
         nb_filters = kwargs.get('nb_filters', 32)
-        layers = kwargs.get("layers", [2, 2])
+        layers = kwargs.get("layers", [2, 2, 2])
         net = SegResNet(
             nb_classes, nb_filters,
             batch_norm, upsampling, layers=layers
