@@ -129,21 +129,20 @@ class BaseEnsembleTrainer(BaseTrainer):
                 peforms some transforms, and returns the transformed tensors.
                 The dimensions of the transformed tensors must be the same as
                 the dimensions of the original ones.
-            **kwargs: Updates kwargs from initial compilation
-                (can be useful for iterative training)
+            **kwargs:
+                Updates kwargs from initial compilation, which can be useful
+                for iterative training.
 
         Returns:
             The last trained model and dictionary with ensemble weights
         """
 
-        batch_seed = kwargs.get("batch_seed")
         self.update_training_parameters(kwargs)
 
         print("Training ensemble models (strategy = 'from_scratch')")
         for i in range(n_models):
             print("\nEnsemble model {}".format(i + 1))
-            if batch_seed is not None:
-                self.kdict["batch_seed"] = i
+            self.kdict["batch_seed"] = i
             model_i = self.train_baseline(
                 X_train, y_train, X_test, y_test, i, augment_fn)
             self.ensemble_state_dict[i] = dc(model_i.state_dict())
@@ -293,7 +292,7 @@ class BaseEnsembleTrainer(BaseTrainer):
         """
         ensemble_metadict = dc(self.meta_state_dict)
         ensemble_metadict["weights"] = self.ensemble_state_dict
-        torch.save(ensemble_metadict, self.filename + "_ensemble.tar")
+        torch.save(ensemble_metadict, self.filename + "_ensemble_metadict.tar")
 
 
 class EnsembleTrainer(BaseEnsembleTrainer):
@@ -306,6 +305,9 @@ class EnsembleTrainer(BaseEnsembleTrainer):
             or initialized custom PyTorch model
         nb_classes:
             Number of classes (if any) in the model's output
+        **kwargs:
+            Number of input, output, and latent dimensions
+            for imspec models (in_dim, out_dim, latent_dim)
     
     Example:
 

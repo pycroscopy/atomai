@@ -617,14 +617,8 @@ class SegTrainer(BaseTrainer):
         """
         super(SegTrainer, self).__init__()
         seed = kwargs.get("seed", 1)
-        batch_seed = kwargs.get("batch_seed")
-        # Set random seeds and determinism
+        kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
         set_train_rng(seed)
-        if batch_seed is None:
-            np.random.seed(seed)
-        else:
-            np.random.seed(batch_seed)
-
         self.nb_classes = nb_classes
         self.net, self.meta_state_dict = init_fcnn_model(
                                 model, self.nb_classes, **kwargs)
@@ -749,13 +743,9 @@ class ImSpecTrainer(BaseTrainer):
         Initialize trainer's parameters
         """
         seed = kwargs.get("seed", 1)
-        batch_seed = kwargs.get("batch_seed")
+        kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
         set_train_rng(seed)
-        if batch_seed is None:
-            np.random.seed(seed)
-        else:
-            np.random.seed(batch_seed)
-
+        
         self.in_dim, self.out_dim = in_dim, out_dim
         (self.net,
          self.meta_state_dict) = init_imspec_model(in_dim, out_dim, latent_dim,
