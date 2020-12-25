@@ -195,8 +195,10 @@ class ResBlock(nn.Module):
             self.bn1 = bn(output_channels)
             self.bn2 = bn(output_channels)
 
-    def forward(self, x):
-        """Defines forward pass"""
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Defines forward pass
+        """
         x = self.c0(x)
         residual = x
         out = self.c1(x)
@@ -243,8 +245,10 @@ class ResModule(nn.Module):
                          lrelu_a=lrelu_a, batch_norm=batch_norm))
         self.res_module = nn.Sequential(*res_module)
 
-    def forward(self, x):
-        """Defines a forward pass"""
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Defines a forward pass
+        """
         x = self.res_module(x)
         return x
 

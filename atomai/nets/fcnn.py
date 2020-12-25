@@ -236,9 +236,6 @@ class ResHedNet(nn.Module):
         nb_filters:
             Number of filters in 1st residual block
             (gets multiplied by 2 in each next block)
-        batch_norm:
-            Use batch normalization after each convolutional layer
-            (Default: True)
         upsampling mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
@@ -283,7 +280,7 @@ class ResHedNet(nn.Module):
         )
         self.out = torch.nn.Conv2d(3*nb_classes, nb_classes, 1, 1, 0)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         h, w = x.shape[2:4]
         net1out = self.net1(x)
         net2out = self.net2(net1out)
@@ -358,7 +355,7 @@ class SegResNet(nn.Module):
         )
         self.px = nn.Conv2d(nb_filters, nb_classes, 1, 1, 0)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         '''Defines a forward pass'''
         # Contracting path
         c1 = self.c1(x)
