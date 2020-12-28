@@ -7,10 +7,12 @@ from numpy.testing import assert_equal, assert_
 
 sys.path.append("../../../")
 
-from atomai.utils.preproc import (check_image_dims, check_signal_dims,
-                           init_fcnn_dataloaders, init_imspec_dataloaders,
-                           array2list, num_classes_from_labels,
-                           preprocess_training_image_data)
+from atomai.utils.preproc import (array2list, check_image_dims,
+                                  check_signal_dims, get_array_memsize,
+                                  init_fcnn_dataloaders,
+                                  init_imspec_dataloaders,
+                                  num_classes_from_labels,
+                                  preprocess_training_image_data)
 
 
 def gen_data(dims):
@@ -127,3 +129,23 @@ def test_init_imspec_dataloaders():
     train_loader, test_loader, _ = init_imspec_dataloaders(X, y, X_, y_, 2)
     assert_(isinstance(train_loader, torch.utils.data.dataloader.DataLoader))
     assert_(isinstance(test_loader, torch.utils.data.dataloader.DataLoader))
+
+
+@pytest.mark.parametrize(
+    "precision, arr_dtype, arrsize",
+    [("single", torch.float32, 0.32768), ("single", torch.float64, 0.32768),
+     ("double", torch.float32, 0.65536), ("double", torch.float64, 0.65536)])
+def test_tensor_memsize(precision, arr_dtype, arrsize):
+    arr = torch.randn(20000, 64, 64, 1, dtype=arr_dtype)
+    arrsize_ = get_array_memsize(arr, precision) / 1e9
+    assert_equal(arrsize_, arrsize)
+
+
+@pytest.mark.parametrize(
+    "precision, arr_dtype, arrsize",
+    [("single", np.float32, 0.32768), ("single", np.float64, 0.32768),
+     ("double", np.float32, 0.65536), ("double", np.float64, 0.65536)])
+def test_array_memsize(precision, arr_dtype, arrsize):
+    arr = np.random.randn(20000, 64, 64, 1).astype(arr_dtype)
+    arrsize_ = get_array_memsize(arr, precision) / 1e9
+    assert_equal(arrsize_, arrsize)
