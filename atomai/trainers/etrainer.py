@@ -404,7 +404,7 @@ class EnsembleTrainer(BaseEnsembleTrainer):
 
         train_data = self.preprocess_train_data(
             X_train, y_train, X_test, y_test)
-        self.set_data(*train_data, self.kdict)
+        self.set_data(*train_data, **self.kdict)
 
         self._reset_rng(seed)
         self._reset_weights()
