@@ -167,23 +167,37 @@ def get_array_memsize(X_arr: Union[np.ndarray, torch.Tensor],
     return arrsize
 
 
-def array2list(X_train: np.ndarray, y_train: np.ndarray,
-               X_test: np.ndarray, y_test: np.ndarray,
-               batch_size: int) -> Tuple[List[np.ndarray]]:
+def array2list_(x: Union[np.ndarray, torch.Tensor],
+                batch_size: int, store_on_cpu: bool = False
+                ) -> Union[List[torch.Tensor], List[np.ndarray]]:
+    if not isinstance(x, (np.ndarray, torch.Tensor)):
+        raise TypeError("Provide data as numpy array or torch tensor")
+
+    if isinstance(x, torch.Tensor):
+        device = 'cuda' if torch.cuda.is_available() and not store_on_cpu else 'cpu'
+        x = x.to(device)
+    n_batches = int(np.divmod(x.shape[0], batch_size)[0])
+    split = np.split if isinstance(x, np.ndarray) else torch.chunk
+    return split(x[:n_batches*batch_size], n_batches)
+
+
+def array2list(X_train: Union[np.ndarray, torch.Tensor],
+               y_train: Union[np.ndarray, torch.Tensor],
+               X_test: Union[np.ndarray, torch.Tensor],
+               y_test: Union[np.ndarray, torch.Tensor],
+               batch_size: int, memory_alloc: float = 4
+               ) -> Union[Tuple[List[np.ndarray]], Tuple[List[torch.Tensor]]]:
     """
-    Splits train and test ndarrays arrays into lists of ndarrays of
-    a specified size. The remainders are not included.
+    Splits train and test numpy arrays or torch tensors into lists of
+    arrays/tensors of a specified size. The remainders are not included.
     """
-    n_train_batches, _ = np.divmod(X_train.shape[0], batch_size)
-    n_test_batches, _ = np.divmod(X_test.shape[0], batch_size)
-    X_train = np.split(
-        X_train[:n_train_batches*batch_size], n_train_batches)
-    y_train = np.split(
-        y_train[:n_train_batches*batch_size], n_train_batches)
-    X_test = np.split(
-        X_test[:n_test_batches*batch_size], n_test_batches)
-    y_test = np.split(
-        y_test[:n_test_batches*batch_size], n_test_batches)
+    all_data = [X_train, y_train, X_test, y_test]
+    arrsize = sum([get_array_memsize(x) for x in all_data])
+    store_on_cpu = (arrsize / 1e9) > memory_alloc
+    X_train = array2list_(X_train, batch_size, store_on_cpu)
+    y_train = array2list_(y_train, batch_size, store_on_cpu)
+    X_test = array2list_(X_test, batch_size, store_on_cpu)
+    y_test = array2list_(y_test, batch_size, store_on_cpu)
     return X_train, y_train, X_test, y_test
 
 
@@ -225,7 +239,7 @@ def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
                                    labels_all: Union[np.ndarray, torch.Tensor],
                                    images_test_all: Union[np.ndarray, torch.Tensor],
                                    labels_test_all: Union[np.ndarray, torch.Tensor],
-                                   batch_size: int
+                                   batch_size: int, memory_alloc: float = 4
                                    ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], int]:
     """
     Preprocess training and test image data
@@ -247,6 +261,8 @@ def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
             represent test labels (aka masks aka ground truth)
         batch_size (int):
             Size of training and test batches
+        memory_alloc (float or int):
+            Threshold (in GB) for holding all training data on GPU
 
     Returns:
         5-element tuple containing lists of numpy arrays ot torch tensors with
@@ -257,7 +273,7 @@ def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
         images_all, labels_all, images_test_all, labels_test_all)
     num_classes = data_all[-1]
     images_all, labels_all, images_test_all, labels_test_all = array2list(
-        *data_all[:-1], batch_size)
+        *data_all[:-1], batch_size, memory_alloc)
 
     return (images_all, labels_all, images_test_all,
             labels_test_all, num_classes)
@@ -302,7 +318,7 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
                                     y_train: Union[np.ndarray, torch.Tensor],
                                     X_test: Union[np.ndarray, torch.Tensor],
                                     y_test: Union[np.ndarray, torch.Tensor],
-                                    batch_size: int
+                                    batch_size: int, memory_alloc: float = 4
                                     ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], Tuple[Tuple[int]]]:
         """
         Preprocesses training and test data for im2spec/spec2im models
@@ -330,6 +346,8 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
                 It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
                 which will be added automatically. Note that if your X_train data are images,
                 then your y_train must be spectra and vice versa.
+            memory_alloc (int or float):
+                Threshold (in GB) for holding all training data on GPU
 
         Returns:
         4-element tuple containing lists of numpy arrays or torch tensors
@@ -340,7 +358,7 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
         dims = data_all[-1]
 
         X_train, y_train, X_test, y_test = array2list(
-                *data_all[:-1], batch_size)
+                *data_all[:-1], batch_size, memory_alloc)
 
         return X_train, y_train, X_test, y_test, dims
 
@@ -349,12 +367,17 @@ def init_dataloaders(X_train: torch.Tensor,
                      y_train: torch.Tensor,
                      X_test: torch.Tensor,
                      y_test: torch.Tensor,
-                     batch_size: int
+                     batch_size: int,
+                     memory_alloc: float = 4
                      ) -> Tuple[Type[torch.utils.data.DataLoader]]:
     """
     Returns two pytorch dataloaders for training and test data
     """
     device_ = 'cuda' if torch.cuda.is_available() else 'cpu'
+    all_data = [X_train, y_train, X_test, y_test]
+    arrsize = sum([get_array_memsize(x) for x in all_data])
+    if arrsize / 1e9 > memory_alloc:
+        device_ = 'cpu'
     X_train, y_train = X_train.to(device_), y_train.to(device_)
     X_test, y_test = X_test.to(device_), y_test.to(device_)
     train_loader = torch.utils.data.DataLoader(
@@ -372,6 +395,7 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
                           y_test: np.ndarray,
                           batch_size: int,
                           num_classes: Optional[int] = None,
+                          memory_alloc: float = 4
                           ) -> Tuple[Type[torch.utils.data.DataLoader], int]:
     """
     Returns two pytorch dataloaders for training and test data
@@ -381,7 +405,7 @@ def init_fcnn_dataloaders(X_train: np.ndarray,
         X_train, y_train, X_test, y_test)
     num_classes = data_all[-1]
     train_loader, test_loader = init_dataloaders(
-        *data_all[:-1], batch_size)
+        *data_all[:-1], batch_size, memory_alloc)
 
     return train_loader, test_loader, num_classes
 
@@ -390,7 +414,8 @@ def init_imspec_dataloaders(X_train: np.ndarray,
                             y_train: np.ndarray,
                             X_test: np.ndarray,
                             y_test: np.ndarray,
-                            batch_size: int
+                            batch_size: int,
+                            memory_alloc: float = 4
                             ) -> Tuple[Type[torch.utils.data.DataLoader], Tuple[Tuple[int]]]:
     """
     Returns train and test dataloaders for training images/spectra
@@ -401,7 +426,7 @@ def init_imspec_dataloaders(X_train: np.ndarray,
             X_train, y_train, X_test, y_test)
     dims = data_all[-1]
     train_loader, test_loader = init_dataloaders(
-        *data_all[:-1], batch_size)
+        *data_all[:-1], batch_size, memory_alloc)
     return train_loader, test_loader, dims
 
 
@@ -519,7 +544,7 @@ def data_split(X_train: np.ndarray,
                y_train: np.ndarray,
                test_size: float = 0.15,
                random_state: int = 1,
-               channel: Optional[str]= None,
+               channel: Optional[str] = None,
                format_out: str = "numpy"
                ) -> Tuple[Union[np.ndarray, torch.Tensor]]:
     """
