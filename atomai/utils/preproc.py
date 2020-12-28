@@ -135,6 +135,36 @@ def check_signal_dims(X_train: np.ndarray,
     return X_train, y_train, X_test, y_test
 
 
+def get_array_memsize(X_arr: Union[np.ndarray, torch.Tensor],
+                      precision: str = "single") -> float:
+    """
+    Returns memory size of numpy array or torch tensor
+    """
+    if isinstance(X_arr, torch.Tensor):
+        X_arr = X_arr.cpu().numpy()
+    arrsize = X_arr.nbytes
+    if precision == "single":
+        if X_arr.dtype == "float64":
+            arrsize = arrsize / 2
+        elif X_arr.dtype == "float32":
+            pass
+        else:
+            warnings.warn(
+                "Data dtype is not understood", UserWarning)
+    elif precision == "double":
+        if X_arr.dtype == "float32":
+            arrsize = arrsize * 2
+        elif X_arr.dtype == "float64":
+            pass
+        else:
+            warnings.warn(
+                "Data dtype is not understood", UserWarning)
+    else:
+        raise NotImplementedError(
+            "Specify 'single' or 'double' precision type")
+    return arrsize
+
+
 def array2list(X_train: np.ndarray, y_train: np.ndarray,
                X_test: np.ndarray, y_test: np.ndarray,
                batch_size: int) -> Tuple[List[np.ndarray]]:
