@@ -17,7 +17,7 @@ from scipy.stats import norm
 
 from ..losses_metrics import rvae_loss, vae_loss
 from ..nets import (convDecoderNet, convEncoderNet, fcDecoderNet, fcEncoderNet,
-                    rDecoderNet)
+                    rDecoderNet, init_VAE_nets)
 from ..trainers import viBaseTrainer
 from ..utils import (crop_borders, extract_subimages, get_coord_grid,
                      imcoordgrid, set_train_rng, subimg_trajectories,
@@ -87,46 +87,12 @@ class BaseVAE(viBaseTrainer):
             self.z_dim = latent_dim + coord
         self.nb_classes = nb_classes
 
-        conv_e = kwargs.get("conv_encoder", False)
-        if not coord:
-            conv_d = kwargs.get("conv_decoder", False)
-        numlayers_e = kwargs.get("numlayers_encoder", 2)
-        numlayers_d = kwargs.get("numlayers_decoder", 2)
-        numhidden_e = kwargs.get("numhidden_encoder", 128)
-        numhidden_d = kwargs.get("numhidden_decoder", 128)
-        skip = kwargs.get("skip", False)
-
-        if not coord:
-            dnet = convDecoderNet if conv_d else fcDecoderNet
-            decoder_net = dnet(
-                self.in_dim, latent_dim, numlayers_d, numhidden_d,
-                self.nb_classes)
-        else:
-            decoder_net = rDecoderNet(
-                self.in_dim, latent_dim, numlayers_d, numhidden_d,
-                skip, self.nb_classes)
-        enet = convEncoderNet if conv_e else fcEncoderNet
-        encoder_net = enet(
-            self.in_dim, self.z_dim, numlayers_e, numhidden_e)
+        (encoder_net, decoder_net,
+         self.metadict) = init_VAE_nets(
+            in_dim, latent_dim, coord, nb_classes, **kwargs)
         self.set_model(encoder_net, decoder_net)
 
         self.coord = coord
-
-        self.metadict = {
-            "model_type": "vae",
-            "in_dim": self.in_dim,
-            "latent_dim": latent_dim,
-            "coord": coord,
-            "conv_encoder": conv_e,
-            "numlayers_encoder": numlayers_e,
-            "numlayers_decoder": numlayers_d,
-            "numhidden_encoder": numhidden_e,
-            "numhidden_decoder": numhidden_d,
-            "skip": skip,
-            "nb_classes": self.nb_classes
-        }
-        if not coord:
-            self.metadict["conv_decoder"] = conv_d
 
     def load_weights(self, filepath: str) -> None:
         """
