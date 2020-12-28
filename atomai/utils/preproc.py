@@ -146,21 +146,21 @@ def get_array_memsize(X_arr: Union[np.ndarray, torch.Tensor],
         X_arr = X_arr.cpu().numpy()
     arrsize = X_arr.nbytes
     if precision == "single":
-        if X_arr.dtype == "float64":
+        if X_arr.dtype in ["float64", "int64"]:
             arrsize = arrsize / 2
-        elif X_arr.dtype == "float32":
+        elif X_arr.dtype in ["float32", "int32"]:
             pass
         else:
             warnings.warn(
-                "Data dtype is not understood", UserWarning)
+                "Data type is not understood", UserWarning)
     elif precision == "double":
-        if X_arr.dtype == "float32":
+        if X_arr.dtype in ["float32", "int32"]:
             arrsize = arrsize * 2
-        elif X_arr.dtype == "float64":
+        elif X_arr.dtype in ["float64", "int64"]:
             pass
         else:
             warnings.warn(
-                "Data dtype is not understood", UserWarning)
+                "Data type is not understood", UserWarning)
     else:
         raise NotImplementedError(
             "Specify 'single' or 'double' precision type")
