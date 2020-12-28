@@ -140,6 +140,8 @@ def get_array_memsize(X_arr: Union[np.ndarray, torch.Tensor],
     """
     Returns memory size of numpy array or torch tensor
     """
+    if X_arr is None:
+        return 0
     if isinstance(X_arr, torch.Tensor):
         X_arr = X_arr.cpu().numpy()
     arrsize = X_arr.nbytes

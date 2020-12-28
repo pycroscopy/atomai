@@ -149,3 +149,9 @@ def test_array_memsize(precision, arr_dtype, arrsize):
     arr = np.random.randn(20000, 64, 64, 1).astype(arr_dtype)
     arrsize_ = get_array_memsize(arr, precision) / 1e9
     assert_equal(arrsize_, arrsize)
+
+
+def test_noarray_memsize():
+    arr = None
+    arrsize_ = get_array_memsize(arr)
+    assert_equal(arrsize_, 0)
