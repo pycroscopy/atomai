@@ -114,7 +114,7 @@ class BaseTrainer:
                  y_train: Union[torch.Tensor, np.ndarray],
                  X_test: Union[torch.Tensor, np.ndarray],
                  y_test: Union[torch.Tensor, np.ndarray],
-                 memory_alloc: float = 4) -> None:
+                 **kwargs: float) -> None:
         """
         Sets training and test data by initializing PyTorch dataloaders
         or creating a list of PyTorch tensors from which it will randomly
@@ -127,6 +127,7 @@ class BaseTrainer:
             y_test: Test data labels/ground-truth
             memory_alloc: threshold (in GB) for holding all training data on GPU
         """
+        memory_alloc = kwargs.get("memory_alloc", 4)
         tor = lambda x: torch.from_numpy(x) if isinstance(x, np.ndarray) else x
         X_train, y_train = tor(X_train), tor(y_train)
         X_test, y_test = tor(X_test), tor(y_test)
