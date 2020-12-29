@@ -272,8 +272,8 @@ class SegPredictor(BasePredictor):
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
             compute_coords (bool):
-                Computes coordinates of blons in the segmented images
-                (Default: True)
+                Computes centers of the mass of individual blobs
+                in the segmented images (Default: True)
             **num_batches (int):
                 number of batches for batch-by-batch prediction
                 which ensures that one doesn't run out of memory

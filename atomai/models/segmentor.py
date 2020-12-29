@@ -149,6 +149,7 @@ class Segmentor(SegTrainer):
                 refine: bool = False,
                 logits: bool = True,
                 resize: Tuple[int, int] = None,
+                compute_coords: bool = True,
                 **kwargs) -> Tuple[np.ndarray, Dict[int, np.ndarray]]:
         """
         Apply (trained) model to new data
@@ -166,6 +167,9 @@ class Segmentor(SegTrainer):
             resize:
                 Resizes input data to (new_height, new_width) before passing
                 to a neural network
+            compute_coords (bool):
+                Computes centers of the mass of individual blobs
+                in the segmented images (Default: True)
             **thresh (float):
                 Value between 0 and 1 for thresholding the NN output
                 (Default: 0.5)
@@ -187,7 +191,7 @@ class Segmentor(SegTrainer):
         nn_output, coords = SegPredictor(
             self.net, refine, resize, use_gpu, logits,
             nb_classes=self.nb_classes, downsampling=self.downsample_factor,
-            **kwargs).run(imgdata, **kwargs)
+            **kwargs).run(imgdata, compute_coords, **kwargs)
 
         return nn_output, coords
 
