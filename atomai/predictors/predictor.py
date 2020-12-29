@@ -263,6 +263,7 @@ class SegPredictor(BasePredictor):
 
     def run(self,
             image_data: np.ndarray,
+            compute_coords=True,
             **kwargs: int) -> Tuple[np.ndarray, Dict[int, np.ndarray]]:
         """
         Make prediction with a trained model and calculate coordinates
@@ -270,13 +271,19 @@ class SegPredictor(BasePredictor):
         Args:
             image_data (2D or 3D numpy array):
                 Image stack or a single image (all greyscale)
-            **num_batches:
+            compute_coords (bool):
+                Computes coordinates of blons in the segmented images
+                (Default: True)
+            **num_batches (int):
                 number of batches for batch-by-batch prediction
                 which ensures that one doesn't run out of memory
                 (Default: 10)
             **norm (bool): Normalize data to (0, 1) during pre-processing
         """
         start_time = time.time()
+        if not compute_coords:
+            decoded_imgs = self.predict(image_data, **kwargs)
+            return decoded_imgs
         images, decoded_imgs = self.predict(
             image_data, return_image=True, **kwargs)
         loc = Locator(self.thresh, refine=self.refine, d=self.d)
