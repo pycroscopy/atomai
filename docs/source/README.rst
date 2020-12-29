@@ -37,13 +37,15 @@ Quickstart: AtomAI in the Cloud
 
 The easiest way to start using AtomAI is via `Google Colab <https://colab.research.google.com/notebooks/intro.ipynb>`_
 
-1) `Train a deep fully convolutional neural network for atom finding <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb>`_
+1) `Train a Deep Fully Convolutional Neural Network for Atom Finding <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb>`_
 
-2) `Multivariate statistical analysis of distortion domains in a single atomic image <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb>`_
+2) `Multivariate Statistical Analysis of Distortion Domains in a Single Atomic Image <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb>`_
 
-3) `Variational autoenocders for analysis of structural transformations <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb>`_
+3) `Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb>`_
 
-4) `Prepare training data from experimental image with atomic coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
+4) `Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb>`_
+
+5) `Prepare Training Data From Experimental Image with Atomic Coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
 
 Semantic segmentation
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -63,7 +65,7 @@ Here ```swa``` stands for `stochastic weight averaging <https://arxiv.org/abs/18
 
 ImSpec models
 ^^^^^^^^^^^^^^
-AtomAI also provides models that can be used for converting image data into spectra and vice versa. These models can be used for predicting property from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
+AtomAI also provides models that can be used for predicting spectra from image data and vice versa. These models can be used for predicting property from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
 
 >>> in_dim = (16, 16)  # Input dimensions (image height and width)
 >>> out_dim = (64,)  # Output dimensions (spectra length)
