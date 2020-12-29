@@ -72,7 +72,7 @@ AtomAI also provides models that can be used for predicting spectra from image d
 >>>
 >>> # Initialize and train model
 >>> model = aoi.models.ImSpec(in_dim, out_dim, latent_dim=10)
->>> model.fit(imgs_train, spectra_train, imgs_test, spectra_test,  # trainig data (numpy arrays)
+>>> model.fit(imgs_train, spectra_train, imgs_test, spectra_test,  # training data (numpy arrays)
 >>>       full_epoch=True, training_cycles=120, swa=True)  # training parameters
 
 Make a prediction with the trained ImSpec model by running
