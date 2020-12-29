@@ -27,8 +27,8 @@ def gen_image_labels(binary=False):
         y = np.random.randint(0, 2, size=(5, 1, 8, 8))
         y_ = np.random.randint(0, 2, size=(5, 1, 8, 8))
     else:
-        y = np.random.randint(0, 3, size=(5, 1, 8, 8))
-        y_ = np.random.randint(0, 3, size=(5, 1, 8, 8))
+        y = np.random.randint(0, 3, size=(5, 8, 8))
+        y_ = np.random.randint(0, 3, size=(5, 8, 8))
     return y, y_
 
 

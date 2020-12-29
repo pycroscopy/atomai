@@ -176,9 +176,12 @@ def select_loss(loss: str, nb_classes: int = None):
         criterion = torch.nn.CrossEntropyLoss()
     elif loss == 'mse':
         criterion = torch.nn.MSELoss()
+    elif hasattr(loss, "__call__"):
+        criterion = loss
     else:
         raise NotImplementedError(
             "Select Dice loss ('dice'), focal loss ('focal') "
             " cross-entropy loss ('ce') or means-squared error ('mse')"
+            " or pass your custom loss function"
         )
     return criterion

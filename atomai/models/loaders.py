@@ -47,7 +47,8 @@ def load_model(filepath: str) -> Union[Segmentor, BaseVAE, ImSpec]:
         model = loaded_dict["weights"]
         warnings.warn("Returning model's state dictionary." +
                       "You will need to load it into your model's" +
-                      "skeleton by yourself")
+                      " skeleton by yourself",
+                      UserWarning)
     return model
 
 

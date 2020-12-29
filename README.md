@@ -20,13 +20,15 @@ AtomAI is a Pytorch-based package for deep/machine learning analysis of microsco
 
 The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
 
-1) [Train a deep fully convolutional neural network for atom finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+1) [Train a Deep Fully Convolutional Neural Network for Atom Finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
 
-2) [Multivariate statistical analysis of distortion domains in a single atomic image](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+2) [Multivariate Statistical Analysis of Distortion Domains in a Single Atomic Image](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
 
-3) [Variational autoencoders for analysis of structural transformations](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+3) [Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb)
 
-4) [Prepare training data from experimental image with atomic coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+4) [Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+
+4) [Prepare Training Data from Experimental Image with Atomic Coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ### Semantic segmentation
 
@@ -46,14 +48,14 @@ nn_output, coordinates = model.predict(expdata)
 ```
 
 ### ImSpec models
-AtomAI also provides models that can be used for converting image data into spectra and vice versa. These models can be used for predicting property from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
+AtomAI also provides models that can be used for predicting spectra from image data and vice versa. These models can be used for predicting property (functionality) from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
 ```python
 in_dim = (16, 16)  # Input dimensions (image height and width)
 out_dim = (64,)  # Output dimensions (spectra length)
 
 # Initialize and train model
 model = aoi.models.ImSpec(in_dim, out_dim, latent_dim=10)
-model.fit(imgs_train, spectra_train, imgs_test, spectra_test,  # trainig data (numpy arrays)
+model.fit(imgs_train, spectra_train, imgs_test, spectra_test,  # training data (numpy arrays)
        full_epoch=True, training_cycles=120, swa=True  # training parameters
 )
 ```

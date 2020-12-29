@@ -8,7 +8,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 
 """
 
-from typing import Tuple, Type, Union
+from typing import Tuple, Type, Union, Dict
 
 import numpy as np
 import torch
@@ -233,7 +233,7 @@ class convEncoderNet(nn.Module):
     Convolutional rncoder/inference network (for variational autoencoder)
 
     Args:
-        dim:
+        in_dim:
             Input dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
@@ -290,7 +290,7 @@ class fcEncoderNet(nn.Module):
     Encoder/inference network (for variational autoencoder)
 
     Args:
-        dim:
+        in_dim:
             Input dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
@@ -554,7 +554,11 @@ class coord_latent(nn.Module):
         return h
 
 
-def init_imspec_model(in_dim, out_dim, latent_dim, **kwargs):
+def init_imspec_model(in_dim: Tuple[int],
+                      out_dim: Tuple[int],
+                      latent_dim: int,
+                      **kwargs: Union[int, bool]
+                      ) -> Tuple[Type[nn.Module], Dict[str, Union[int, bool]]]:
     """
     Initializes ImSpec model
     """
@@ -583,3 +587,53 @@ def init_imspec_model(in_dim, out_dim, latent_dim, **kwargs):
         "decoder_upsampling": decoder_upsampling
     }
     return net, meta_state_dict
+
+
+def init_VAE_nets(in_dim: Tuple[int],
+                  latent_dim: int,
+                  coord: int,
+                  nb_classes: int,
+                  **kwargs
+                  ) -> Tuple[Type[nn.Module], Type[nn.Module], Dict[str, Union[int, bool]]]:
+    """
+    Initializes encoder and decoder for VAE
+    """
+    conv_e = kwargs.get("conv_encoder", False)
+    if not coord:
+        conv_d = kwargs.get("conv_decoder", False)
+    numlayers_e = kwargs.get("numlayers_encoder", 2)
+    numlayers_d = kwargs.get("numlayers_decoder", 2)
+    numhidden_e = kwargs.get("numhidden_encoder", 128)
+    numhidden_d = kwargs.get("numhidden_decoder", 128)
+    skip = kwargs.get("skip", False)
+
+    if not coord:
+        dnet = convDecoderNet if conv_d else fcDecoderNet
+        decoder_net = dnet(
+            in_dim, latent_dim, numlayers_d, numhidden_d,
+            nb_classes)
+    else:
+        decoder_net = rDecoderNet(
+            in_dim, latent_dim, numlayers_d, numhidden_d,
+            skip, nb_classes)
+    enet = convEncoderNet if conv_e else fcEncoderNet
+    encoder_net = enet(
+        in_dim, latent_dim + coord, numlayers_e, numhidden_e)
+
+    meta_state_dict = {
+        "model_type": "vae",
+        "in_dim": in_dim,
+        "latent_dim": latent_dim,
+        "coord": coord,
+        "conv_encoder": conv_e,
+        "numlayers_encoder": numlayers_e,
+        "numlayers_decoder": numlayers_d,
+        "numhidden_encoder": numhidden_e,
+        "numhidden_decoder": numhidden_d,
+        "skip": skip,
+        "nb_classes": nb_classes
+    }
+    if not coord:
+        meta_state_dict["conv_decoder"] = conv_d
+
+    return encoder_net, decoder_net, meta_state_dict

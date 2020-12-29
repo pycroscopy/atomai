@@ -10,6 +10,7 @@ Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 from typing import Optional, Callable, Union, List, Tuple
 
 import numpy as np
+import torch
 import cv2
 from scipy import stats, ndimage
 from skimage import exposure
@@ -323,7 +324,7 @@ class datatransform:
             images, targets = self.custom_transform(images, targets)
         if self.rotation and same_dim:
             images, targets = self.apply_rotation(images, targets)
-        if isinstance(self.zoom, int) and same_dim:
+        if self.zoom and same_dim:
             images, targets = self.apply_zoom(images, targets)
         if isinstance(self.resize, list) or isinstance(self.resize, tuple):
             if same_dim:
@@ -400,3 +401,58 @@ def unsqueeze_channels(labels: np.ndarray, n_channels: int) -> np.ndarray:
         return labels
     labels_ = np.eye(n_channels)[labels.astype(int)]
     return np.transpose(labels_, [0, 3, 1, 2])
+
+
+def seg_augmentor(nb_classes: int,
+                  **kwargs
+                  ) -> Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
+
+    auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
+               "poisson_noise", "contrast", "salt_and_pepper", "blur",
+               "resize", "rotation", "background"]
+    augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
+    if len(augdict) == 0:
+        return
+
+    def augmentor(images, labels, seed):
+        images = images.cpu().numpy().astype(np.float64)
+        labels = labels.cpu().numpy().astype(np.float64)
+        dt = datatransform(
+                nb_classes, "channel_first", 'channel_first',
+                True, seed, **augdict)
+        images, labels = dt.run(
+            images[:, 0, ...], unsqueeze_channels(labels, nb_classes))
+        images = torch.from_numpy(images).float()
+        if nb_classes == 1:
+            labels = torch.from_numpy(labels).float()
+        else:
+            labels = torch.from_numpy(labels).long()
+        return images, labels
+
+    return augmentor
+
+
+def imspec_augmentor(in_dim: Tuple[int],
+                     out_dim: Tuple[int],
+                     **kwargs
+                     ) -> Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
+    auglist = ["custom_transform", "gauss_noise", "jitter",
+               "poisson_noise", "contrast", "salt_and_pepper", "blur",
+               "background"]
+    augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
+    if len(augdict) == 0:
+        return
+    if len(in_dim) < len(out_dim):
+        raise NotImplementedError("The built-in data augmentor works only" +
+                                  " for img->spec models (i.e. input is image)")
+
+    def augmentor(features, targets, seed):
+        features = features.cpu().numpy().astype(np.float64)
+        targets = targets.cpu().numpy().astype(np.float64)
+        dt = datatransform(seed, **augdict)
+        features, targets = dt.run(features[:, 0, ...], targets)
+        features = torch.from_numpy(features).float()
+        targets = torch.from_numpy(targets).float()
+        return features, targets
+
+    return augmentor
