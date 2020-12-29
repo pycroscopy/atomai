@@ -45,7 +45,9 @@ The easiest way to start using AtomAI is via `Google Colab <https://colab.resear
 
 4) `Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb>`_
 
-5) `Prepare Training Data From Experimental Image with Atomic Coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
+5) `Implementation of Custom Image Denoiser in AtomAI <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb>`_
+
+6) `Prepare Training Data From Experimental Image with Atomic Coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
 
 Semantic segmentation
 ^^^^^^^^^^^^^^^^^^^^^^
