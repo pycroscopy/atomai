@@ -135,26 +135,26 @@ class ResBlock(nn.Module):
     """
     Builds a residual block
 
-        Args:
-            ndim:
-                Data dimensionality (1D or 2D)
-            nb_layers:
-                Number of layers in the block
-            input_channels:
-                Number of input channels for the block
-            output_channels:
-                Number of the output channels for the block
-            kernel_size:
-                Size of convolutional filter (in pixels)
-            stride:
-                Stride of convolutional filter
-            padding:
-                Value for edge padding
-            batch_norm:
-                Add batch normalization to each layer in the block
-            lrelu_a:
-                Value of alpha parameter in leaky ReLU activation
-                for each layer in the block
+    Args:
+        ndim:
+            Data dimensionality (1D or 2D)
+        nb_layers:
+            Number of layers in the block
+        input_channels:
+            Number of input channels for the block
+        output_channels:
+            Number of the output channels for the block
+        kernel_size:
+            Size of convolutional filter (in pixels)
+        stride:
+            Stride of convolutional filter
+        padding:
+            Value for edge padding
+        batch_norm:
+            Add batch normalization to each layer in the block
+        lrelu_a:
+            Value of alpha parameter in leaky ReLU activation
+            for each layer in the block
     """
     def __init__(self,
                  ndim: int,

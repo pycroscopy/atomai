@@ -31,7 +31,7 @@ class Unet(nn.Module):
         batch_norm:
             Use batch normalization after each convolutional layer
             (Default: True)
-        upsampling mode:
+        upsampling_mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
@@ -157,7 +157,7 @@ class dilnet(nn.Module):
             Use / not use dropout in the 3 inner layers
         batch_norm:
             Use / not use batch normalization after each convolutional layer
-        upsampling mode:
+        upsampling_mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
@@ -236,13 +236,13 @@ class ResHedNet(nn.Module):
         nb_filters:
             Number of filters in 1st residual block
             (gets multiplied by 2 in each next block)
-        upsampling mode:
+        upsampling_mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
         **layers (list):
-            3-element list with a number of residual blocks layers
+            3-element list with a number of residual blocks
             in each segment (Default: [3, 4, 5])
 
     """
@@ -310,13 +310,13 @@ class SegResNet(nn.Module):
         batch_norm:
             Use batch normalization after each convolutional layer
             (Default: True)
-        upsampling mode:
+        upsampling_mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
         **layers (list):
-            3-element list with a number of residual blocks layers
+            3-element list with a number of residual blocks
             in each residual segment (Default: [2, 2])
 
     '''

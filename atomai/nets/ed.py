@@ -233,7 +233,7 @@ class convEncoderNet(nn.Module):
     Convolutional rncoder/inference network (for variational autoencoder)
 
     Args:
-        dim:
+        in_dim:
             Input dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
@@ -290,7 +290,7 @@ class fcEncoderNet(nn.Module):
     Encoder/inference network (for variational autoencoder)
 
     Args:
-        dim:
+        in_dim:
             Input dimensions.
             For images, it is (height, width) or (height, width, channels).
             For spectra, it is (length,)
