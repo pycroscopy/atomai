@@ -188,12 +188,12 @@ class Segmentor(SegTrainer):
         if self.downsample_factor is None:
             self.downsample_factor = get_downsample_factor(self.net)
         use_gpu = self.device == 'cuda'
-        nn_output, coords = SegPredictor(
+        prediction = SegPredictor(
             self.net, refine, resize, use_gpu, logits,
             nb_classes=self.nb_classes, downsampling=self.downsample_factor,
             **kwargs).run(imgdata, compute_coords, **kwargs)
 
-        return nn_output, coords
+        return prediction
 
     def load_weights(self, filepath: str) -> None:
         """
