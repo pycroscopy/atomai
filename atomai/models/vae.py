@@ -574,7 +574,7 @@ class BaseVAE(viBaseTrainer):
                 elbo_epoch_test = self.evaluate_model()
                 self.loss_history["test_loss"].append(elbo_epoch_test)
             self.print_statistics(e)
-        self.save_model(self.filename)
+            self.save_model(self.filename)
         return
 
     def print_statistics(self, e):
