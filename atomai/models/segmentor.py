@@ -1,9 +1,9 @@
-from typing import Type, Union, Tuple, Optional, Dict, Callable
+from typing import Type, Union, Tuple, Optional, Dict
 import torch
 import numpy as np
 from ..trainers import SegTrainer
 from ..predictors import SegPredictor
-from ..transforms import datatransform, unsqueeze_channels
+from ..transforms import seg_augmentor
 from ..utils import get_downsample_factor
 
 
@@ -13,7 +13,7 @@ class Segmentor(SegTrainer):
 
     Args:
         model:
-            Type of model to train: 'Unet' or 'dilnet' (Default: 'Unet').
+            Type of model to train: 'Unet', 'Uplusnet' or 'dilnet' (Default: 'Unet').
             See atomai.nets for more details. One can also pass here a custom
             fully convolutional neural network model.
         nb_classes:
@@ -149,6 +149,7 @@ class Segmentor(SegTrainer):
                 refine: bool = False,
                 logits: bool = True,
                 resize: Tuple[int, int] = None,
+                compute_coords: bool = True,
                 **kwargs) -> Tuple[np.ndarray, Dict[int, np.ndarray]]:
         """
         Apply (trained) model to new data
@@ -166,6 +167,9 @@ class Segmentor(SegTrainer):
             resize:
                 Resizes input data to (new_height, new_width) before passing
                 to a neural network
+            compute_coords (bool):
+                Computes centers of the mass of individual blobs
+                in the segmented images (Default: True)
             **thresh (float):
                 Value between 0 and 1 for thresholding the NN output
                 (Default: 0.5)
@@ -184,12 +188,12 @@ class Segmentor(SegTrainer):
         if self.downsample_factor is None:
             self.downsample_factor = get_downsample_factor(self.net)
         use_gpu = self.device == 'cuda'
-        nn_output, coords = SegPredictor(
+        prediction = SegPredictor(
             self.net, refine, resize, use_gpu, logits,
             nb_classes=self.nb_classes, downsampling=self.downsample_factor,
-            **kwargs).run(imgdata, **kwargs)
+            **kwargs).run(imgdata, compute_coords, **kwargs)
 
-        return nn_output, coords
+        return prediction
 
     def load_weights(self, filepath: str) -> None:
         """
@@ -197,32 +201,3 @@ class Segmentor(SegTrainer):
         """
         weight_dict = torch.load(filepath, map_location=self.device)
         self.net.load_state_dict(weight_dict)
-
-
-def seg_augmentor(nb_classes: int,
-                  **kwargs
-                  ) -> Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
-
-    auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
-               "poisson_noise", "contrast", "salt_and_pepper", "blur",
-               "resize", "rotation", "background"]
-    augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
-    if len(augdict) == 0:
-        return
-
-    def augmentor(images, labels, seed):
-        images = images.cpu().numpy().astype(np.float64)
-        labels = labels.cpu().numpy().astype(np.float64)
-        dt = datatransform(
-                nb_classes, "channel_first", 'channel_first',
-                True, seed, **augdict)
-        images, labels = dt.run(
-            images[:, 0, ...], unsqueeze_channels(labels, nb_classes))
-        images = torch.from_numpy(images).float()
-        if nb_classes == 1:
-            labels = torch.from_numpy(labels).float()
-        else:
-            labels = torch.from_numpy(labels).long()
-        return images, labels
-
-    return augmentor

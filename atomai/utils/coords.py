@@ -34,36 +34,6 @@ def find_com(image_data: np.ndarray) -> np.ndarray:
     return coordinates
 
 
-def get_nn_distances_(coordinates: np.ndarray, nn: int = 2,
-                      upper_bound: Optional[float] = None) -> Tuple[np.ndarray]:
-    """
-    Calculates nearest-neighbor distances for a single image
-
-    Args:
-        coordinates (numpy array):
-            :math:`N \\times 3` array with atomic coordinates where first two
-            columns are *xy* coordinates and the third column is atom class
-        nn (int): Number of nearest neighbors to search for.
-        upper_bound (float or int, non-negative):
-            Upper distance bound for Query the kd-tree for nearest neighbors.
-            Only di
-    Returns:
-        Tuple with :math:`atoms \\times nn` array of distances to nearest
-        neighbors and :math:`atoms \\times (nn+1) \\times 3` array of coordinates
-        (including coordinates of the "center" atom), where n_atoms is less or
-        equal to the total number of atoms in the 'coordinates'
-        (due to 'upper_bound' criterion)
-    """
-    upper_bound = np.inf if upper_bound is None else upper_bound
-    tree = spatial.cKDTree(coordinates[:, :2])
-    d, nn = tree.query(
-        coordinates[:, :2], k=nn+1, distance_upper_bound=upper_bound)
-    idx_to_del = np.where(d == np.inf)[0]
-    nn = np.delete(nn, idx_to_del, axis=0)
-    d = np.delete(d, idx_to_del, axis=0)
-    return d[:, 1:], coordinates[nn]
-
-
 def imcoordgrid(im_dim: Tuple) -> torch.Tensor:
     """
     Returns a grid with pixel coordinates (used e.g. in rVAE)
@@ -105,22 +75,55 @@ def transform_coordinates(coord: Union[np.ndarray, torch.Tensor],
     return coord + coord_dx
 
 
-def get_nn_distances(coordinates: Dict[int, np.ndarray],
+def get_nn_distances_(coordinates: np.ndarray, nn: int = 2,
+                      upper_bound: Optional[float] = None) -> Tuple[np.ndarray]:
+    """
+    Calculates nearest-neighbor distances for a single image
+
+    Args:
+        coordinates (numpy array):
+            :math:`N \\times 3` array with atomic coordinates where first two
+            columns are *xy* coordinates and the third column is atom class
+        nn (int): Number of nearest neighbors to search for.
+        upper_bound (float or int, non-negative):
+            Upper distance bound for Query the kd-tree for nearest neighbors.
+            Only di
+    Returns:
+        Tuple with :math:`atoms \\times nn` array of distances to nearest
+        neighbors and :math:`atoms \\times (nn+1) \\times 3` array of coordinates
+        (including coordinates of the "center" atom), where n_atoms is less or
+        equal to the total number of atoms in the 'coordinates'
+        (due to 'upper_bound' criterion)
+    """
+    upper_bound = np.inf if upper_bound is None else upper_bound
+    tree = spatial.cKDTree(coordinates[:, :2])
+    d, nn = tree.query(
+        coordinates[:, :2], k=nn+1, distance_upper_bound=upper_bound)
+    idx_to_del = np.where(d == np.inf)[0]
+    nn = np.delete(nn, idx_to_del, axis=0)
+    d = np.delete(d, idx_to_del, axis=0)
+    return d[:, 1:], coordinates[nn]
+
+
+def get_nn_distances(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
                      nn: int = 2, upper_bound: Optional[float] = None
                      ) -> Tuple[List[np.ndarray]]:
     """
     Calculates nearest-neighbor distances for a stack of images
 
     Args:
-        coordinates (dict):
+        coordinates:
             Dictionary where keys are frame numbers and values are
             :math:`N \\times 3` numpy arrays with atomic coordinates.
             In each array the first two columns are *xy* coordinates and
-            the third column is atom class.
-        nn (int): Number of nearest neighbors to search for.
+            the third column is atom class. One can also pass a single
+            numpy array (if all the coordiantes correspond to a single image)
+        nn:
+            Number of nearest neighbors to search for.
         upper_bound (float or int, non-negative):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only distances below this value will be counted.
+            
     Returns:
         Tuple with list of :math:`atoms \\times nn` arrays of distances
         to nearest neighbors and list of :math:`atoms \\times (nn+1) \\times 3`
@@ -128,6 +131,8 @@ def get_nn_distances(coordinates: Dict[int, np.ndarray],
         where n_atoms is less or equal to the total number of atoms in the
         'coordinates' (due to 'upper_bound' criterion)
     """
+    if isinstance(coordinates, np.ndarray):
+        coordinates = {0: coordinates}
     distances_all, atom_pairs_all = [], []
     for coord in coordinates.values():
         distances, atom_pairs = get_nn_distances_(coord, nn, upper_bound)

@@ -113,7 +113,8 @@ class BaseTrainer:
                  X_train: Union[torch.Tensor, np.ndarray],
                  y_train: Union[torch.Tensor, np.ndarray],
                  X_test: Union[torch.Tensor, np.ndarray],
-                 y_test: Union[torch.Tensor, np.ndarray]) -> None:
+                 y_test: Union[torch.Tensor, np.ndarray],
+                 **kwargs: float) -> None:
         """
         Sets training and test data by initializing PyTorch dataloaders
         or creating a list of PyTorch tensors from which it will randomly
@@ -121,21 +122,25 @@ class BaseTrainer:
 
         Args:
             X_train: Training data
-            y_train: Training data labels
+            y_train: Training data labels/ground-truth
             X_test: Test data
-            y_test: Test data labels
+            y_test: Test data labels/ground-truth
+            memory_alloc: threshold (in GB) for holding all training data on GPU
         """
+        memory_alloc = kwargs.get("memory_alloc", 4)
         tor = lambda x: torch.from_numpy(x) if isinstance(x, np.ndarray) else x
         X_train, y_train = tor(X_train), tor(y_train)
         X_test, y_test = tor(X_test), tor(y_test)
 
         if self.full_epoch:
             self.train_loader, self.test_loader = init_dataloaders(
-                X_train, y_train, X_test, y_test, self.batch_size)
+                X_train, y_train, X_test, y_test,
+                self.batch_size, memory_alloc)
         else:
             (self.X_train, self.y_train,
              self.X_test, self.y_test) = array2list(
-                X_train, y_train, X_test, y_test, self.batch_size)
+                X_train, y_train, X_test, y_test,
+                self.batch_size, memory_alloc)
 
         self.data_is_set = True
 
@@ -155,7 +160,7 @@ class BaseTrainer:
             self.nb_classes = nb_classes
 
     def get_loss_fn(self,
-                    loss: str = 'mse',
+                    loss: Union[str, Callable] = 'mse',
                     nb_classes: int = None) -> None:
         """
         Returns a loss function. Available loss functions are: 'mse' (MSE),
@@ -178,6 +183,7 @@ class BaseTrainer:
         """
         self.net.train()
         self.optimizer.zero_grad()
+        feat, tar = feat.to(self.device), tar.to(self.device)
         prob = self.net(feat)
         loss = self.criterion(prob, tar)
         loss.backward()
@@ -197,6 +203,7 @@ class BaseTrainer:
             feat: input features
             tar: targets
         """
+        feat, tar = feat.to(self.device), tar.to(self.device)
         self.net.eval()
         with torch.no_grad():
             prob = self.net(feat)
@@ -315,7 +322,6 @@ class BaseTrainer:
         if self.augment_fn is not None:
             features, targets = self.augment_fn(
                 features, targets, seed=len(self.loss_acc["train_loss"]))
-        features, targets = features.to(self.device), targets.to(self.device)
         return features, targets
 
     def save_model(self, *args: str) -> None:
@@ -327,6 +333,10 @@ class BaseTrainer:
             filename = args[0]
         except IndexError:
             filename = self.filename
+        self.meta_state_dict["weights"] = self.meta_state_dict.get(
+            "weights", self.net.state_dict())
+        self.meta_state_dict["optimizer"] = self.meta_state_dict.get(
+            "optimizer", self.optimizer)
         torch.save(self.meta_state_dict,
                    filename + '.tar')
 
@@ -411,7 +421,7 @@ class BaseTrainer:
 
     def compile_trainer(self,
                         train_data: Union[Tuple[torch.Tensor], Tuple[np.ndarray]] = None,
-                        loss: str = 'ce',
+                        loss: Union[str, Callable] = 'ce',
                         optimizer: Optional[Type[torch.optim.Optimizer]] = None,
                         training_cycles: int = 1000,
                         batch_size: int = 32,
@@ -430,7 +440,9 @@ class BaseTrainer:
             loss:
                 loss function. Available loss functions are: 'mse' (MSE),
                 'ce' (cross-entropy), 'focal' (focal loss; single class only),
-                and 'dice' (dice loss; for semantic segmentation problems)
+                and 'dice' (dice loss; for semantic segmentation problems).
+                One can also pass a custom loss function that takes prediction
+                and ground truth and computes a loss score.
             optimizer:
                 weights optimizer (defaults to Adam optimizer with lr=1e-3)
             training_cycles:
@@ -459,6 +471,8 @@ class BaseTrainer:
             **overwrite_train_data (bool):
                 Overwrites the exising training data using self.set_data()
                 (Default: True)
+            **memory_alloc (float):
+                threshold (in GB) for holding all training data on GPU
             **print_loss (int):
                 Prints loss every *n*-th epoch
             **accuracy_metrics (str):
@@ -474,14 +488,15 @@ class BaseTrainer:
         self.batch_size = batch_size
         self.compute_accuracy = compute_accuracy
         self.swa = swa
+        alloc = kwargs.get("memory_alloc", 4)
 
         if self.data_is_set:
             if kwargs.get("overwrite_train_data", True):
-                self.set_data(*train_data)
+                self.set_data(*train_data, memory_alloc=alloc)
             else:
                 pass
         else:
-            self.set_data(*train_data)
+            self.set_data(*train_data, memory_alloc=alloc)
 
         self.perturb_weights = perturb_weights
         if self.perturb_weights:
@@ -568,7 +583,7 @@ class SegTrainer(BaseTrainer):
 
     Args:
         model:
-            Type of model to train: 'Unet' or 'dilnet' (Default: 'Unet').
+            Type of model to train: 'Unet', 'Uplusnet' or 'dilnet' (Default: 'Unet').
             See atomai.nets for more details. One can also pass a custom fully
             convolutional neural network model.
         nb_classes:
@@ -579,7 +594,7 @@ class SegTrainer(BaseTrainer):
         **batch_seed (int):
             Separate seed for generating a sequence of batches
             for training/testing. Equal to 'seed' if set to None (default)
-        **batchnorm (bool):
+        **batch_norm (bool):
             Apply batch normalization after each convolutional layer
             (Default: True)
         **dropout (bool):
@@ -611,14 +626,8 @@ class SegTrainer(BaseTrainer):
         """
         super(SegTrainer, self).__init__()
         seed = kwargs.get("seed", 1)
-        batch_seed = kwargs.get("batch_seed")
-        # Set random seeds and determinism
+        kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
         set_train_rng(seed)
-        if batch_seed is None:
-            np.random.seed(seed)
-        else:
-            np.random.seed(batch_seed)
-
         self.nb_classes = nb_classes
         self.net, self.meta_state_dict = init_fcnn_model(
                                 model, self.nb_classes, **kwargs)
@@ -661,7 +670,8 @@ class SegTrainer(BaseTrainer):
                 the first dimension.
             kwargs:
                 Parameters for train_test_split ('test_size' and 'seed') when
-                separate test set is not provided
+                separate test set is not provided and 'memory_alloc', which
+                sets a threshold (in GBs) for holding entire training data on GPU
         """
 
         if X_test is None or y_test is None:
@@ -671,14 +681,16 @@ class SegTrainer(BaseTrainer):
 
         if self.full_epoch:
             loaders = init_fcnn_dataloaders(
-                X_train, y_train, X_test, y_test, self.batch_size)
+                X_train, y_train, X_test, y_test,
+                self.batch_size, memory_alloc=kwargs.get("memory_alloc", 4))
             self.train_loader, self.test_loader, nb_classes = loaders
         else:
             (self.X_train, self.y_train,
              self.X_test, self.y_test,
              nb_classes) = preprocess_training_image_data(
                                     X_train, y_train, X_test, y_test,
-                                    self.batch_size)
+                                    self.batch_size,
+                                    kwargs.get("memory_alloc", 4))
 
         if self.nb_classes != nb_classes:
             raise AssertionError("Number of classes in initialized model" +
@@ -743,13 +755,9 @@ class ImSpecTrainer(BaseTrainer):
         Initialize trainer's parameters
         """
         seed = kwargs.get("seed", 1)
-        batch_seed = kwargs.get("batch_seed")
+        kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
         set_train_rng(seed)
-        if batch_seed is None:
-            np.random.seed(seed)
-        else:
-            np.random.seed(batch_seed)
-
+        
         self.in_dim, self.out_dim = in_dim, out_dim
         (self.net,
          self.meta_state_dict) = init_imspec_model(in_dim, out_dim, latent_dim,
@@ -793,7 +801,8 @@ class ImSpecTrainer(BaseTrainer):
                 (except for the number of samples) as y_train
             kwargs:
                 Parameters for train_test_split ('test_size' and 'seed') when
-                separate test set is not provided
+                separate test set is not provided and 'memory_alloc', which
+                sets a threshold (in GBs) for holding entire training data on GPU
         """
 
         if X_test is None or y_test is None:
@@ -803,11 +812,13 @@ class ImSpecTrainer(BaseTrainer):
 
         if self.full_epoch:
             self.train_loader, self.test_loader, dims = init_imspec_dataloaders(
-                X_train, y_train, X_test, y_test, self.batch_size)
+                X_train, y_train, X_test, y_test,
+                self.batch_size, kwargs.get("memory_alloc", 4))
         else:
             (self.X_train, self.y_train,
              self.X_test, self.y_test, dims) = preprocess_training_imspec_data(
-                X_train, y_train, X_test, y_test, self.batch_size)
+                X_train, y_train, X_test, y_test,
+                self.batch_size, kwargs.get("memory_alloc", 4))
 
         if dims[0] != self.in_dim or dims[1] != self.out_dim:
             raise AssertionError(

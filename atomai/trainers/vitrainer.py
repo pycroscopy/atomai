@@ -11,7 +11,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 from typing import Tuple, Type, Optional, Union, Callable
 import torch
 import numpy as np
-from ..utils import set_train_rng
+from ..utils import set_train_rng, get_array_memsize
 
 
 class viBaseTrainer:
@@ -52,13 +52,16 @@ class viBaseTrainer:
                  y_train: Union[torch.Tensor, np.ndarray] = None,
                  X_test: Union[torch.Tensor, np.ndarray] = None,
                  y_test: Union[torch.Tensor, np.ndarray] = None,
-                 ) -> None:
+                 memory_alloc: float = 4) -> None:
         """
         Initializes train and (optionally) test data loaders
         """
-        self.train_iterator = self._set_data(X_train, y_train)
+        all_data = [X_train, y_train, X_test, y_test]
+        arrsize = sum([get_array_memsize(x) for x in all_data])
+        store_on_cpu = (arrsize / 1e9) > memory_alloc
+        self.train_iterator = self._set_data(X_train, y_train, store_on_cpu)
         if X_test is not None:
-            self.test_iterator = self._set_data(X_test, y_test)
+            self.test_iterator = self._set_data(X_test, y_test, store_on_cpu)
 
     def _2torch(self,
                 X: Union[np.ndarray, torch.Tensor],
@@ -75,7 +78,8 @@ class viBaseTrainer:
 
     def _set_data(self,
                   X: Union[np.ndarray, torch.Tensor],
-                  y: Union[np.ndarray, torch.Tensor] = None
+                  y: Union[np.ndarray, torch.Tensor] = None,
+                  store_on_cpu: bool = False
                   ) -> Type[torch.utils.data.DataLoader]:
         """
         Initializes PyTorch dataloader given a pair of ndarrays/tensors
@@ -83,9 +87,10 @@ class viBaseTrainer:
         if X is None:
             raise AssertionError(
                 "You must provide input train/test data")
+        device_ = 'cpu' if store_on_cpu else self.device
         X, y = self._2torch(X, y)
-        X = X.to(self.device)
-        y = y.to(self.device) if y is not None else y
+        X = X.to(device_)
+        y = y.to(device_) if y is not None else y
         if y is not None:  # VED or cVAE
             data_train = torch.utils.data.TensorDataset(X, y)
         else:  # VAE
@@ -121,32 +126,37 @@ class viBaseTrainer:
                         elbo_fn: Callable = None,
                         training_cycles: int = 100,
                         batch_size: int = 32,
-                        **kwargs: str) -> None:
+                        **kwargs: Union[str, float]) -> None:
         """
         Compiles model's trainer
 
         Args:
-            train_data (tuple):
+            train_data:
                 Train data and (optionally) corresponding targets or labels
-            train_data (tuple):
+            train_data:
                 Test data and (optionally) corresponding targets or labels
             optimizer:
                 Weights optimizer. Defaults to Adam with learning rate 1e-4
-            elbo_fn (python function):
+            elbo_fn:
                 function that calculates elbo loss
-            training_cycles (int):
+            training_cycles:
                 Number of training iterations (aka "epochs")
-            batch_size (int):
+            batch_size:
                 Size of mini-batch for training
+            **kwargs:
+                Additional keyword arguments are 'filename' (for saving model)
+                and 'memory alloc' (threshold for keeping data on GPU)
         """
         self.training_cycles = training_cycles
         self.batch_size = batch_size
         if elbo_fn is not None:
             self.elbo_fn = elbo_fn
+        alloc = kwargs.get("memory_alloc", 4)
         if test_data is not None:
-            self.set_data(*train_data, *test_data)
+            self.set_data(
+                *train_data, *test_data, memory_alloc=alloc)
         else:
-            self.set_data(*train_data)
+            self.set_data(*train_data, memory_alloc=alloc)
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
         if optimizer is None:
@@ -179,10 +189,11 @@ class viBaseTrainer:
         elbo_epoch = 0
         for x in self.train_iterator:
             if len(x) == 1:  # VAE mode
-                x = x[0]
+                x = x[0].to(self.device)
                 y = None
             else:  # VED or cVAE mode
                 x, y = x
+                x, y = x.to(self.device), y.to(self.device)
             b = x.size(0)
             elbo = step(x) if y is None else step(x, y)
             loss = -elbo
@@ -206,10 +217,11 @@ class viBaseTrainer:
         elbo_epoch_test = 0
         for x in self.test_iterator:
             if len(x) == 1:
-                x = x[0]
+                x = x[0].to(self.device)
                 y = None
             else:
                 x, y = x
+                x, y = x.to(self.device), y.to(self.device)
             b = x.size(0)
             if y is None:  # VAE mode
                 elbo = step(x, mode="eval")
