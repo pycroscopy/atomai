@@ -34,6 +34,16 @@ def find_com(image_data: np.ndarray) -> np.ndarray:
     return coordinates
 
 
+def grid2xy(X1: torch.Tensor, X2: torch.Tensor) -> torch.Tensor:
+    """
+    Maps (M, N) grid to (M*N, 2) xy coordinates
+    """
+    X = torch.cat((X1[None], X2[None]), 0)
+    d0, d1 = X.shape[0], X.shape[1] * X.shape[2]
+    X = X.reshape(d0, d1).T
+    return X
+
+
 def imcoordgrid(im_dim: Tuple) -> torch.Tensor:
     """
     Returns a grid with pixel coordinates (used e.g. in rVAE)
@@ -41,9 +51,7 @@ def imcoordgrid(im_dim: Tuple) -> torch.Tensor:
     xx = torch.linspace(-1, 1, im_dim[0])
     yy = torch.linspace(1, -1, im_dim[1])
     x0, x1 = torch.meshgrid(xx, yy)
-    x_coord = torch.stack(
-        [x0.T.flatten(), x1.T.flatten()], axis=1)
-    return x_coord
+    return grid2xy(x0, x1)
 
 
 def transform_coordinates(coord: Union[np.ndarray, torch.Tensor],
@@ -123,7 +131,7 @@ def get_nn_distances(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
         upper_bound (float or int, non-negative):
             Upper distance bound for Query the kd-tree for nearest neighbors.
             Only distances below this value will be counted.
-            
+
     Returns:
         Tuple with list of :math:`atoms \\times nn` arrays of distances
         to nearest neighbors and list of :math:`atoms \\times (nn+1) \\times 3`

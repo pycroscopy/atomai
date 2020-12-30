@@ -197,13 +197,7 @@ class BaseVAE(viBaseTrainer):
         if len(z_sample.size()) == 1:
             z_sample = z_sample[None, ...]
         if self.coord:
-            xx = torch.linspace(-1, 1, self.in_dim[0])
-            yy = torch.linspace(1, -1, self.in_dim[1])
-            x0, x1 = torch.meshgrid(xx, yy)
-            x_coord = torch.stack([x0.T.flatten(), x1.T.flatten()], axis=1)
-            x_coord = x_coord.expand(z_sample.size(0), *x_coord.size())
-            if torch.cuda.is_available():
-                x_coord = x_coord.cuda()
+            x_coord = self.x_coord.expand(z_sample.size(0), *self.x_coord.size())
         z_sample = z_sample.cuda() if torch.cuda.is_available() else z_sample
         if y is not None:
             if isinstance(y, int):
