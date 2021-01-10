@@ -116,7 +116,8 @@ z1, z2, z3 = encoded_mean[:,0], encoded_mean[:, 1:3], encoded_mean[:, 3:]
 
 Finally, it is possible to use AtomAI trainers and predictors for easy work with custom PyTorch models. Suppose we define a custom Pytorch neural network as
 ```python
-# Here ConvBlock and UpsampleBlock are from atomai.nets module
+import torch
+from atomai.nets import ConvBlock, UpsampleBlock 
 torch_encoder = torch.nn.Sequential(
     ConvBlock(ndim=2, nb_layers=1, input_channels=1, output_channels=8, batch_norm=True),
     torch.nn.MaxPool2d(2, 2),
@@ -145,7 +146,7 @@ trainer.set_model(torch_DAE)
 
 # Fix the initialization parameters (for reproducibility)
 set_train_rng(1)
-trainer._reset_weights() # start each time with the same initialization
+trainer._reset_weights()
 trainer._reset_training_history()
 # Compile trainer
 trainer.compile_trainer(
