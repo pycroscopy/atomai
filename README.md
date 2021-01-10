@@ -120,7 +120,7 @@ import torch
 from atomai.nets import ConvBlock, UpsampleBlock 
 
 torch_encoder = torch.nn.Sequential(
-    ConvBlock(ndim=2, nb_layers=1, input_channels=1, output_channels=8, batch_norm=True),
+    ConvBlock(ndim=2, nb_layers=1, input_channels=1, output_channels=8, batch_norm=False),
     torch.nn.MaxPool2d(2, 2),
     ConvBlock(2, 2, 8, 16, batch_norm=False),
     torch.nn.MaxPool2d(2, 2),
