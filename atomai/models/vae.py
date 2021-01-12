@@ -94,43 +94,6 @@ class BaseVAE(viBaseTrainer):
 
         self.coord = coord
 
-    def load_weights(self, filepath: str) -> None:
-        """
-        Loads saved weights
-        """
-        weights = torch.load(filepath, map_location=self.device)
-        encoder_weights = weights["encoder"]
-        decoder_weights = weights["decoder"]
-        self.encoder_net.load_state_dict(encoder_weights)
-        self.encoder_net.eval()
-        self.decoder_net.load_state_dict(decoder_weights)
-        self.decoder_net.eval()
-
-    def save_weights(self, *args: List[str]) -> None:
-        """
-        Saves trained weights
-        """
-        try:
-            savepath = args[0]
-        except IndexError:
-            savepath = "./VAE"
-        torch.save({"encoder": self.encoder_net.state_dict(),
-                   "decoder": self.decoder_net.state_dict()},
-                   savepath + ".tar")
-
-    def save_model(self, *args: List[str]) -> None:
-        """
-        Saves trained weights and the key model parameters
-        """
-        try:
-            savepath = args[0]
-        except IndexError:
-            savepath = "./VAE_metadict"
-        self.metadict["encoder"] = self.encoder_net.state_dict()
-        self.metadict["decoder"] = self.decoder_net.state_dict()
-        self.metadict["optimizer"] = self.optim
-        torch.save(self.metadict, savepath + ".tar")
-
     def encode(self,
                x_test: Union[np.ndarray, torch.Tensor],
                **kwargs: int) -> Tuple[np.ndarray]:
@@ -562,6 +525,7 @@ class BaseVAE(viBaseTrainer):
         self.loss = loss  # this part needs to be handled better
 
         for e in range(self.training_cycles):
+            self.current_epoch = e
             elbo_epoch = self.train_epoch()
             self.loss_history["train_loss"].append(elbo_epoch)
             if self.test_iterator is not None:
@@ -727,6 +691,7 @@ class rVAE(BaseVAE):
         self.translation = translation
         self.dx_prior = None
         self.phi_prior = None
+        self.anneal_dict = None
 
     def elbo_fn(self,
                 x: torch.Tensor,
@@ -774,8 +739,16 @@ class rVAE(BaseVAE):
                 x_reconstr = self.decoder_net(x_coord_, z)
         else:
             x_reconstr = self.decoder_net(x_coord_, z)
-
-        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, phi_prior=self.phi_prior)
+        # KL annealing terms
+        b1 = b2 = 1
+        if isinstance(self.anneal_dict, dict):
+            e_ = self.current_epoch
+            b1 = self.anneal_dict["kl_im"]
+            b2 = self.anneal_dict["kl_rot"]
+            b1 = b1[-1] if len(b1) < e_ + 1 else b1[e_]
+            b2 = b2[-1] if len(b2) < e_ + 1 else b2[e_]
+        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd,
+                            phi_prior=self.phi_prior, b1=b1, b2=b2)
 
     def fit(self,
             X_train: Optional[Union[np.ndarray, torch.Tensor]],
@@ -816,12 +789,14 @@ class rVAE(BaseVAE):
         self.x_coord = imcoordgrid(X_train.shape[1:]).to(self.device)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
+        self.anneal_dict = kwargs.get("anneal_dict")
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
         self.recording = kwargs.get("recording", False)
 
         for e in range(self.training_cycles):
+            self.current_epoch = e
             elbo_epoch = self.train_epoch()
             self.loss_history["train_loss"].append(elbo_epoch)
             if self.test_iterator is not None:
@@ -830,7 +805,7 @@ class rVAE(BaseVAE):
             self.print_statistics(e)
             if self.recording and self.z_dim in [3, 5]:
                 self.manifold2d(savefig=True, filename=str(e))
-        self.save_model(self.filename)
+            self.save_model(self.filename)
         if self.recording and self.z_dim in [3, 5]:
             self.visualize_manifold_learning("./vae_learning")
 

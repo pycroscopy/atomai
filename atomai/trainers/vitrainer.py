@@ -29,6 +29,7 @@ class viBaseTrainer:
         self.train_iterator = None
         self.test_iterator = None
         self.optim = None
+        self.current_epoch = 0
         self.metadict = {}
         self.loss_history = {"train_loss": [], "test_loss": []}
         self.filename = "model"
@@ -45,6 +46,24 @@ class viBaseTrainer:
         self.encoder_net = encoder_net
         self.decoder_net = decoder_net
         self.encoder_net.to(self.device)
+        self.decoder_net.to(self.device)
+
+    def set_encoder(self,
+                    encoder_net: Type[torch.nn.Module]
+                    ) -> None:
+        """
+        Sets an encoder network only
+        """
+        self.encoder_net = encoder_net
+        self.encoder_net.to(self.device)
+
+    def set_decoder(self,
+                    decoder_net: Type[torch.nn.Module]
+                    ) -> None:
+        """
+        Sets a decoder network only
+        """
+        self.decoder_net = decoder_net
         self.decoder_net.to(self.device)
 
     def set_data(self,

@@ -136,6 +136,7 @@ def rvae_loss(reconstr_loss: str,
     else:
         z_mean = z_logsd = torch.zeros((batch_dim, 1))
     phi_prior = kwargs.get("phi_prior", 0.1)
+    b1, b2 = kwargs.get("b1", 1), kwargs.get("b2", 1)
     z_sd = torch.exp(z_logsd)
     phi_sd, phi_logsd = z_sd[:, 0], z_logsd[:, 0]
     z_mean, z_sd, z_logsd = z_mean[:, 1:], z_sd[:, 1:], z_logsd[:, 1:]
@@ -153,9 +154,9 @@ def rvae_loss(reconstr_loss: str,
     else:
         raise NotImplementedError("Reconstruction loss must be 'mse' or 'ce'")
     kl_rot = (-phi_logsd + np.log(phi_prior) +
-                phi_sd**2 / (2 * phi_prior**2) - 0.5)
+              phi_sd**2 / (2 * phi_prior**2) - 0.5)
     kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
-    kl_div = (kl_rot + torch.sum(kl_z, 1)).mean()
+    kl_div = (b1 * torch.sum(kl_z, 1) + b2 * kl_rot).mean()
     return reconstr_error - kl_div
 
 
