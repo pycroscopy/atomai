@@ -198,14 +198,14 @@ class viBaseTrainer:
         return z_mean + z_sd * eps
 
     @classmethod
-    def reparameterize_discrete(self,
+    def reparameterize_discrete(cls,
                                 alpha: torch.Tensor,
                                 tau: float):
         """
         Reparameterization trick for discrete gumbel-softmax distributions
         """
         eps = 1e-12
-        su = torch.rand(alpha.size(), device=self.device)
+        su = alpha.new(alpha.size()).uniform_()
         gumbel = -torch.log(-torch.log(su + eps) + eps)
         log_alpha = torch.log(alpha + eps)
         logit = (log_alpha + gumbel) / tau
