@@ -190,12 +190,26 @@ class viBaseTrainer:
                        z_sd: torch.Tensor
                        ) -> torch.Tensor:
         """
-        Reparameterization trick
+        Reparameterization trick for continuous distributions
         """
         batch_dim = z_mean.size(0)
         z_dim = z_mean.size(1)
         eps = z_mean.new(batch_dim, z_dim).normal_()
         return z_mean + z_sd * eps
+
+    @classmethod
+    def reparameterize_discrete(self,
+                                alpha: torch.Tensor,
+                                tau: float):
+        """
+        Reparameterization trick for discrete gumbel-softmax distributions
+        """
+        eps = 1e-12
+        su = torch.rand(alpha.size(), device=self.device)
+        gumbel = -torch.log(-torch.log(su + eps) + eps)
+        log_alpha = torch.log(alpha + eps)
+        logit = (log_alpha + gumbel) / tau
+        return torch.nn.functional.softmax(logit, dim=1)
 
     def train_epoch(self):
         """
