@@ -91,7 +91,7 @@ class BaseVAE(viBaseTrainer):
                 raise NotImplementedError(
                     "VAE with rotation and translational invariance are " +
                     "available only for 2D image data")
-            self.z_dim = latent_dim + coord
+            self.z_dim = self.z_dim + coord
         self.nb_classes = nb_classes
 
         (encoder_net, decoder_net,
@@ -434,7 +434,7 @@ class BaseVAE(viBaseTrainer):
                 "Traversal of latent space is implemented only for joint",
                 " continuous and discrete latent distributions")
         num_samples = d**2
-        cont_dim = self.z_dim - self.discrete_dim
+        cont_dim = self.z_dim - sum(self.discrete_dim) - self.coord
         # Get continuous latent coordinates
         samples_cont = np.zeros(shape=(num_samples, cont_dim)) + cont_idx_fixed
         cdf_traversal = np.linspace(0.05, 0.95, d)
@@ -963,7 +963,7 @@ class jVAE(BaseVAE):
             and alphas ("class probabilities") for the encoded discrete distribution(s)
         """
         z_encoded = self.encode_(x_new, **kwargs)
-        cont_dim = self.z_dim - self.discrete_dim
+        cont_dim = self.z_dim - sum(self.discrete_dim)
         z_mean = z_encoded[:cont_dim]
         z_sd = z_encoded[cont_dim:cont_dim+cont_dim]
         alphas = z_encoded[cont_dim+cont_dim:]
@@ -1067,7 +1067,7 @@ class jrVAE(BaseVAE):
             loss: str = "mse",
             **kwargs) -> None:
         """
-        Trains rVAE model
+        Trains jrVAE model
 
         Args:
             X_train:
@@ -1131,7 +1131,7 @@ class jrVAE(BaseVAE):
             and alphas ("class probabilities") for the encoded discrete distribution(s)
         """
         z_encoded = self.encode_(x_new, **kwargs)
-        cont_dim = self.z_dim - self.discrete_dim
+        cont_dim = self.z_dim - sum(self.discrete_dim)
         z_mean = z_encoded[:cont_dim]
         z_sd = z_encoded[cont_dim:cont_dim+cont_dim]
         alphas = z_encoded[cont_dim+cont_dim:]
