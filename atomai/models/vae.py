@@ -92,6 +92,7 @@ class BaseVAE(viBaseTrainer):
                     "VAE with rotation and translational invariance are " +
                     "available only for 2D image data")
             self.z_dim = self.z_dim + coord
+            self.x_coord = imcoordgrid(in_dim).to(self.device)
         self.nb_classes = nb_classes
 
         (encoder_net, decoder_net,
@@ -762,7 +763,6 @@ class rVAE(BaseVAE):
         args = (in_dim, latent_dim, nb_classes, coord)
         super(rVAE, self).__init__(*args, **kwargs)
         set_train_rng(seed)
-        self.x_coord = None
         self.translation = translation
         self.dx_prior = None
         self.phi_prior = None
@@ -861,7 +861,6 @@ class rVAE(BaseVAE):
                 saves a learned 2d manifold at each training step
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
-        self.x_coord = imcoordgrid(X_train.shape[1:]).to(self.device)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
         self.anneal_dict = kwargs.get("anneal_dict")
@@ -895,7 +894,7 @@ class jVAE(BaseVAE):
                  **kwargs: Union[int, bool, str]
                  ) -> None:
         """
-        Initializes rVAE model
+        Initializes jVAE model
         """
         args = (in_dim, latent_dim, 0, 0, discrete_dim)
         super(jVAE, self).__init__(*args, **kwargs)
@@ -1040,7 +1039,6 @@ class jrVAE(BaseVAE):
         args = (in_dim, latent_dim, nb_classes, coord, discrete_dim)
         super(jrVAE, self).__init__(*args, **kwargs)
         set_train_rng(seed)
-        self.x_coord = None
         self.translation = translation
         self.dx_prior = None
         self.phi_prior = None
@@ -1144,7 +1142,6 @@ class jrVAE(BaseVAE):
                 saves a learned 2d manifold at each training step
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
-        self.x_coord = imcoordgrid(X_train.shape[1:]).to(self.device)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
         self.anneal_dict = kwargs.get("anneal_dict")
