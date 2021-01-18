@@ -433,6 +433,9 @@ class BaseVAE(viBaseTrainer):
             raise TypeError(
                 "Traversal of latent space is implemented only for joint",
                 " continuous and discrete latent distributions")
+        if len(self.in_dim) == 3 and self.in_dim[-1] != 3:
+            raise ValueError(
+                "This works only for a single channel and 3-channel images")
         num_samples = d**2
         cont_dim = self.z_dim - sum(self.discrete_dim) - self.coord
         # Get continuous latent coordinates
@@ -444,20 +447,23 @@ class BaseVAE(viBaseTrainer):
                 samples_cont[i * d + j, cont_idx] = cont_traversal[j]
         # Get discrete latent coordinates
         disc_dim = self.discrete_dim[0]
+        n = np.arange(0, disc_dim)
+        n = np.tile(n, d // disc_dim + 1)[:d]
         samples_disc = []
         for i in range(d):
             samples_disc_i = np.zeros((d, disc_dim))
-            samples_disc_i[:, i] = 1
+            samples_disc_i[:, n[i]] = 1
             samples_disc.append(samples_disc_i)
         samples_disc = np.concatenate(samples_disc)
         # Put them together and pass through a decoder
         samples = np.concatenate((samples_cont, samples_disc), -1)
         decoded = self.decode(samples)
         # Use a built-in torchvision utility to construct a nice grid
-        grid = make_grid(torch.from_numpy(decoded)[:, None],
+        decoded = decoded.transpose(0, 3, 1, 2) if decoded.ndim == 4 else decoded[:, None]
+        grid = make_grid(torch.from_numpy(decoded),
                          nrow=d, padding=kwargs.get("pad", 2)).numpy()
-        if len(self.in_dim) == 2:  # for grayscale images take a single channel
-            grid = grid[0]
+        grid = grid.transpose(1, 2, 0) if len(self.in_dim) == 3 else grid[0]
+        grid = (grid - grid.min()) / grid.ptp()
         if plot:
             plt.figure(figsize=(12, 12))
             plt.imshow(grid, cmap='gnuplot',
@@ -974,13 +980,56 @@ class jrVAE(BaseVAE):
     """
     Rotationally-invariant VAE for joint continuous and
     discrete latent variables.
+
+    Args:
+        in_dim:
+            Input dimensions for image data passed as (heigth, width)
+            for grayscale data or (height, width, channels)
+            for multichannel data
+        latent_dim:
+            Number of latent dimensions associated with image content
+        discrete_dim:
+            List specifying dimensionalities of discrete (Gumbel-Softmax)
+            latent variables associated with image content
+        nb_classes:
+            Number of classes for class-conditional rVAE
+        translation:
+            account for xy shifts of image content (Default: True)
+        seed:
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units in decoder (Default: 128)
+        **skip (bool):
+            uses generative skip model with residual paths between
+            latents and decoder layers (Default: False)
+        **temperature (float):
+            Relaxation parameter for Gumbel-Softmax distribution
+
+    Example:
+
+    >>> input_dim = (28, 28)  # intput dimensions
+    >>> # Intitialize model
+    >>> rvae = aoi.models.rVAE(input_dim, latent_dim=2, discrete_dim=[10])
+    >>> # Train
+    >>> rvae.fit(imstack_train, training_cycles=100,
+                 batch_size=100, rotation_prior=np.pi/4)
+    >>> rvae.manifold2d(origin="upper", cmap="gnuplot2")
+
     """
     def __init__(self,
                  in_dim: int = None,
                  latent_dim: int = 2,
+                 discrete_dim: List[int] = [2],
                  nb_classes: int = 0,
                  translation: bool = True,
-                 discrete_dim: List[int] = [1],
                  seed: int = 0,
                  **kwargs: Union[int, bool, str]
                  ) -> None:
