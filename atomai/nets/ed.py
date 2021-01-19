@@ -723,6 +723,7 @@ def init_VAE_nets(in_dim: Tuple[int],
     numhidden_e = kwargs.get("numhidden_encoder", 128)
     numhidden_d = kwargs.get("numhidden_decoder", 128)
     skip = kwargs.get("skip", False)
+    sigmoid_out = kwargs.get("sigmoid_out", False)
 
     discrete_dim_ = 0
     if discrete_dim:
@@ -758,7 +759,8 @@ def init_VAE_nets(in_dim: Tuple[int],
         "numhidden_decoder": numhidden_d,
         "skip": skip,
         "nb_classes": nb_classes,
-        "discrete_dim": discrete_dim
+        "discrete_dim": discrete_dim,
+        "sigmoid_out": sigmoid_out
     }
     if not coord:
         meta_state_dict["conv_decoder"] = conv_d

@@ -99,7 +99,7 @@ class BaseVAE(viBaseTrainer):
          self.metadict) = init_VAE_nets(
             in_dim, latent_dim, coord, discrete_dim, nb_classes, **kwargs)
         self.set_model(encoder_net, decoder_net)
-
+        self.sigmoid_out = self.metadict["sigmoid_out"]
         self.coord = coord
 
     def encode_(self,
@@ -202,6 +202,8 @@ class BaseVAE(viBaseTrainer):
                 x_decoded = self.decoder_net(x_coord, z_sample)
             else:
                 x_decoded = self.decoder_net(z_sample)
+        if self.sigmoid_out:
+            x_decoded = torch.sigmoid(x_decoded)
         imdec = x_decoded.cpu().numpy()
         return imdec
 
@@ -596,7 +598,9 @@ class BaseVAE(viBaseTrainer):
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
-
+        if self.loss == "ce":
+            self.sigmoid_out = True  # Use sigmoid layer for "prediction" stage
+            self.metadict["sigmoid_out"] = True
         for e in range(self.training_cycles):
             self.current_epoch = e
             elbo_epoch = self.train_epoch()
@@ -867,6 +871,9 @@ class rVAE(BaseVAE):
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
+        if self.loss == "ce":
+            self.sigmoid_out = True  # Use sigmoid layer for "prediction" stage
+            self.metadict["sigmoid_out"] = True
         self.recording = kwargs.get("recording", False)
 
         for e in range(self.training_cycles):
@@ -1009,9 +1016,7 @@ class jrVAE(BaseVAE):
         **skip (bool):
             uses generative skip model with residual paths between
             latents and decoder layers (Default: False)
-        **temperature (float):
-            Relaxation parameter for Gumbel-Softmax distribution
-
+        
     Example:
 
     >>> input_dim = (28, 28)  # intput dimensions
@@ -1136,18 +1141,34 @@ class jrVAE(BaseVAE):
                 translation prior
             **rotation_prior (float):
                 rotational prior
+            **temperature (float):
+                Relaxation parameter for Gumbel-Softmax distribution
+            **cont_capacity (list):
+                List containing (min_capacity, max_capacity, num_iters, gamma_z)
+                parameters to control the capacity of the continuous latent
+                channels. Default values: [0.0, 5.0, 25000, 30].
+                Based on https://arxiv.org/abs/1804.00104
+            **disc_capacity (list):
+                List containing (min_capacity, max_capacity, num_iters, gamma_c)
+                parameters to control the capacity of the discrete latent channels.
+                Default values: [0.0, 5.0, 25000, 30].
+                Based on https://arxiv.org/abs/1804.00104
             **filename (str):
                 file path for saving model aftereach training cycle ("epoch")
-            **recording (bool):
-                saves a learned 2d manifold at each training step
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.phi_prior = kwargs.get("rotation_prior", 0.1)
         self.anneal_dict = kwargs.get("anneal_dict")
+        for k, v in kwargs.items():
+            if k in ["cont_capacity", "disc_capacity", "temperature"]:
+                self.kdict_[k] = v
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
+        if self.loss == "ce":
+            self.sigmoid_out = True  # Use sigmoid layer for "prediction" stage
+            self.metadict["sigmoid_out"] = True
         self.recording = kwargs.get("recording", False)
 
         for e in range(self.training_cycles):
