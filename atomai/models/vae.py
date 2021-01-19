@@ -365,7 +365,8 @@ class BaseVAE(viBaseTrainer):
             **d (int): grid size
             **l1 (list): range of 1st latent variable
             **l2 (list): range of 2nd latent variable
-            **label(int): label in class-conditioned (r)VAE
+            **label (int): label in class-conditioned (r)VAE
+            **disc_idx (int): discrete "class"
             **cmap (str): color map (Default: gnuplot)
             **draw_grid (bool): plot semi-transparent grid
             **origin (str): plot origin (e.g. 'lower')
@@ -389,9 +390,14 @@ class BaseVAE(viBaseTrainer):
             grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
             grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
 
+        if self.discrete_dim:
+            z_disc = np.zeros((sum(self.discrete_dim)))[None]
+            z_disc[:, kwargs.get("disc_idx", 0)] = 1
         for i, yi in enumerate(grid_x):
             for j, xi in enumerate(grid_y):
                 z_sample = np.array([[xi, yi]])
+                if self.discrete_dim:
+                    z_sample = np.concatenate((z_sample, z_disc), -1)
                 if y is not None:
                     imdec = self.decode(z_sample, y)
                 else:
@@ -467,6 +473,8 @@ class BaseVAE(viBaseTrainer):
                          nrow=d, padding=kwargs.get("pad", 2)).numpy()
         grid = grid.transpose(1, 2, 0) if len(self.in_dim) == 3 else grid[0]
         grid = (grid - grid.min()) / grid.ptp()
+        if not kwargs.get("keep_square", False) and disc_dim != d:
+            grid = grid[:self.in_dim[0] * disc_dim]
         if plot:
             plt.figure(figsize=(12, 12))
             plt.imshow(grid, cmap='gnuplot',
