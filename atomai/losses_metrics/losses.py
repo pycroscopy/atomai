@@ -176,12 +176,12 @@ def joint_vae_loss(reconstr_loss: str,
     else:
         z_mean = z_logsd = torch.zeros((batch_dim, 1))
         alphas = [torch.zeros((batch_dim, 1))]
-    
+
     cont_capacity = kwargs.get("cont_capacity", [0.0, 5.0, 25000, 30])
     disc_capacity = kwargs.get("disc_capacity", [0.0, 5.0, 25000, 30])
     num_iter = kwargs.get("num_iter", 0)
     disc_dims = [a.size(1) for a in alphas]
-    
+
     # Calculate reconstruction loss
     if reconstr_loss == "mse":
         reconstr_error = -0.5 * torch.sum(
@@ -203,7 +203,7 @@ def joint_vae_loss(reconstr_loss: str,
     # Calculate KL term for discrete latent variables
     kl_disc = [kl_discrete_loss(alpha) for alpha in alphas]
     kl_disc_loss = torch.sum(torch.cat(kl_disc))
-    
+
     # Add information capacity terms
     # (based on https://arxiv.org/pdf/1804.00104.pdf &
     # https://github.com/Schlumberger/joint-vae/blob/master/jointvae/training.py)
@@ -247,7 +247,7 @@ def joint_rvae_loss(reconstr_loss: str,
     else:
         z_mean = z_logsd = torch.zeros((batch_dim, 1))
         alphas = [torch.zeros((batch_dim, 1))]
-    
+
     phi_prior = kwargs.get("phi_prior", 0.1)
     b1, b2 = kwargs.get("b1", 1), kwargs.get("b2", 1)
     cont_capacity = kwargs.get("cont_capacity", [0.0, 5.0, 25000, 30])
@@ -280,7 +280,7 @@ def joint_rvae_loss(reconstr_loss: str,
     disc_dims = [a.size(1) for a in alphas]
     kl_disc = [kl_discrete_loss(alpha) for alpha in alphas]
     kl_disc_loss = torch.sum(torch.cat(kl_disc))
-    
+
     # Add information capacity terms
     # (based on https://arxiv.org/pdf/1804.00104.pdf &
     # https://github.com/Schlumberger/joint-vae/blob/master/jointvae/training.py)
@@ -308,11 +308,6 @@ def joint_rvae_loss(reconstr_loss: str,
 
     return reconstr_error - cont_capacity_loss - disc_capacity_loss
 
-    
-    
-    #return reconstr_error - kl_div
-
-
 
 def kl_discrete_loss(alpha: torch.Tensor):
     """
@@ -320,7 +315,7 @@ def kl_discrete_loss(alpha: torch.Tensor):
     uniform categorical distribution.
     (based on https://arxiv.org/pdf/1611.01144, https://arxiv.org/pdf/1804.00104 &
     https://github.com/Schlumberger/joint-vae/blob/master/jointvae/training.py)
-    
+
     Args:
         alpha:
             Parameters of the categorical or Gumbel-Softmax distribution.
