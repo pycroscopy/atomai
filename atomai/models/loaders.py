@@ -67,8 +67,10 @@ def load_seg_model(meta_dict: Dict[str, torch.Tensor]) -> Type[Segmentor]:
     model_name = meta_dict.pop("model")
     nb_classes = meta_dict.pop("nb_classes")
     weights = meta_dict.pop("weights")
+    optimizer = meta_dict.pop("optimizer")
     model = Segmentor(model_name, nb_classes, **meta_dict)
     model.net.load_state_dict(weights)
+    model.optimizer = optimizer
     model.net.eval()
     return model
 
@@ -89,8 +91,10 @@ def load_imspec_model(meta_dict: Dict[str, torch.Tensor]) -> Type[ImSpec]:
     out_dim = meta_dict.pop("out_dim")
     z_dim = meta_dict.pop("latent_dim")
     weights = meta_dict.pop("weights")
+    optimizer = meta_dict.pop("optimizer")
     model = ImSpec(in_dim, out_dim, z_dim, **meta_dict)
     model.net.load_state_dict(weights)
+    model.optimizer = optimizer
     model.net.eval()
     return model
 
@@ -111,11 +115,13 @@ def load_vae_model(meta_dict: Dict[str, torch.Tensor]) -> Type[BaseVAE]:
     latent_dim = meta_dict.pop("latent_dim")
     encoder_weights = meta_dict.pop("encoder")
     decoder_weights = meta_dict.pop("decoder")
+    optimizer = meta_dict.pop("optimizer")
     m = BaseVAE(in_dim, latent_dim, **meta_dict)
     m.encoder_net.load_state_dict(encoder_weights)
     m.encoder_net.eval()
     m.decoder_net.load_state_dict(decoder_weights)
     m.decoder_net.eval()
+    m.optim = optimizer
     return m
 
 

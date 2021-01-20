@@ -109,6 +109,12 @@ class BaseTrainer:
         self.loss_acc = {"train_loss": [], "test_loss": [],
                          "train_accuracy": [], "test_accuracy": []}
 
+    def _delete_optimizer(self) -> None:
+        """
+        Sets optimizer to None.
+        """
+        self.optimizer = None
+    
     def set_data(self,
                  X_train: Union[torch.Tensor, np.ndarray],
                  y_train: Union[torch.Tensor, np.ndarray],
@@ -509,10 +515,11 @@ class BaseTrainer:
                 self.perturb_weights = {"a": .01, "gamma": 1.5, "e_p": e_p}
 
         params = self.net.parameters()
-        if optimizer is None:
-            self.optimizer = torch.optim.Adam(params, lr=1e-3)
-        else:
-            self.optimizer = optimizer(params)
+        if self.optimizer is None:
+            if optimizer is None:
+                self.optimizer = torch.optim.Adam(params, lr=1e-3)
+            else:
+                self.optimizer = optimizer(params)
         self.criterion = self.get_loss_fn(loss, self.nb_classes)
 
         if not self.full_epoch:
@@ -637,7 +644,7 @@ class SegTrainer(BaseTrainer):
                 "No GPU found. The training can be EXTREMELY slow",
                 UserWarning)
         self.meta_state_dict["weights"] = self.net.state_dict()
-        self.meta_state_dict["optimizer"] = self.optimizer
+        #self.meta_state_dict["optimizer"] = self.optimizer
 
     def set_data(self,
                  X_train: Tuple[np.ndarray, torch.Tensor],
@@ -765,7 +772,7 @@ class ImSpecTrainer(BaseTrainer):
 
         self.net.to(self.device)
         self.meta_state_dict["weights"] = self.net.state_dict()
-        self.meta_state_dict["optimizer"] = self.optimizer
+        #self.meta_state_dict["optimizer"] = self.optimizer
 
     def set_data(self,
                  X_train: Union[np.ndarray, torch.Tensor],
