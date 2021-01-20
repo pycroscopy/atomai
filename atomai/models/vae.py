@@ -131,16 +131,16 @@ class BaseVAE(viBaseTrainer):
         x_new = x_new.to(self.device)
         num_batches = kwargs.get("num_batches", 10)
         batch_size = len(x_new) // num_batches
-        z_encoded = np.zeros((x_new.shape[0], self.z_dim))
+        z_encoded = []
         for i in range(num_batches):
             x_i = x_new[i*batch_size:(i+1)*batch_size]
             z_encoded_i = inference()
-            z_encoded[i*batch_size:(i+1)*batch_size] = z_encoded_i
+            z_encoded.append(z_encoded_i)
         x_i = x_new[(i+1)*batch_size:]
         if len(x_i) > 0:
             z_encoded_i = inference()
-            z_encoded[(i+1)*batch_size:] = z_encoded
-        return z_encoded
+            z_encoded.append(z_encoded_i)
+        return np.concatenate(z_encoded)
 
     def encode(self,
                x_new: Union[np.ndarray, torch.Tensor],
@@ -155,12 +155,20 @@ class BaseVAE(viBaseTrainer):
                 number of batches (Default: 10)
 
         Returns:
-            Mean and SD of the encoded distribution(s)
+            Mean and SD of the encoded continuous distribution,
+            and alphas ("class probabilities") for the encoded
+            discrete distribution(s) (if any)
         """
         z = self.encode_(x_new, **kwargs)
-        z_mean = z[:self.z_dim]
-        z_logsd = z[self.z_dim:]
-        return z_mean, z_logsd
+        if not self.discrete_dim:
+            z_mean = z[:, :self.z_dim]
+            z_logsd = z[:, self.z_dim:]
+            return z_mean, z_logsd
+        cont_dim = self.z_dim - sum(self.discrete_dim)
+        z_mean = z[:, :cont_dim]
+        z_logsd = z[:, cont_dim:cont_dim+cont_dim]
+        alphas = z[:, cont_dim+cont_dim:]
+        return z_mean, z_logsd, alphas
 
     def decode(self, z_sample: Union[np.ndarray, torch.Tensor],
                y: Optional[Union[int, np.ndarray, torch.Tensor]] = None
@@ -501,40 +509,6 @@ class BaseVAE(viBaseTrainer):
         duration = kwargs.get("frame_duration", 1)
         animation_from_png(frames_dir, movie_name, duration, remove_dir=False)
 
-    def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
-                *args: torch.Tensor) -> torch.Tensor:
-        """
-        Calculates ELBO
-        """
-        return vae_loss(self.loss, self.in_dim, x, x_reconstr, *args)
-
-    def forward_compute_elbo(self,
-                             x: torch.Tensor,
-                             y: Optional[torch.Tensor] = None,
-                             mode: str = "train"
-                             ) -> torch.Tensor:
-        """
-        VAE's forward pass with training/test loss computation
-        """
-        x = x.to(self.device)
-        if mode == "eval":
-            with torch.no_grad():
-                z_mean, z_logsd = self.encoder_net(x)
-        else:
-            z_mean, z_logsd = self.encoder_net(x)
-        z_sd = torch.exp(z_logsd)
-        z = self.reparameterize(z_mean, z_sd)
-        if y is not None:
-            targets = to_onehot(y, self.nb_classes)
-            z = torch.cat((z, targets), -1)
-        if mode == "eval":
-            with torch.no_grad():
-                x_reconstr = self.decoder_net(z)
-        else:
-            x_reconstr = self.decoder_net(z)
-
-        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd)
-
     def _check_inputs(self,
                       X_train: np.ndarray,
                       y_train: Optional[np.ndarray] = None,
@@ -571,6 +545,125 @@ class BaseVAE(viBaseTrainer):
             raise RuntimeError(
                 "The number of classes specified at initialization must be " +
                 "equal the the number of classes in train and test labels")
+
+    def _2torch(self,
+                X: Union[np.ndarray, torch.Tensor],
+                y: Union[np.ndarray, torch.Tensor] = None
+                ) -> torch.Tensor:
+        """
+        Rules for conversion of numpy arrays to torch tensors
+        """
+        if isinstance(X, np.ndarray):
+            X = torch.from_numpy(X).float()
+        if isinstance(y, np.ndarray):
+            y = torch.from_numpy(y).long()
+        return X, y
+
+    def print_statistics(self, e):
+        """
+        Prints training and (optionally) test loss after each training cycle
+        """
+        if self.test_iterator is not None:
+            template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
+            print(template.format(e+1, self.training_cycles,
+                  -self.loss_history["train_loss"][-1],
+                  -self.loss_history["test_loss"][-1]))
+        else:
+            template = 'Epoch: {}/{}, Training loss: {:.4f}'
+            print(template.format(e+1, self.training_cycles,
+                  -self.loss_history["train_loss"][-1]))
+
+
+class VAE(BaseVAE):
+    """
+    Implements a standard Variational Autoencoder (VAE)
+
+    Args:
+        in_dim:
+            Input dimensions for image data passed as (heigth, width)
+            for grayscale data or (height, width, channels)
+            for multichannel data
+        latent_dim:
+            Number of VAE latent dimensions
+        nb_classes:
+            Number of classes for class-conditional rVAE
+        seed:
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **conv_decoder (bool):
+            use convolutional layers in decoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units OR conv filters in decoder (Default: 128)
+
+    Example:
+
+    >>> input_dim = (28, 28) # Input data dimensions (without n_samples)
+    >>> # Intitialize model
+    >>> vae = aoi.models.VAE(input_dim)
+    >>> # Train
+    >>> vae.fit(imstack_train, training_cycles=100, batch_size=100)
+    >>> # Visualize learned manifold (for 2 latent dimesnions)
+    >>> vae.manifold2d(origin="upper", cmap="gnuplot2)
+
+    One can also pass labels to train a class-conditioned VAE
+
+    >>> # Intitialize model
+    >>> vae = aoi.models.VAE(input_dim, nb_classes=10)
+    >>> # Train
+    >>> vae.fit(imstack_train, labels_train, training_cycles=100, batch_size=100)
+    >>> # Visualize learned manifold for class 1
+    >>> vae.manifold2d(label=1, origin="upper", cmap="gnuplot2")
+    """
+    def __init__(self,
+                 in_dim: int = None,
+                 latent_dim: int = 2,
+                 nb_classes: int = 0,
+                 seed: int = 0,
+                 **kwargs: Union[int, bool, str]
+                 ) -> None:
+        super(VAE, self).__init__(in_dim, latent_dim, nb_classes, 0, **kwargs)
+        set_train_rng(seed)
+
+    def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
+                *args: torch.Tensor) -> torch.Tensor:
+        """
+        Calculates ELBO
+        """
+        return vae_loss(self.loss, self.in_dim, x, x_reconstr, *args)
+
+    def forward_compute_elbo(self,
+                             x: torch.Tensor,
+                             y: Optional[torch.Tensor] = None,
+                             mode: str = "train"
+                             ) -> torch.Tensor:
+        """
+        VAE's forward pass with training/test loss computation
+        """
+        x = x.to(self.device)
+        if mode == "eval":
+            with torch.no_grad():
+                z_mean, z_logsd = self.encoder_net(x)
+        else:
+            z_mean, z_logsd = self.encoder_net(x)
+        z_sd = torch.exp(z_logsd)
+        z = self.reparameterize(z_mean, z_sd)
+        if y is not None:
+            targets = to_onehot(y, self.nb_classes)
+            z = torch.cat((z, targets), -1)
+        if mode == "eval":
+            with torch.no_grad():
+                x_reconstr = self.decoder_net(z)
+        else:
+            x_reconstr = self.decoder_net(z)
+
+        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd)
 
     def fit(self,
             X_train: Union[np.ndarray, torch.Tensor],
@@ -619,89 +712,6 @@ class BaseVAE(viBaseTrainer):
             self.print_statistics(e)
             self.save_model(self.filename)
         return
-
-    def _2torch(self,
-                X: Union[np.ndarray, torch.Tensor],
-                y: Union[np.ndarray, torch.Tensor] = None
-                ) -> torch.Tensor:
-        """
-        Rules for conversion of numpy arrays to torch tensors
-        """
-        if isinstance(X, np.ndarray):
-            X = torch.from_numpy(X).float()
-        if isinstance(y, np.ndarray):
-            y = torch.from_numpy(y).long()
-        return X, y
-
-    def print_statistics(self, e):
-        """
-        Prints training and (optionally) test loss after each training cycle
-        """
-        if self.test_iterator is not None:
-            template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
-            print(template.format(e+1, self.training_cycles,
-                  -self.loss_history["train_loss"][-1],
-                  -self.loss_history["test_loss"][-1]))
-        else:
-            template = 'Epoch: {}/{}, Training loss: {:.4f}'
-            print(template.format(e+1, self.training_cycles,
-                  -self.loss_history["train_loss"][-1]))
-
-
-class VAE(BaseVAE):
-    """
-    Implements a standard Variational Autoencoder (VAE)
-
-    Args:
-        in_dim:
-            Input dimensions for image data passed as (heigth, width)
-            for grayscale data or (height, width, channels)
-            for multichannel data
-        latent_dim:
-            Number of VAE latent dimensions
-        nb_classes:
-            Number of classes for class-conditional rVAE
-        seed:
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units in decoder (Default: 128)
-
-    Example:
-
-    >>> input_dim = (28, 28) # Input data dimensions (without n_samples)
-    >>> # Intitialize model
-    >>> vae = aoi.models.VAE(input_dim)
-    >>> # Train
-    >>> vae.fit(imstack_train, training_cycles=100, batch_size=100)
-    >>> # Visualize learned manifold (for 2 latent dimesnions)
-    >>> vae.manifold2d(origin="upper", cmap="gnuplot2)
-
-    One can also pass labels to train a class-conditioned VAE
-
-    >>> # Intitialize model
-    >>> vae = aoi.models.VAE(input_dim, nb_classes=10)
-    >>> # Train
-    >>> vae.fit(imstack_train, labels_train, training_cycles=100, batch_size=100)
-    >>> # Visualize learned manifold for class 1
-    >>> vae.manifold2d(label=1, origin="upper", cmap="gnuplot2")
-    """
-    def __init__(self,
-                 in_dim: int = None,
-                 latent_dim: int = 2,
-                 nb_classes: int = 0,
-                 seed: int = 0,
-                 **kwargs: Union[int, bool, str]
-                 ) -> None:
-        super(VAE, self).__init__(in_dim, latent_dim, nb_classes, 0, **kwargs)
-        set_train_rng(seed)
 
 
 class rVAE(BaseVAE):
@@ -904,14 +914,15 @@ class jVAE(BaseVAE):
     def __init__(self,
                  in_dim: int = None,
                  latent_dim: int = 2,
-                 discrete_dim: List[int] = [1],
+                 discrete_dim: List[int] = [2],
+                 nb_classes: int = 0,
                  seed: int = 0,
                  **kwargs: Union[int, bool, str]
                  ) -> None:
         """
         Initializes jVAE model
         """
-        args = (in_dim, latent_dim, 0, 0, discrete_dim)
+        args = (in_dim, latent_dim, nb_classes, 0, discrete_dim)
         super(jVAE, self).__init__(*args, **kwargs)
         set_train_rng(seed)
         self.kdict_ = dc(kwargs)
@@ -966,28 +977,58 @@ class jVAE(BaseVAE):
 
         return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, alphas, **self.kdict_)
 
-    def encode(self,
-               x_new: Union[np.ndarray, torch.Tensor],
-               **kwargs: int) -> Tuple[np.ndarray]:
+    def fit(self,
+            X_train: Union[np.ndarray, torch.Tensor],
+            y_train: Optional[Union[np.ndarray, torch.Tensor]] = None,
+            X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
+            y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
+            loss: str = "mse",
+            **kwargs) -> None:
         """
-        Encodes input image data using a trained VAE's encoder
+        Trains joint VAE model
 
         Args:
-            x_new:
-                image array to encode
-            **num_batches:
-                number of batches (Default: 10)
-
-        Returns:
-            Mean and SD of the encoded continuous distribution,
-            and alphas ("class probabilities") for the encoded discrete distribution(s)
+            X_train:
+                For images, 3D or 4D stack of training images with dimensions
+                (n_images, height, width) for grayscale data or
+                or (n_images, height, width, channels) for multi-channel data.
+                For spectra, 2D stack of spectra with dimensions (length,)
+            X_test:
+                3D or 4D stack of test images or 2D stack of spectra with
+                the same dimensions as for the X_train (Default: None)
+            y_train:
+                Vector with labels of dimension (n_images,), where n_images
+                is a number of training images/spectra
+            y_train:
+                Vector with labels of dimension (n_images,), where n_images
+                is a number of test images/spectra
+            loss:
+                reconstruction loss function, "ce" or "mse" (Default: "mse")
+            **filename (str):
+                file path for saving model aftereach training cycle ("epoch")
         """
-        z_encoded = self.encode_(x_new, **kwargs)
-        cont_dim = self.z_dim - sum(self.discrete_dim)
-        z_mean = z_encoded[:cont_dim]
-        z_sd = z_encoded[cont_dim:cont_dim+cont_dim]
-        alphas = z_encoded[cont_dim+cont_dim:]
-        return z_mean, z_sd, alphas
+        self._check_inputs(X_train, y_train, X_test, y_test)
+        self.compile_trainer(
+            (X_train, y_train), (X_test, y_test), **kwargs)
+        self.loss = loss  # this part needs to be handled better
+        if self.loss == "ce":
+            self.sigmoid_out = True  # Use sigmoid layer for "prediction" stage
+            self.metadict["sigmoid_out"] = True
+        for e in range(self.training_cycles):
+            self.current_epoch = e
+            elbo_epoch = self.train_epoch()
+            self.loss_history["train_loss"].append(elbo_epoch)
+            if self.test_iterator is not None:
+                elbo_epoch_test = self.evaluate_model()
+                self.loss_history["test_loss"].append(elbo_epoch_test)
+            self.print_statistics(e)
+            self.update_metadict()
+            self.save_model(self.filename)
+        return
+
+    def update_metadict(self):
+        self.metadict["num_epochs"] = self.current_epoch
+        self.metadict["num_iter"] = self.kdict_["num_iter"]
 
 
 class jrVAE(BaseVAE):
@@ -1127,7 +1168,7 @@ class jrVAE(BaseVAE):
             loss: str = "mse",
             **kwargs) -> None:
         """
-        Trains jrVAE model
+        Trains joint rVAE model
 
         Args:
             X_train:
@@ -1187,30 +1228,12 @@ class jrVAE(BaseVAE):
                 elbo_epoch_test = self.evaluate_model()
                 self.loss_history["test_loss"].append(elbo_epoch_test)
             self.print_statistics(e)
+            self.update_metadict()
             self.save_model(self.filename)
 
-    def encode(self,
-               x_new: Union[np.ndarray, torch.Tensor],
-               **kwargs: int) -> Tuple[np.ndarray]:
-        """
-        Encodes input image data using a trained VAE's encoder
-
-        Args:
-            x_new:
-                image array to encode
-            **num_batches:
-                number of batches (Default: 10)
-
-        Returns:
-            Mean and SD of the encoded continuous distribution,
-            and alphas ("class probabilities") for the encoded discrete distribution(s)
-        """
-        z_encoded = self.encode_(x_new, **kwargs)
-        cont_dim = self.z_dim - sum(self.discrete_dim)
-        z_mean = z_encoded[:cont_dim]
-        z_sd = z_encoded[cont_dim:cont_dim+cont_dim]
-        alphas = z_encoded[cont_dim+cont_dim:]
-        return z_mean, z_sd, alphas
+    def update_metadict(self):
+        self.metadict["num_epochs"] = self.current_epoch
+        self.metadict["num_iter"] = self.kdict_["num_iter"]
 
 
 def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor: # move to utils!
