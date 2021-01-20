@@ -8,10 +8,12 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 
-from typing import Tuple, Type, Optional, Union, Callable
-import torch
+from typing import Callable, Optional, Tuple, Type, Union
+
 import numpy as np
-from ..utils import set_train_rng, get_array_memsize
+import torch
+
+from ..utils import get_array_memsize, reset_bnorm, set_train_rng, weights_init
 
 
 class viBaseTrainer:
@@ -138,6 +140,35 @@ class viBaseTrainer:
         """
         raise NotImplementedError
 
+    def _reset_rng(self, seed: int) -> None:
+        """
+        (re)sets seeds for pytorch and numpy random number generators
+        """
+        set_train_rng(seed)
+
+    def _reset_weights(self) -> None:
+        """
+        Resets weights of convolutional and linear NN layers
+        using Xavier initialization
+        """
+        self.encoder_net.apply(weights_init)
+        self.encoder_net.apply(reset_bnorm)
+        self.decoder_net.apply(weights_init)
+        self.decoder_net.apply(reset_bnorm)
+
+    def _reset_training_history(self) -> None:
+        """
+        Empties training/test losses and accuracies
+        (can be useful for ensemble training)
+        """
+        self.loss_history = {"train_loss": [], "test_loss": []}
+
+    def _delete_optimizer(self) -> None:
+        """
+        Sets optimizer to None.
+        """
+        self.optim = None
+
     def compile_trainer(self,
                         train_data: Tuple[Union[torch.Tensor, np.ndarray]],
                         test_data: Tuple[Union[torch.Tensor, np.ndarray]] = None,
@@ -178,10 +209,11 @@ class viBaseTrainer:
             self.set_data(*train_data, memory_alloc=alloc)
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
-        if optimizer is None:
-            self.optim = torch.optim.Adam(params, lr=1e-4)
-        else:
-            self.optim = optimizer(params)
+        if self.optim is None:
+            if optimizer is None:
+                self.optim = torch.optim.Adam(params, lr=1e-4)
+            else:
+                self.optim = optimizer(params)
         self.filename = kwargs.get("filename", "./model")
 
     @classmethod
@@ -302,4 +334,3 @@ class viBaseTrainer:
         self.encoder_net.eval()
         self.decoder_net.load_state_dict(decoder_weights)
         self.decoder_net.eval()
-
