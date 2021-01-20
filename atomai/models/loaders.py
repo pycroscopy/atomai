@@ -14,11 +14,11 @@ from typing import Type, Tuple, Dict, Union
 import torch
 from .segmentor import Segmentor
 from .imspec import ImSpec
-from .vae import BaseVAE
+from .vae import BaseVAE, VAE, rVAE, jrVAE, jVAE
 from ..utils import average_weights
 
 
-def load_model(filepath: str) -> Union[Segmentor, BaseVAE, ImSpec]:
+def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE], ImSpec]:
     """
     Loads trained AtomAI models
 
@@ -115,8 +115,17 @@ def load_vae_model(meta_dict: Dict[str, torch.Tensor]) -> Type[BaseVAE]:
     latent_dim = meta_dict.pop("latent_dim")
     encoder_weights = meta_dict.pop("encoder")
     decoder_weights = meta_dict.pop("decoder")
+    coord = meta_dict.pop("coord")
     optimizer = meta_dict.pop("optimizer")
-    m = BaseVAE(in_dim, latent_dim, **meta_dict)
+    if coord:
+        translate = True if coord == 3 else False
+        model = jrVAE if meta_dict["discrete_dim"] else rVAE
+        m = model(in_dim, latent_dim, translation=translate, **meta_dict)
+    else:
+        model = jVAE if meta_dict["discrete_dim"] else VAE
+        m = model(in_dim, latent_dim, **meta_dict)
+    if meta_dict["discrete_dim"]:
+        m.kdict_["num_iter"] = meta_dict["num_iter"]
     m.encoder_net.load_state_dict(encoder_weights)
     m.encoder_net.eval()
     m.decoder_net.load_state_dict(decoder_weights)
