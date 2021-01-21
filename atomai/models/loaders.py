@@ -125,7 +125,7 @@ def load_vae_model(meta_dict: Dict[str, torch.Tensor]) -> Type[BaseVAE]:
         model = jVAE if meta_dict["discrete_dim"] else VAE
         m = model(in_dim, latent_dim, **meta_dict)
     if meta_dict["discrete_dim"]:
-        m.kdict_["num_iter"] = meta_dict["num_iter"]
+        m.kdict_["num_iter"] = meta_dict.get("num_iter", 0)
     m.encoder_net.load_state_dict(encoder_weights)
     m.encoder_net.eval()
     m.decoder_net.load_state_dict(decoder_weights)
