@@ -72,10 +72,10 @@ One can also use AtomAI to train an ensemble of models instead of just a single 
 
 ```python
 # Ititialize and compile ensemble trainer
-etrainer = aoi.trainers.EnsembleTrainer("Unet", batch_norm=True, nb_classes=3, with_dilation=False)
+etrainer = aoi.trainers.EnsembleTrainer("Unet", nb_classes=3)
 etrainer.compile_ensemble_trainer(training_cycles=500, compute_accuracy=True, swa=True)
 
-# Train ensemble of models starting every time with new randomly initialized weights
+# Train ensemble of 10 models starting every time with new randomly initialized weights
 smodel, ensemble = etrainer.train_ensemble_from_scratch(
     images, labels, images_test, labels_test, n_models=10)
 ```
