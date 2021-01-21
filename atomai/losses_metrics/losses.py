@@ -249,7 +249,7 @@ def joint_rvae_loss(reconstr_loss: str,
         alphas = [torch.zeros((batch_dim, 1))]
 
     phi_prior = kwargs.get("phi_prior", 0.1)
-    b1, b2 = kwargs.get("b1", 1), kwargs.get("b2", 1)
+    klrot_cap = kwargs.get("klrot_cap", True)
     cont_capacity = kwargs.get("cont_capacity", [0.0, 5.0, 25000, 30])
     disc_capacity = kwargs.get("disc_capacity", [0.0, 5.0, 25000, 30])
     num_iter = kwargs.get("num_iter", 0)
@@ -274,7 +274,10 @@ def joint_rvae_loss(reconstr_loss: str,
     kl_rot = (-phi_logsd + np.log(phi_prior) +
               phi_sd**2 / (2 * phi_prior**2) - 0.5)
     kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
-    kl_cont_loss = (b1 * torch.sum(kl_z, 1) + b2 * kl_rot).mean()
+    if klrot_cap:
+        kl_cont_loss = (torch.sum(kl_z, 1) + kl_rot).mean()
+    else:  # no capacity limit on KL term associated with rotations
+        kl_cont_loss = torch.sum(kl_z, 1).mean()
 
     # Calculate KL term for discrete latent variables
     disc_dims = [a.size(1) for a in alphas]
@@ -292,6 +295,8 @@ def joint_rvae_loss(reconstr_loss: str,
     cont_cap_current = min(cont_cap_current, cont_max)
     # Calculate continuous capacity loss
     cont_capacity_loss = cont_gamma*torch.abs(cont_cap_current - kl_cont_loss)
+    if not klrot_cap:
+        cont_capacity_loss = cont_capacity_loss + kl_rot.mean()
 
     # Linearly increase capacity of discrete channels
     disc_min, disc_max, disc_num_iters, disc_gamma = disc_capacity

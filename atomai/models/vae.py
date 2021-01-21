@@ -1202,15 +1202,18 @@ class jrVAE(BaseVAE):
                 parameters to control the capacity of the discrete latent channels.
                 Default values: [0.0, 5.0, 25000, 30].
                 Based on https://arxiv.org/abs/1804.00104
+            **klrot_cap (bool):
+                Do not control capacity of KL term associated
+                with rotations of coordinate grid
             **filename (str):
                 file path for saving model aftereach training cycle ("epoch")
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
-        self.phi_prior = kwargs.get("rotation_prior", 0.1)
         self.anneal_dict = kwargs.get("anneal_dict")
         for k, v in kwargs.items():
-            if k in ["cont_capacity", "disc_capacity", "temperature"]:
+            if k in ["cont_capacity", "disc_capacity",
+                     "temperature", "phi_prior", "klrot_cap"]:
                 self.kdict_[k] = v
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
