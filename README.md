@@ -146,7 +146,7 @@ trainer = aoi.trainers.BaseTrainer()
 trainer.set_model(torch_DAE)
 
 # Fix the initialization parameters (for reproducibility)
-set_train_rng(1)
+aoi.utils.set_train_rng(1)
 trainer._reset_weights()
 trainer._reset_training_history()
 # Compile trainer
