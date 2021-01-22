@@ -1213,7 +1213,7 @@ class jrVAE(BaseVAE):
         self.anneal_dict = kwargs.get("anneal_dict")
         for k, v in kwargs.items():
             if k in ["cont_capacity", "disc_capacity",
-                     "temperature", "phi_prior", "klrot_cap"]:
+                     "temperature", "rotation_prior", "klrot_cap"]:
                 self.kdict_[k] = v
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
