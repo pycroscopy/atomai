@@ -1120,6 +1120,9 @@ class jrVAE(BaseVAE):
         Joint rVAE's forward pass with training/test loss computation
         """
         tau = self.kdict_.get("temperature", .67)
+        if isinstance(tau, np.ndarray):
+            e_ = self.current_epoch
+            tau = tau[-1] if len(tau) < e_+1 else tau[e_]
         x_coord_ = self.x_coord.expand(x.size(0), *self.x_coord.size())
         x = x.to(self.device)
         if mode == "eval":
