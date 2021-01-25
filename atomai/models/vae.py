@@ -482,7 +482,7 @@ class BaseVAE(viBaseTrainer):
         grid = grid.transpose(1, 2, 0) if len(self.in_dim) == 3 else grid[0]
         grid = (grid - grid.min()) / grid.ptp()
         if not kwargs.get("keep_square", False) and disc_dim != d:
-            grid = grid[:self.in_dim[0] * disc_dim]
+            grid = grid[:(self.in_dim[0]+kwargs.get("pad", 2)) * disc_dim]
         if plot:
             plt.figure(figsize=(12, 12))
             plt.imshow(grid, cmap='gnuplot',
@@ -1120,9 +1120,6 @@ class jrVAE(BaseVAE):
         Joint rVAE's forward pass with training/test loss computation
         """
         tau = self.kdict_.get("temperature", .67)
-        if isinstance(tau, np.ndarray):
-            e_ = self.current_epoch
-            tau = tau[-1] if len(tau) < e_+1 else tau[e_]
         x_coord_ = self.x_coord.expand(x.size(0), *self.x_coord.size())
         x = x.to(self.device)
         if mode == "eval":
