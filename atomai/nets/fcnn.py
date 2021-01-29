@@ -151,19 +151,19 @@ class dilnet(nn.Module):
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
-            Number of filters in 1st convolutional block
-            (gets multiplied by 2 in each next block)
+            Number of filters in first and last convolutional blocks
+            (gets multiplied by 2 for the bottleneck layer)
         dropout:
-            Use / not use dropout in the 3 inner layers
+            Add dropouts to the bottleneck layers (Default: False)
         batch_norm:
-            Use / not use batch normalization after each convolutional layer
+            Add batch normalization for each convolutional layer (Default: True)
         upsampling_mode:
             Select between "bilinear" or "nearest" upsampling method.
             Bilinear is usually more accurate,but adds additional (small)
             randomness. For full reproducibility, consider using 'nearest'
             (this assumes that all other sources of randomness are fixed)
         **layers (list):
-            List with a number of layers for each block.
+            List with a number of layers for each block (Default: [3, 3, 3, 3])
     """
 
     def __init__(self,
