@@ -58,6 +58,7 @@ class BaseVAE(viBaseTrainer):
                  nb_classes: int = 0,
                  coord: int = 0,
                  discrete_dim: Optional[List] = None,
+                 aux_dim: Optional[int] = None,
                  seed: int = 0,
                  **kwargs: Union[int, bool]) -> None:
         super(BaseVAE, self).__init__()
@@ -94,10 +95,12 @@ class BaseVAE(viBaseTrainer):
             self.z_dim = self.z_dim + coord
             self.x_coord = imcoordgrid(in_dim).to(self.device)
         self.nb_classes = nb_classes
+        self.aux_dim = aux_dim
 
         (encoder_net, decoder_net,
          self.metadict) = init_VAE_nets(
-            in_dim, latent_dim, coord, discrete_dim, nb_classes, **kwargs)
+            in_dim, latent_dim, coord, discrete_dim,
+            nb_classes, aux_dim, **kwargs)
         self.set_model(encoder_net, decoder_net)
         self.sigmoid_out = self.metadict["sigmoid_out"]
         self.coord = coord
@@ -1210,10 +1213,11 @@ class jrVAE(BaseVAE):
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
+        self.kdict_["phi_prior"] = kwargs.get("rotation_prior", 0.1)
         self.anneal_dict = kwargs.get("anneal_dict")
         for k, v in kwargs.items():
             if k in ["cont_capacity", "disc_capacity",
-                     "temperature", "rotation_prior", "klrot_cap"]:
+                     "temperature", "klrot_cap"]:
                 self.kdict_[k] = v
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
