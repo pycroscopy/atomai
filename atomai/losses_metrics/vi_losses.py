@@ -14,6 +14,7 @@ def reconstruction_loss(loss_type: str,
                         in_dim: Tuple[int],
                         x: torch.Tensor,
                         x_reconstr: torch.Tensor,
+                        logits: bool = True,
                         ) -> torch.Tensor:
     """
     Computes reconstruction loss (mse or cross-entropy)
@@ -28,9 +29,10 @@ def reconstruction_loss(loss_type: str,
         rs = (np.product(in_dim[:2]),)
         if len(in_dim) == 3:
             rs = rs + (in_dim[-1],)
-        reconstr_loss = F.binary_cross_entropy_with_logits(
-            x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs),
-            reduction='none') * px_size
+        xe = (F.binary_cross_entropy_with_logits if
+              logits else F.binary_cross_entropy)
+        reconstr_loss = xe(x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs),
+                           reduction='none') * px_size
     else:
         raise NotImplementedError("Reconstruction loss must be 'mse' or 'ce'")
     return reconstr_loss
