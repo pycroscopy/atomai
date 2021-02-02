@@ -30,6 +30,7 @@ class viBaseTrainer:
         self.decoder_net = None
         self.train_iterator = None
         self.test_iterator = None
+        self.aux_model_params = []
         self.optim = None
         self.current_epoch = 0
         self.metadict = {}
@@ -207,8 +208,11 @@ class viBaseTrainer:
                 *train_data, *test_data, memory_alloc=alloc)
         else:
             self.set_data(*train_data, memory_alloc=alloc)
+
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
+        for aux_param in self.aux_model_params:
+            params.extend(list(aux_param))
         if self.optim is None:
             if optimizer is None:
                 self.optim = torch.optim.Adam(params, lr=1e-4)
