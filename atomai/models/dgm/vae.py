@@ -2,7 +2,7 @@
 vae.py
 =======
 
-Module for analysis of system "building blocks"" with variational autoencoders
+Module for analysis of system "building blocks" with variational autoencoders
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
@@ -17,13 +17,13 @@ import torch
 from scipy.stats import norm
 from torchvision.utils import make_grid
 
-from ..losses_metrics import (joint_rvae_loss, joint_vae_loss, rvae_loss,
-                              vae_loss)
-from ..nets import init_VAE_nets
-from ..trainers import viBaseTrainer
-from ..utils import (crop_borders, extract_subimages, get_coord_grid,
-                     imcoordgrid, set_train_rng, subimg_trajectories,
-                     transform_coordinates)
+from ...losses_metrics import (joint_rvae_loss, joint_vae_loss, rvae_loss,
+                               vae_loss)
+from ...nets import init_VAE_nets
+from ...trainers import viBaseTrainer
+from ...utils import (crop_borders, extract_subimages, get_coord_grid,
+                      imcoordgrid, set_train_rng, subimg_trajectories,
+                      transform_coordinates, to_onehot)
 
 
 class BaseVAE(viBaseTrainer):
@@ -561,20 +561,6 @@ class BaseVAE(viBaseTrainer):
         if isinstance(y, np.ndarray):
             y = torch.from_numpy(y).long()
         return X, y
-
-    def print_statistics(self, e):
-        """
-        Prints training and (optionally) test loss after each training cycle
-        """
-        if self.test_iterator is not None:
-            template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
-            print(template.format(e+1, self.training_cycles,
-                  -self.loss_history["train_loss"][-1],
-                  -self.loss_history["test_loss"][-1]))
-        else:
-            template = 'Epoch: {}/{}, Training loss: {:.4f}'
-            print(template.format(e+1, self.training_cycles,
-                  -self.loss_history["train_loss"][-1]))
 
 
 class VAE(BaseVAE):
@@ -1242,18 +1228,3 @@ class jrVAE(BaseVAE):
         self.metadict["num_epochs"] = self.current_epoch
         self.metadict["num_iter"] = self.kdict_["num_iter"]
 
-
-def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor: # move to utils!
-    """
-    One-hot encoding of label
-    """
-    if torch.max(idx).item() >= n:
-        raise AssertionError(
-            "Labelling must start from 0 and "
-            "maximum label value must be less than total number of classes")
-    if idx.dim() == 1:
-        idx = idx.unsqueeze(1)
-    device_ = 'cuda' if torch.cuda.is_available() else 'cpu'
-    onehot = torch.zeros(idx.size(0), n, device=device_)
-    onehot.scatter_(1, idx, 1)
-    return onehot

@@ -688,6 +688,50 @@ class coord_latent(nn.Module):
         return h
 
 
+class fcClassifier(nn.Module):
+    """
+    A simple NN classifier
+
+    Args:
+        in_dim: input dimensions
+        nb_classes: number of classes in classification scheme
+        num_layers: number of fully connected layers
+        hidden_dim: number of hidden neurons in each fully-connected layer
+        activation: 'softplus', 'lrelu' or 'tanh' (Default: 'tanh')
+
+    """
+    def __init__(self,
+                 in_dim: Union[Tuple[int], int],
+                 nb_classes: int,
+                 num_layers: int = 1,
+                 hidden_dim: int = 128,
+                 activation: str = "tanh",
+                 ) -> None:
+        """
+        Initialize module parameters
+        """
+        super(fcClassifier, self).__init__()
+        activations = {
+            "softplus": nn.Softplus, "lrelu": nn.LeakyReLU, "tanh": nn.Tanh}
+        if isinstance(in_dim, tuple):
+            in_dim = np.product(in_dim)
+        layers = []
+        for i in range(num_layers):
+            hidden_dim_ = in_dim if i == 0 else hidden_dim
+            layers.extend(
+                [nn.Linear(hidden_dim_, hidden_dim), activations[activation]()])
+        self.layers = nn.Sequential(*layers)
+        self.out = nn.Linear(hidden_dim, nb_classes)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass
+        """
+        x = x.reshape(-1, np.product(x.size()[1:]))
+        x = self.layers(x)
+        return torch.softmax(self.out(x), dim=-1)
+
+
 def init_imspec_model(in_dim: Tuple[int],
                       out_dim: Tuple[int],
                       latent_dim: int,
@@ -725,9 +769,9 @@ def init_imspec_model(in_dim: Tuple[int],
 
 def init_VAE_nets(in_dim: Tuple[int],
                   latent_dim: int,
-                  coord: int,
-                  discrete_dim: Optional[List],
-                  nb_classes: int,
+                  coord: int = 0,
+                  discrete_dim: Optional[List] = None,
+                  nb_classes: int = 0,
                   aux_dim: int = 0,
                   **kwargs
                   ) -> Tuple[Type[nn.Module], Type[nn.Module], Dict[str, Union[int, bool]]]:

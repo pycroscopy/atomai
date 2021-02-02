@@ -298,6 +298,20 @@ class viBaseTrainer:
             elbo_epoch_test += delta / c
         return elbo_epoch_test
 
+    def print_statistics(self, e):
+        """
+        Prints training and (optionally) test loss after each training cycle
+        """
+        if self.test_iterator is not None:
+            template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
+            print(template.format(e+1, self.training_cycles,
+                  -self.loss_history["train_loss"][-1],
+                  -self.loss_history["test_loss"][-1]))
+        else:
+            template = 'Epoch: {}/{}, Training loss: {:.4f}'
+            print(template.format(e+1, self.training_cycles,
+                  -self.loss_history["train_loss"][-1]))
+
     def save_model(self, *args: str) -> None:
         """
         Saves trained weights and the key model parameters
