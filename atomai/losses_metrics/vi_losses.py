@@ -25,14 +25,13 @@ def reconstruction_loss(loss_type: str,
         reconstr_loss = 0.5 * torch.sum(
             (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1)
     elif loss_type == "ce":
-        px_size = np.product(in_dim)
         rs = (np.product(in_dim[:2]),)
         if len(in_dim) == 3:
             rs = rs + (in_dim[-1],)
         xe = (F.binary_cross_entropy_with_logits if
               logits else F.binary_cross_entropy)
         reconstr_loss = xe(x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs),
-                           reduction='none') * px_size
+                           reduction='none').sum(-1)
     else:
         raise NotImplementedError("Reconstruction loss must be 'mse' or 'ce'")
     return reconstr_loss
