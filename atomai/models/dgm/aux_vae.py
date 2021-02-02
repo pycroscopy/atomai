@@ -70,6 +70,7 @@ class ssVAE(viBaseTrainer):
             self.metadict["numlayers_aux_encoder"] = numlayers
             self.metadict["numhidden_aux_encoder"] = numhidden
         self.aux_encoder_net = aux_encoder
+        self.aux_encoder_net.to(self.device)
 
     def set_aux_decoder(self,
                         aux_decoder: Type[torch.nn.Module] = None,
@@ -84,6 +85,7 @@ class ssVAE(viBaseTrainer):
             self.metadict["numlayers_aux_decoder"] = numlayers
             self.metadict["numhidden_aux_decoder"] = numhidden
         self.aux_decoder_net = aux_decoder
+        self.aux_decoder_net.to(self.device)
 
     def set_classifier(self,
                        cls_net: Type[torch.nn.Module] = None,
@@ -97,6 +99,7 @@ class ssVAE(viBaseTrainer):
             self.metadict["numlayers_cls"] = numlayers
             self.metadict["numhidden_cls"] = numhidden
         self.cls_net = cls_net
+        self.cls_net.to(self.device)
 
     def encoders(self, x, y):
         """
@@ -163,7 +166,7 @@ class ssVAE(viBaseTrainer):
         X_sampled = X[bidx * bsize: (bidx + 1) * bsize]
         y_sampled = y[bidx * bsize: (bidx + 1) * bsize]
         y_sampled = to_onehot(y_sampled, self.nb_classes)
-        return X_sampled.to(self.device), y_sampled.to(self.device)
+        return X_sampled, y_sampled
             
     def _forward_compute_elbo(self, x, y=None):
         """
@@ -273,4 +276,8 @@ class ssVAE(viBaseTrainer):
             X = torch.from_numpy(X).float()
         if isinstance(y, np.ndarray):
             y = torch.from_numpy(y).long()
+        if X is not None:
+            X = X.to(self.device)
+        if y is not None:
+            y = y.to(self.device)
         return X, y
