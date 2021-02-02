@@ -706,7 +706,7 @@ class fcClassifier(nn.Module):
                  aux_dim: int = 0,
                  num_layers: int = 1,
                  hidden_dim: int = 128,
-                 activation: str = "tanh",
+                 activation: str = "lrelu",
                  ) -> None:
         """
         Initialize module parameters
