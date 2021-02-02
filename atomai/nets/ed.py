@@ -703,6 +703,7 @@ class fcClassifier(nn.Module):
     def __init__(self,
                  in_dim: Union[Tuple[int], int],
                  nb_classes: int,
+                 aux_dim: int = 0,
                  num_layers: int = 1,
                  hidden_dim: int = 128,
                  activation: str = "tanh",
@@ -713,8 +714,7 @@ class fcClassifier(nn.Module):
         super(fcClassifier, self).__init__()
         activations = {
             "softplus": nn.Softplus, "lrelu": nn.LeakyReLU, "tanh": nn.Tanh}
-        if isinstance(in_dim, tuple):
-            in_dim = np.product(in_dim)
+        in_dim = np.product(in_dim) + aux_dim
         layers = []
         for i in range(num_layers):
             hidden_dim_ = in_dim if i == 0 else hidden_dim

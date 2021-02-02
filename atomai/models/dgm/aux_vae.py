@@ -54,7 +54,9 @@ class ssVAE(viBaseTrainer):
         self.set_aux_decoder(**kwargs)
         # Set classifier
         self.set_classifier(**kwargs)
-        # Add information about classifier atchitecture to dictionary
+        self.aux_model_params = [self.aux_decoder_net.parameters(),
+                                 self.aux_encoder_net.parameters(),
+                                 self.cls_net.parameters()]
 
     def set_aux_encoder(self,
                         aux_encoder: Type[torch.nn.Module] = None,
@@ -90,8 +92,8 @@ class ssVAE(viBaseTrainer):
             numhidden = kwargs.get("numhidden_cls", 128)
             numlayers = kwargs.get("numlayers_cls", 1)
             cls_net = fcClassifier(
-                self.in_dim, self.nb_classes,
-                hidden_dim=numhidden, num_layers=numlayers)
+                self.in_dim, self.nb_classes, self.aux_dim,
+                numlayers, numhidden)
             self.metadict["numlayers_cls"] = numlayers
             self.metadict["numhidden_cls"] = numhidden
         self.cls_net = cls_net
@@ -122,7 +124,6 @@ class ssVAE(viBaseTrainer):
         # Main generative process p(x|z,y)
         z_vec = torch.cat((z, y), -1)
         x_reconstr = self.decoder_net(z_vec)
-
         # auxillary generative p(a|z,y,x)
         x = x.view(-1, np.product(x.shape[1:]))
         z_vec = torch.cat((x, y, z), -1)
@@ -130,12 +131,22 @@ class ssVAE(viBaseTrainer):
 
         return x_reconstr, (p_a_mean, p_a_log_sd)
 
+    def classify(self, x):
+        # Auxiliary inference q(a|x)
+        q_a_mean, q_a_logsd = self.aux_encoder_net(x)
+        # Reparametrization
+        q_a = self.reparameterize(q_a_mean, torch.exp(q_a_logsd))
+        # Classification q(y|a,x)
+        x = x.view(-1, np.product(x.shape[1:]))
+        logits_softmax = self.cls_net(torch.cat([x, q_a], dim=1))
+        return logits_softmax
+
     def elbo_fn(self, x, x_reconstr, *args):
         """
         Computes ELBO
         """
         likelihood = -reconstruction_loss(
-            self.loss, self.in_dim, x, x_reconstr, logits=True).sum(-1)
+            self.loss, self.in_dim, x, x_reconstr, logits=True)
         z_mean, z_log_sd, q_a_mean, q_a_logsd, p_a_mean, p_a_logsd = args
         kl_main = kld_normal([z_mean, z_log_sd])
         kl_aux = kld_normal([q_a_mean, q_a_logsd], [p_a_mean, p_a_logsd])
@@ -152,7 +163,7 @@ class ssVAE(viBaseTrainer):
         X_sampled = X[bidx * bsize: (bidx + 1) * bsize]
         y_sampled = y[bidx * bsize: (bidx + 1) * bsize]
         y_sampled = to_onehot(y_sampled, self.nb_classes)
-        return X_sampled, y_sampled
+        return X_sampled.to(self.device), y_sampled.to(self.device)
             
     def _forward_compute_elbo(self, x, y=None):
         """
@@ -177,16 +188,16 @@ class ssVAE(viBaseTrainer):
         # Compute ELBO for the sampled labeled data
         L_m = self._forward_compute_elbo(x_l, y_l).mean()
         # Add classification loss on unlabeled part
-        logits_softmax = self.cls_net(x)
+        logits_softmax = self.classify(x)
         L = L.view_as(logits_softmax.t()).t()
         H = -torch.sum(logits_softmax * torch.log(logits_softmax + 1e-8), dim=-1)
         L = torch.sum(logits_softmax * L, -1)
         U_m = torch.mean(L + H)  # -U(x) in Eq(11)
         # Add classification loss on labeled part
-        logits_softmax = self.cls_net(x_l)
-        cls_loss = -torch.sum(y_l * torch.log(logits_softmax + 1e-8), dim=-1)
-
-        J = -L_m - U_m + self.alpha * cls_loss.mean()  # Eq(13)
+        logits_softmax = self.classify(x_l)
+        cls_loss = torch.sum(y_l * torch.log(logits_softmax + 1e-8), dim=-1)
+    
+        J = L_m + U_m + self.alpha * cls_loss.mean()  # Eq(13)
 
         return J
 
@@ -220,8 +231,7 @@ class ssVAE(viBaseTrainer):
             if self.test_iterator is not None:
                 elbo_epoch_test = self.evaluate_model()
                 self.loss_history["test_loss"].append(elbo_epoch_test)
-            print(e)
-            # self.print_statistics(e)  need to define for classification loss
+            self.print_statistics(e)
             self.save_model(self.filename)
 
     def split_data(self,
