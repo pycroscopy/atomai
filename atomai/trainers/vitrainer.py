@@ -247,6 +247,48 @@ class viBaseTrainer:
         logit = (log_alpha + gumbel) / tau
         return torch.nn.functional.softmax(logit, dim=1)
 
+    def kld_normal(self,
+                   z: torch.Tensor,
+                   q_param: Tuple[torch.Tensor],
+                   p_param: Optional[Tuple[torch.Tensor]] = None
+                   ) -> torch.Tensor:
+        """
+        Calculates KL divergence term between two normal distributions
+        or (if p_param = None) between normal and standard normal distributions
+
+        Args:
+            z: latent vector (reparametrized)
+            q_param: tuple with mean and SD of the 1st distribution
+            p_param: tuple with mean and SD of the 2nd distribution (optional)
+        """
+        qz = self.log_normal(z, *q_param)
+        if p_param is None:
+            pz = self.log_unit_normal(z)
+        else:
+            pz = self.log_normal(z, *p_param)
+        return qz - pz
+
+    @classmethod
+    def log_normal(cls,
+                   x: torch.Tensor,
+                   mu: torch.Tensor,
+                   log_sd: torch.Tensor
+                   ) -> torch.Tensor:
+        """
+        Computes log-pdf for a normal distribution
+        """
+        log_pdf = (-0.5 * np.log(2 * np.pi) - log_sd -
+                   (x - mu)**2 / (2 * torch.exp(log_sd)**2))
+        return torch.sum(log_pdf, dim=-1)
+
+    @classmethod
+    def log_unit_normal(cls, x: torch.Tensor) -> torch.Tensor:
+        """
+        Computes log-pdf of a unit normal distribution
+        """
+        log_pdf = -0.5 * (np.log(2 * np.pi) + x ** 2)
+        return torch.sum(log_pdf, dim=-1)
+
     def train_epoch(self):
         """
         Trains a single epoch

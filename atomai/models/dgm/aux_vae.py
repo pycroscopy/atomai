@@ -3,7 +3,7 @@ from typing import Optional, Tuple, Union, Type
 import torch
 import numpy as np
 
-from ...losses_metrics import kld_normal, reconstruction_loss
+from ...losses_metrics import reconstruction_loss
 from ...nets import fcEncoderNet, fcClassifier, init_VAE_nets
 from ...trainers import viBaseTrainer
 from ...utils import set_train_rng, to_onehot
@@ -42,7 +42,7 @@ class ssVAE(viBaseTrainer):
         self.z_dim = latent_dim
         self.nb_classes = nb_classes
         self.aux_dim = aux_dim
-        
+
         (encoder_net, decoder_net,
          self.metadict) = init_VAE_nets(
             in_dim, latent_dim, nb_classes=nb_classes,
@@ -118,7 +118,7 @@ class ssVAE(viBaseTrainer):
         z_sd = torch.exp(z_logsd)
         z = self.reparameterize(z_mean, z_sd)
 
-        return (q_a_mean, q_a_logsd), (z, z_mean, z_logsd)
+        return (q_a, q_a_mean, q_a_logsd), (z, z_mean, z_logsd)
 
     def decoders(self, z, y, x):
         """
@@ -144,15 +144,18 @@ class ssVAE(viBaseTrainer):
         logits_softmax = self.cls_net(torch.cat([x, q_a], dim=1))
         return logits_softmax
 
-    def elbo_fn(self, x, x_reconstr, *args):
+    def elbo_fn(self, x, x_reconstr, y, z, q_a, *args):
         """
         Computes ELBO
         """
+        # Reconstruction loss term
         likelihood = -reconstruction_loss(
             self.loss, self.in_dim, x, x_reconstr, logits=True)
+        # KL terms
         z_mean, z_log_sd, q_a_mean, q_a_logsd, p_a_mean, p_a_logsd = args
-        kl_main = kld_normal([z_mean, z_log_sd])
-        kl_aux = kld_normal([q_a_mean, q_a_logsd], [p_a_mean, p_a_logsd])
+        kl_main = self.kld_normal(z, (z_mean, z_log_sd))
+        kl_aux = self.kld_normal(
+            q_a, (q_a_mean, q_a_logsd), (p_a_mean, p_a_logsd))
         return likelihood - (kl_main + kl_aux)
 
     def sample_labeled(self, mode: str = "train") -> Tuple[torch.Tensor]:
@@ -161,13 +164,15 @@ class ssVAE(viBaseTrainer):
             (X, y) = (self.X_train_l, self.y_train_l)
         else:
             (X, y) = (self.X_test_l, self.y_test_l)
-        num_batches = len(X) // bsize
+        num_batches, rem = np.divmod(len(X),  bsize)
+        if rem > bsize // 2:
+            num_batches = num_batches + 1
         bidx = np.random.randint(num_batches)
         X_sampled = X[bidx * bsize: (bidx + 1) * bsize]
         y_sampled = y[bidx * bsize: (bidx + 1) * bsize]
         y_sampled = to_onehot(y_sampled, self.nb_classes)
         return X_sampled, y_sampled
-            
+
     def _forward_compute_elbo(self, x, y=None):
         """
         """
@@ -177,11 +182,11 @@ class ssVAE(viBaseTrainer):
         else:
             xs, ys = x, y
         # Get output of all (main+auxillary) encoders and decoders
-        (q_a_mean, q_a_logsd), (z, z_mean, z_logsd) = self.encoders(xs, ys)
+        (q_a, q_a_mean, q_a_logsd), (z, z_mean, z_logsd) = self.encoders(xs, ys)
         x_reconstr, (p_a_mean, p_a_log_sd) = self.decoders(z, ys, xs)
         # Compute ELBO
         args = (z_mean, z_logsd, q_a_mean, q_a_logsd, p_a_mean, p_a_log_sd)
-        return self.elbo_fn(xs, x_reconstr, *args)
+        return self.elbo_fn(xs, x_reconstr, ys, z, q_a, *args)
 
     def forward_compute_elbo(self, x, mode="train"): # add train and eval modes
         # Compute ELBO for unlabeled data
@@ -194,12 +199,12 @@ class ssVAE(viBaseTrainer):
         logits_softmax = self.classify(x)
         L = L.view_as(logits_softmax.t()).t()
         H = -torch.sum(logits_softmax * torch.log(logits_softmax + 1e-8), dim=-1)
-        L = torch.sum(logits_softmax * L, -1)
+        L = torch.sum(logits_softmax * L, dim=-1)
         U_m = torch.mean(L + H)  # -U(x) in Eq(11)
         # Add classification loss on labeled part
         logits_softmax = self.classify(x_l)
         cls_loss = torch.sum(y_l * torch.log(logits_softmax + 1e-8), dim=-1)
-    
+
         J = L_m + U_m + self.alpha * cls_loss.mean()  # Eq(13)
 
         return J
@@ -252,7 +257,7 @@ class ssVAE(viBaseTrainer):
         return X_labeled, y_labeled, X_unlabeled
 
     def enumerate_discrete(self, x):
-        
+
         def batch(batch_size, label):
             labels = (torch.ones(batch_size, 1) * label).type(torch.LongTensor)
             y = torch.zeros((batch_size, self.nb_classes))
