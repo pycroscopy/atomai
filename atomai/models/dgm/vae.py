@@ -58,7 +58,6 @@ class BaseVAE(viBaseTrainer):
                  nb_classes: int = 0,
                  coord: int = 0,
                  discrete_dim: Optional[List] = None,
-                 aux_dim: Optional[int] = None,
                  seed: int = 0,
                  **kwargs: Union[int, bool]) -> None:
         super(BaseVAE, self).__init__()
@@ -95,12 +94,11 @@ class BaseVAE(viBaseTrainer):
             self.z_dim = self.z_dim + coord
             self.x_coord = imcoordgrid(in_dim).to(self.device)
         self.nb_classes = nb_classes
-        self.aux_dim = aux_dim
 
         (encoder_net, decoder_net,
          self.metadict) = init_VAE_nets(
             in_dim, latent_dim, coord, discrete_dim,
-            nb_classes, aux_dim, **kwargs)
+            nb_classes, **kwargs)
         self.set_model(encoder_net, decoder_net)
         self.sigmoid_out = self.metadict["sigmoid_out"]
         self.coord = coord
