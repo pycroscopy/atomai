@@ -91,7 +91,7 @@ nn_out_mean, nn_out_var = predictor.predict(expdata)
 AtomAI also has built-in [variational autoencoders (VAEs)](https://arxiv.org/abs/1906.02691) for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotationally and/or translationally invariant VAE (rVAE), and class-conditined VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
 ```python
 # Get a stack of subimages from experimental data (e.g. a semantically segmented atomic movie)
-imstack, com, frames = utils.extract_subimages(nn_output, coords, window_size=32)
+imstack, com, frames = aoi.utils.extract_subimages(nn_output, coords, window_size=32)
 
 # Intitialize rVAE model
 input_dim = (32, 32)
