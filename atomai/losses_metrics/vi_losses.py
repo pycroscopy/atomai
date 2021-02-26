@@ -159,30 +159,10 @@ def joint_vae_loss(recon_loss: str,
     kl_disc = [kld_discrete(alpha) for alpha in alphas]
     kl_disc_loss = torch.sum(torch.cat(kl_disc))
 
-    # Add information capacity terms
-    # (based on https://arxiv.org/pdf/1804.00104.pdf &
-    # https://github.com/Schlumberger/joint-vae/blob/master/jointvae/training.py)
-    # Linearly increase capacity of continuous channels
-    cont_min, cont_max, cont_num_iters, cont_gamma = cont_capacity
-    # Increase continuous capacity without exceeding cont_max
-    cont_cap_current = (cont_max - cont_min) * num_iter
-    cont_cap_current = cont_cap_current / float(cont_num_iters) + cont_min
-    cont_cap_current = min(cont_cap_current, cont_max)
-    # Calculate continuous capacity loss
-    cont_capacity_loss = cont_gamma*torch.abs(cont_cap_current - kl_cont_loss)
-
-    # Linearly increase capacity of discrete channels
-    disc_min, disc_max, disc_num_iters, disc_gamma = disc_capacity
-    # Increase discrete capacity without exceeding disc_max or theoretical
-    # maximum (i.e. sum of log of dimension of each discrete variable)
-    disc_cap_current = (disc_max - disc_min) * num_iter
-    disc_cap_current = disc_cap_current / float(disc_num_iters) + disc_min
-    disc_cap_current = min(disc_cap_current, disc_max)
-    # Require float conversion here to not end up with numpy float
-    disc_theory_max = sum([float(np.log(d)) for d in disc_dims])
-    disc_cap_current = min(disc_cap_current, disc_theory_max)
-    # Calculate discrete capacity loss
-    disc_capacity_loss = disc_gamma*torch.abs(disc_cap_current - kl_disc_loss)
+    # Apply information capacity terms to contninuous and discrete channels
+    cargs = [kl_cont_loss, kl_disc_loss, cont_capacity,
+             disc_capacity, disc_dims, num_iter]
+    cont_capacity_loss, disc_capacity_loss = infocapacity(*cargs)
 
     return likelihood - cont_capacity_loss - disc_capacity_loss
 
@@ -227,9 +207,27 @@ def joint_rvae_loss(recon_loss: str,
     kl_disc = [kld_discrete(alpha) for alpha in alphas]
     kl_disc_loss = torch.sum(torch.cat(kl_disc))
 
-    # Add information capacity terms
-    # (based on https://arxiv.org/pdf/1804.00104.pdf &
-    # https://github.com/Schlumberger/joint-vae/blob/master/jointvae/training.py)
+    # Apply information capacity terms to contninuous and discrete channels
+    cargs = [kl_cont_loss, kl_disc_loss, cont_capacity,
+             disc_capacity, disc_dims, num_iter]
+    cont_capacity_loss, disc_capacity_loss = infocapacity(*cargs)
+    if not klrot_cap:
+        cont_capacity_loss = cont_capacity_loss + kl_rot
+
+    return likelihood - cont_capacity_loss - disc_capacity_loss
+
+
+def infocapacity(kl_cont_loss: torch.Tensor,
+                 kl_disc_loss: torch.Tensor,
+                 cont_capacity: List[float],
+                 disc_capacity: List[float],
+                 disc_dims: List[int],
+                 num_iter: int) -> torch.Tensor:
+    """
+    Controls information capacity of the continuous and discrete loss
+    (based on https://arxiv.org/pdf/1804.00104.pdf &
+    https://github.com/Schlumberger/joint-vae/blob/master/jointvae/training.py)
+    """
     # Linearly increase capacity of continuous channels
     cont_min, cont_max, cont_num_iters, cont_gamma = cont_capacity
     # Increase continuous capacity without exceeding cont_max
@@ -238,8 +236,6 @@ def joint_rvae_loss(recon_loss: str,
     cont_cap_current = min(cont_cap_current, cont_max)
     # Calculate continuous capacity loss
     cont_capacity_loss = cont_gamma*torch.abs(cont_cap_current - kl_cont_loss)
-    if not klrot_cap:
-        cont_capacity_loss = cont_capacity_loss + kl_rot
 
     # Linearly increase capacity of discrete channels
     disc_min, disc_max, disc_num_iters, disc_gamma = disc_capacity
@@ -254,4 +250,5 @@ def joint_rvae_loss(recon_loss: str,
     # Calculate discrete capacity loss
     disc_capacity_loss = disc_gamma*torch.abs(disc_cap_current - kl_disc_loss)
 
-    return likelihood - cont_capacity_loss - disc_capacity_loss
+    return cont_capacity_loss, disc_capacity_loss
+
