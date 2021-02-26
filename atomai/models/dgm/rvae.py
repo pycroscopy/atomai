@@ -154,7 +154,7 @@ class rVAE(BaseVAE):
                             phi_prior=self.phi_prior, b1=b1, b2=b2)
 
     def fit(self,
-            X_train: Optional[Union[np.ndarray, torch.Tensor]],
+            X_train: Union[np.ndarray, torch.Tensor],
             y_train: Optional[Union[np.ndarray, torch.Tensor]] = None,
             X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
             y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
