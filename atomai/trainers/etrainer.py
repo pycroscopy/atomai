@@ -95,6 +95,7 @@ class BaseEnsembleTrainer(BaseTrainer):
         self._reset_rng(seed)
         self._reset_weights()
         self._reset_training_history()
+        self._delete_optimizer()
         (X_train, y_train,
          X_test, y_test) = self.preprocess_train_data(
             X_train, y_train, X_test, y_test)
@@ -219,6 +220,7 @@ class BaseEnsembleTrainer(BaseTrainer):
                 self.net.load_state_dict(basemodel_state_dict)
             self._reset_rng(i+2)
             self._reset_training_history()
+            self._delete_optimizer()
             self.compile_trainer(  # Note that here we reinitialize optimizer
                 (X_train, y_train, X_test, y_test),
                 batch_seed=i+2, **self.kdict)
@@ -409,6 +411,7 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         self._reset_rng(seed)
         self._reset_weights()
         self._reset_training_history()
+        self._delete_optimizer()
 
         self.compile_trainer(
             (X_train, y_train, X_test, y_test), **self.kdict)

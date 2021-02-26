@@ -4,8 +4,6 @@ losses.py
 
 Custom Pytorch loss functions
 """
-from typing import Tuple
-import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -89,79 +87,9 @@ class dice_loss(torch.nn.Module):
         return (1 - dice_loss)
 
 
-def vae_loss(reconstr_loss: str,
-             in_dim: Tuple[int],
-             x: torch.Tensor,
-             x_reconstr: torch.Tensor,
-             *args: torch.Tensor
-             ) -> torch.Tensor:
-    """
-    Calculates ELBO
-    """
-    batch_dim = x.size(0)
-    if len(args) == 2:
-        z_mean, z_logsd = args
-    else:
-        z_mean = z_logsd = torch.zeros((batch_dim, 1))
-    z_sd = torch.exp(z_logsd)
-    if reconstr_loss == "mse":
-        reconstr_error = -0.5 * torch.sum(
-            (x_reconstr.reshape(batch_dim, -1) - x.reshape(batch_dim, -1))**2, 1).mean()
-    elif reconstr_loss == "ce":
-        px_size = np.product(in_dim)
-        rs = (np.product(in_dim[:2]),)
-        if len(in_dim) == 3:
-            rs = rs + (in_dim[-1],)
-        reconstr_error = -F.binary_cross_entropy_with_logits(
-            x_reconstr.reshape(-1, *rs), x.reshape(-1, *rs)) * px_size
-    else:
-        raise NotImplementedError("Reconstruction loss must be 'mse' or 'ce'")
-    kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
-    kl_z = torch.sum(kl_z, 1).mean()
-    return reconstr_error - kl_z
-
-
-def rvae_loss(reconstr_loss: str,
-              in_dim: Tuple[int],
-              x: torch.Tensor,
-              x_reconstr: torch.Tensor,
-              *args: torch.Tensor,
-              **kwargs: float) -> torch.Tensor:
-    """
-    Calculates ELBO
-    """
-    batch_dim = x.size(0)
-    if len(args) == 2:
-        z_mean, z_logsd = args
-    else:
-        z_mean = z_logsd = torch.zeros((batch_dim, 1))
-    phi_prior = kwargs.get("phi_prior", 0.1)
-    z_sd = torch.exp(z_logsd)
-    phi_sd, phi_logsd = z_sd[:, 0], z_logsd[:, 0]
-    z_mean, z_sd, z_logsd = z_mean[:, 1:], z_sd[:, 1:], z_logsd[:, 1:]
-    batch_dim = x.size(0)
-    if reconstr_loss == "mse":
-        reconstr_error = -0.5 * torch.sum(
-            (x_reconstr.view(batch_dim, -1) - x.view(batch_dim, -1))**2, 1).mean()
-    elif reconstr_loss == "ce":
-        px_size = np.product(in_dim)
-        rs = (np.product(in_dim[:2]),)
-        if len(in_dim) == 3:
-            rs = rs + (in_dim[-1],)
-        reconstr_error = -F.binary_cross_entropy_with_logits(
-            x_reconstr.view(-1, *rs), x.view(-1, *rs)) * px_size
-    else:
-        raise NotImplementedError("Reconstruction loss must be 'mse' or 'ce'")
-    kl_rot = (-phi_logsd + np.log(phi_prior) +
-                phi_sd**2 / (2 * phi_prior**2) - 0.5)
-    kl_z = -z_logsd + 0.5 * z_sd**2 + 0.5 * z_mean**2 - 0.5
-    kl_div = (kl_rot + torch.sum(kl_z, 1)).mean()
-    return reconstr_error - kl_div
-
-
 def select_loss(loss: str, nb_classes: int = None):
     """
-    Selects loss for a semantic segmentation model training
+    Selects loss for DCNN model training
     """
     if loss == 'ce' and nb_classes is None:
         raise ValueError("For cross-entropy loss function, you must" +

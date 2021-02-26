@@ -14,11 +14,11 @@ from typing import Type, Tuple, Dict, Union
 import torch
 from .segmentor import Segmentor
 from .imspec import ImSpec
-from .vae import BaseVAE
+from .dgm import BaseVAE, VAE, rVAE, jrVAE, jVAE
 from ..utils import average_weights
 
 
-def load_model(filepath: str) -> Union[Segmentor, BaseVAE, ImSpec]:
+def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE], ImSpec]:
     """
     Loads trained AtomAI models
 
@@ -67,8 +67,10 @@ def load_seg_model(meta_dict: Dict[str, torch.Tensor]) -> Type[Segmentor]:
     model_name = meta_dict.pop("model")
     nb_classes = meta_dict.pop("nb_classes")
     weights = meta_dict.pop("weights")
+    optimizer = meta_dict.pop("optimizer")
     model = Segmentor(model_name, nb_classes, **meta_dict)
     model.net.load_state_dict(weights)
+    model.optimizer = optimizer
     model.net.eval()
     return model
 
@@ -89,8 +91,10 @@ def load_imspec_model(meta_dict: Dict[str, torch.Tensor]) -> Type[ImSpec]:
     out_dim = meta_dict.pop("out_dim")
     z_dim = meta_dict.pop("latent_dim")
     weights = meta_dict.pop("weights")
+    optimizer = meta_dict.pop("optimizer")
     model = ImSpec(in_dim, out_dim, z_dim, **meta_dict)
     model.net.load_state_dict(weights)
+    model.optimizer = optimizer
     model.net.eval()
     return model
 
@@ -111,11 +115,22 @@ def load_vae_model(meta_dict: Dict[str, torch.Tensor]) -> Type[BaseVAE]:
     latent_dim = meta_dict.pop("latent_dim")
     encoder_weights = meta_dict.pop("encoder")
     decoder_weights = meta_dict.pop("decoder")
-    m = BaseVAE(in_dim, latent_dim, **meta_dict)
+    coord = meta_dict.pop("coord")
+    optimizer = meta_dict.pop("optimizer")
+    if coord:
+        translate = True if coord == 3 else False
+        model = jrVAE if meta_dict["discrete_dim"] else rVAE
+        m = model(in_dim, latent_dim, translation=translate, **meta_dict)
+    else:
+        model = jVAE if meta_dict["discrete_dim"] else VAE
+        m = model(in_dim, latent_dim, **meta_dict)
+    if meta_dict["discrete_dim"]:
+        m.kdict_["num_iter"] = meta_dict.get("num_iter", 0)
     m.encoder_net.load_state_dict(encoder_weights)
     m.encoder_net.eval()
     m.decoder_net.load_state_dict(decoder_weights)
     m.decoder_net.eval()
+    m.optim = optimizer
     return m
 
 

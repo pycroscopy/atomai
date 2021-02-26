@@ -16,6 +16,18 @@ Fully convolutional neural networks
     :member-order: bysource
     :show-inheritance:
 
+.. autoclass:: atomai.nets.ResHedNet
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+.. autoclass:: atomai.nets.SegResNet
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
 Neural Networks for VAE
 ------------------------
 .. autoclass:: atomai.nets.fcEncoderNet
@@ -84,6 +96,18 @@ Building blocks
     :show-inheritance:
 
 .. autoclass:: atomai.nets.UpsampleBlock
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+.. autoclass:: atomai.nets.ResBlock
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+.. autoclass:: atomai.nets.ResModule
     :members:
     :undoc-members:
     :member-order: bysource

@@ -14,7 +14,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
 
-autodoc_mock_imports = ['torch', 'torch.nn', 'torch.nn.functional']
+autodoc_mock_imports = ['torch', 'torch.nn', 'torch.nn.functional', 'torchvision']
 
 # -- Project information -----------------------------------------------------
 
