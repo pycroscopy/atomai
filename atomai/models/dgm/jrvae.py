@@ -35,6 +35,8 @@ class jrVAE(BaseVAE):
         discrete_dim:
             List specifying dimensionalities of discrete (Gumbel-Softmax)
             latent variables associated with image content
+        nb_classes:
+            Number of classes for class-conditional VAE
         translation:
             account for xy shifts of image content (Default: True)
         seed:
@@ -70,6 +72,7 @@ class jrVAE(BaseVAE):
                  in_dim: int = None,
                  latent_dim: int = 2,
                  discrete_dim: List[int] = [2],
+                 nb_classes: int = 0,
                  translation: bool = True,
                  seed: int = 0,
                  **kwargs: Union[int, bool, str]
@@ -78,7 +81,7 @@ class jrVAE(BaseVAE):
         Initializes joint rVAE model (jrVAE)
         """
         coord = 3 if translation else 1  # xy translations and/or rotation
-        args = (in_dim, latent_dim, 0, coord, discrete_dim)
+        args = (in_dim, latent_dim, nb_classes, coord, discrete_dim)
         super(jrVAE, self).__init__(*args, **kwargs)
         set_train_rng(seed)
         self.translation = translation
