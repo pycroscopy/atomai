@@ -489,7 +489,7 @@ class convDecoderNet(nn.Module):
                  latent_dim: int,
                  num_layers: int = 2,
                  hidden_dim: int = 32,
-                 num_classes: int = 0,
+                 num_classes: int = 0,  # num_classes is redundant (just pass latent_dim = latent_dim + nb_classes in init_vae_nets)
                  **kwargs: float) -> None:
         """
         Initializes network parameters
@@ -549,7 +549,8 @@ class fcDecoderNet(nn.Module):
                  latent_dim: int,
                  num_layers: int = 2,
                  hidden_dim: int = 32,
-                 num_classes: int = 0) -> None:
+                 num_classes: int = 0
+                 ) -> None:  # num_classes is redundant (just pass latent_dim = latent_dim + nb_classes in init_vae_nets)
         """
         Initializes network parameters
         """
@@ -604,7 +605,8 @@ class rDecoderNet(nn.Module):
                  num_layers: int,
                  hidden_dim: int,
                  skip: bool = False,
-                 num_classes: int = 0) -> None:
+                 num_classes: int = 0  # num_classes is redundant (just pass latent_dim = latent_dim + nb_classes in init_vae_nets)
+                 ) -> None:
         """
         Initializes network parameters
         """
@@ -688,50 +690,6 @@ class coord_latent(nn.Module):
         return h
 
 
-class fcClassifier(nn.Module):
-    """
-    A simple NN classifier
-
-    Args:
-        in_dim: input dimensions
-        nb_classes: number of classes in classification scheme
-        num_layers: number of fully connected layers
-        hidden_dim: number of hidden neurons in each fully-connected layer
-        activation: 'softplus', 'lrelu' or 'tanh' (Default: 'tanh')
-
-    """
-    def __init__(self,
-                 in_dim: Union[Tuple[int], int],
-                 nb_classes: int,
-                 aux_dim: int = 0,
-                 num_layers: int = 1,
-                 hidden_dim: int = 128,
-                 activation: str = "lrelu",
-                 ) -> None:
-        """
-        Initialize module parameters
-        """
-        super(fcClassifier, self).__init__()
-        activations = {
-            "softplus": nn.Softplus, "lrelu": nn.LeakyReLU, "tanh": nn.Tanh}
-        in_dim = np.product(in_dim) + aux_dim
-        layers = []
-        for i in range(num_layers):
-            hidden_dim_ = in_dim if i == 0 else hidden_dim
-            layers.extend(
-                [nn.Linear(hidden_dim_, hidden_dim), activations[activation]()])
-        self.layers = nn.Sequential(*layers)
-        self.out = nn.Linear(hidden_dim, nb_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass
-        """
-        x = x.reshape(-1, np.product(x.size()[1:]))
-        x = self.layers(x)
-        return torch.softmax(self.out(x), dim=-1)
-
-
 def init_imspec_model(in_dim: Tuple[int],
                       out_dim: Tuple[int],
                       latent_dim: int,
@@ -772,7 +730,6 @@ def init_VAE_nets(in_dim: Tuple[int],
                   coord: int = 0,
                   discrete_dim: Optional[List] = None,
                   nb_classes: int = 0,
-                  aux_dim: int = 0,
                   **kwargs
                   ) -> Tuple[Type[nn.Module], Type[nn.Module], Dict[str, Union[int, bool]]]:
     """
@@ -803,11 +760,7 @@ def init_VAE_nets(in_dim: Tuple[int],
             in_dim, latent_dim+discrete_dim_, numlayers_d, numhidden_d,
             skip, nb_classes)
     if not discrete_dim:
-        if not aux_dim:
-            enet = convEncoderNet if conv_e else fcEncoderNet
-        else:  # aux_dim activates semi-supervised DGM with auxillary loss
-            enet = fcEncoderNet
-            in_dim = np.product(in_dim) + aux_dim + nb_classes
+        enet = convEncoderNet if conv_e else fcEncoderNet
         encoder_net = enet(
             in_dim, latent_dim + coord, numlayers_e, numhidden_e,
             softplus_out=softplus_out)
@@ -830,7 +783,6 @@ def init_VAE_nets(in_dim: Tuple[int],
         "skip": skip,
         "nb_classes": nb_classes,
         "discrete_dim": discrete_dim,
-        "aux_dim": aux_dim,
         "sigmoid_out": sigmoid_out,
         "softplus_out": softplus_out
     }
