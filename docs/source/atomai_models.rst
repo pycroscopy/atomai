@@ -35,6 +35,24 @@ Rotational Variational Autoencoder (rVAE)
     :member-order: bysource
     :show-inheritance:
 
+Joint Variational Autoencoder (jVAE)
+------------------------------------------
+.. autoclass:: atomai.models.jVAE
+    :members:
+    :inherited-members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+Joint Rotational Variational Autoencoder (jrVAE)
+------------------------------------------------
+.. autoclass:: atomai.models.jrVAE
+    :members:
+    :inherited-members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
 Load trained models
 --------------------
 .. autofunction:: atomai.models.load_model

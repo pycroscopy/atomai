@@ -1,5 +1,5 @@
 """
-imspec.py
+ed.py
 =========
 
 Encoder and decoder modules for VAE/VED and im2spec/spec2im models
@@ -8,7 +8,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 
 """
 
-from typing import Tuple, Type, Union, Dict
+from typing import Tuple, Type, Union, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -230,7 +230,7 @@ class SignalED(nn.Module):
 
 class convEncoderNet(nn.Module):
     """
-    Convolutional rncoder/inference network (for variational autoencoder)
+    Convolutional encoder/inference network (for variational autoencoder)
 
     Args:
         in_dim:
@@ -245,13 +245,16 @@ class convEncoderNet(nn.Module):
         hidden_dim:
             number of neurons in each fully connnected layer (for mlp=True)
             or number of filters in each convolutional layer (for mlp=False)
+        **softplus_out (bool):
+            Optionally applies a softplus activation to the output associated
+            with standard deviation of the encoded distribution
     """
     def __init__(self,
                  in_dim: Tuple[int],
                  latent_dim: int = 2,
                  num_layers: int = 2,
                  hidden_dim: int = 32,
-                 **kwargs: float
+                 **kwargs: Union[float, bool]
                  ) -> None:
         """
         Initializes network parameters
@@ -269,6 +272,7 @@ class convEncoderNet(nn.Module):
         self.reshape_ = hidden_dim * np.product(in_dim[:2])
         self.fc11 = nn.Linear(self.reshape_, latent_dim)
         self.fc12 = nn.Linear(self.reshape_, latent_dim)
+        self._out = nn.Softplus() if kwargs.get("softplus_out") else lambda x: x
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor]:
         """
@@ -281,7 +285,7 @@ class convEncoderNet(nn.Module):
         x = self.conv(x)
         x = x.reshape(-1, self.reshape_)
         z_mu = self.fc11(x)
-        z_logstd = self.fc12(x)
+        z_logstd = self._out(self.fc12(x))
         return z_mu, z_logstd
 
 
@@ -302,12 +306,16 @@ class fcEncoderNet(nn.Module):
         hidden_dim:
             number of neurons in each fully connnected layer (for mlp=True)
             or number of filters in each convolutional layer (for mlp=False)
+        **softplus_out (bool):
+            Optionally applies a softplus activation to the output associated
+            with standard deviation of the encoded distribution
     """
     def __init__(self,
                  in_dim: Tuple[int],
                  latent_dim: int = 2,
                  num_layers: int = 2,
                  hidden_dim: int = 32,
+                 **kwargs: bool
                  ) -> None:
         """
         Initializes network parameters
@@ -321,6 +329,7 @@ class fcEncoderNet(nn.Module):
         self.reshape_ = hidden_dim
         self.fc11 = nn.Linear(self.reshape_, latent_dim)
         self.fc12 = nn.Linear(self.reshape_, latent_dim)
+        self._out = nn.Softplus() if kwargs.get("softplus_out") else lambda x: x
 
     def forward(self, x: torch.Tensor):
         """
@@ -330,8 +339,133 @@ class fcEncoderNet(nn.Module):
         x = self.dense(x)
         x = x.reshape(-1, self.reshape_)
         z_mu = self.fc11(x)
-        z_logstd = self.fc12(x)
+        z_logstd = self._out(self.fc12(x))
         return z_mu, z_logstd
+
+
+class jfcEncoderNet(nn.Module):
+    """
+    Encoder/inference network (for variational autoencoder)
+
+    Args:
+        in_dim:
+            Input dimensions.
+            For images, it is (height, width) or (height, width, channels).
+            For spectra, it is (length,)
+        latent_dim:
+            number of latent dimensions
+            (the first 3 latent dimensions are angle & translations by default)
+        num_layers:
+            number of NN layers
+        hidden_dim:
+            number of neurons in each fully connnected layer (for mlp=True)
+            or number of filters in each convolutional layer (for mlp=False)
+        **softplus_out (bool):
+            Optionally applies a softplus activation to the output associated
+            with standard deviation of the encoded distribution
+    """
+    def __init__(self,
+                 in_dim: Tuple[int],
+                 latent_dim: int = 2,
+                 discrete_dim: List = [1],
+                 num_layers: int = 2,
+                 hidden_dim: int = 32,
+                 **kwargs: bool
+                 ) -> None:
+        """
+        Initializes network parameters
+        """
+        super(jfcEncoderNet, self).__init__()
+        dense = []
+        for i in range(num_layers):
+            input_dim = np.product(in_dim) if i == 0 else hidden_dim
+            dense.extend([nn.Linear(input_dim, hidden_dim), nn.Tanh()])
+        self.dense = nn.Sequential(*dense)
+        self.reshape_ = hidden_dim
+        self.fc11 = nn.Linear(self.reshape_, latent_dim)
+        self.fc12 = nn.Linear(self.reshape_, latent_dim)
+        fc13 = []
+        for disc in discrete_dim:
+            fc13.append(nn.Linear(self.reshape_, disc))
+        self.fc13 = nn.ModuleList(fc13)
+        self._out = nn.Softplus() if kwargs.get("softplus_out") else lambda x: x
+
+    def forward(self, x: torch.Tensor):
+        """
+        Forward pass
+        """
+        x = x.reshape(-1, np.product(x.size()[1:]))
+        x = self.dense(x)
+        x = x.reshape(-1, self.reshape_)
+        encoded = [self.fc11(x), self._out(self.fc12(x))]
+        for fc_ in self.fc13:
+            encoded.append(F.softmax(fc_(x), dim=1))
+        return encoded
+
+
+class jconvEncoderNet(nn.Module):
+    """
+    Convolutional encoder/inference network for joint continuous
+    and discrete distributions (for variational autoencoder)
+
+    Args:
+        in_dim:
+            Input dimensions.
+            For images, it is (height, width) or (height, width, channels).
+            For spectra, it is (length,)
+        latent_dim:
+            number of latent dimensions
+            (the first 3 latent dimensions are angle & translations by default)
+        num_layers:
+            number of NN layers
+        hidden_dim:
+            number of neurons in each fully connnected layer (for mlp=True)
+            or number of filters in each convolutional layer (for mlp=False)
+        **softplus_out (bool):
+            Optionally applies a softplus activation to the output associated
+            with standard deviation of the encoded distribution
+    """
+    def __init__(self,
+                 in_dim: Tuple[int],
+                 latent_dim: int = 2,
+                 discrete_dim: List = [1],
+                 num_layers: int = 2,
+                 hidden_dim: int = 32,
+                 **kwargs: Union[float, bool]
+                 ) -> None:
+        """
+        Initializes network parameters
+        """
+        super(jconvEncoderNet, self).__init__()
+        if len(in_dim) not in (1, 2, 3):
+            raise ValueError(
+                "The input dimensions must be (length,) for 1D data and " +
+                "(height, width) or (height, width, channel) for 2D data")
+        dim = 2 if len(in_dim) > 1 else 1
+        c = in_dim[-1] if len(in_dim) > 2 else 1
+        self.conv = ConvBlock(
+            dim, num_layers, c, hidden_dim,
+            lrelu_a=kwargs.get("lrelu_a", 0.1))
+        self.reshape_ = hidden_dim * np.product(in_dim[:2])
+        self.fc11 = nn.Linear(self.reshape_, latent_dim)
+        self.fc12 = nn.Linear(self.reshape_, latent_dim)
+        fc13 = []
+        for disc in discrete_dim:
+            fc13.append(nn.Linear(self.reshape_, disc))
+        self.fc13 = nn.ModuleList(fc13)
+        self._out = nn.Softplus() if kwargs.get("softplus_out") else lambda x: x
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """
+        Forward pass
+        """
+        x = x.unsqueeze(1) if x.ndim in (2, 3) else x.permute(0, -1, 1, 2)
+        x = self.conv(x)
+        x = x.reshape(-1, self.reshape_)
+        encoded = [self.fc11(x), self._out(self.fc12(x))]
+        for fc_ in self.fc13:
+            encoded.append(F.softmax(fc_(x), dim=1))
+        return encoded
 
 
 class convDecoderNet(nn.Module):
@@ -554,6 +688,50 @@ class coord_latent(nn.Module):
         return h
 
 
+class fcClassifier(nn.Module):
+    """
+    A simple NN classifier
+
+    Args:
+        in_dim: input dimensions
+        nb_classes: number of classes in classification scheme
+        num_layers: number of fully connected layers
+        hidden_dim: number of hidden neurons in each fully-connected layer
+        activation: 'softplus', 'lrelu' or 'tanh' (Default: 'tanh')
+
+    """
+    def __init__(self,
+                 in_dim: Union[Tuple[int], int],
+                 nb_classes: int,
+                 aux_dim: int = 0,
+                 num_layers: int = 1,
+                 hidden_dim: int = 128,
+                 activation: str = "lrelu",
+                 ) -> None:
+        """
+        Initialize module parameters
+        """
+        super(fcClassifier, self).__init__()
+        activations = {
+            "softplus": nn.Softplus, "lrelu": nn.LeakyReLU, "tanh": nn.Tanh}
+        in_dim = np.product(in_dim) + aux_dim
+        layers = []
+        for i in range(num_layers):
+            hidden_dim_ = in_dim if i == 0 else hidden_dim
+            layers.extend(
+                [nn.Linear(hidden_dim_, hidden_dim), activations[activation]()])
+        self.layers = nn.Sequential(*layers)
+        self.out = nn.Linear(hidden_dim, nb_classes)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass
+        """
+        x = x.reshape(-1, np.product(x.size()[1:]))
+        x = self.layers(x)
+        return torch.softmax(self.out(x), dim=-1)
+
+
 def init_imspec_model(in_dim: Tuple[int],
                       out_dim: Tuple[int],
                       latent_dim: int,
@@ -591,8 +769,10 @@ def init_imspec_model(in_dim: Tuple[int],
 
 def init_VAE_nets(in_dim: Tuple[int],
                   latent_dim: int,
-                  coord: int,
-                  nb_classes: int,
+                  coord: int = 0,
+                  discrete_dim: Optional[List] = None,
+                  nb_classes: int = 0,
+                  aux_dim: int = 0,
                   **kwargs
                   ) -> Tuple[Type[nn.Module], Type[nn.Module], Dict[str, Union[int, bool]]]:
     """
@@ -606,19 +786,36 @@ def init_VAE_nets(in_dim: Tuple[int],
     numhidden_e = kwargs.get("numhidden_encoder", 128)
     numhidden_d = kwargs.get("numhidden_decoder", 128)
     skip = kwargs.get("skip", False)
+    sigmoid_out = kwargs.get("sigmoid_out", False)
+    softplus_out = kwargs.get("softplus_out")
+
+    discrete_dim_ = 0
+    if discrete_dim:
+        discrete_dim_ = sum(discrete_dim)
 
     if not coord:
         dnet = convDecoderNet if conv_d else fcDecoderNet
         decoder_net = dnet(
-            in_dim, latent_dim, numlayers_d, numhidden_d,
+            in_dim, latent_dim+discrete_dim_, numlayers_d, numhidden_d,
             nb_classes)
     else:
         decoder_net = rDecoderNet(
-            in_dim, latent_dim, numlayers_d, numhidden_d,
+            in_dim, latent_dim+discrete_dim_, numlayers_d, numhidden_d,
             skip, nb_classes)
-    enet = convEncoderNet if conv_e else fcEncoderNet
-    encoder_net = enet(
-        in_dim, latent_dim + coord, numlayers_e, numhidden_e)
+    if not discrete_dim:
+        if not aux_dim:
+            enet = convEncoderNet if conv_e else fcEncoderNet
+        else:  # aux_dim activates semi-supervised DGM with auxillary loss
+            enet = fcEncoderNet
+            in_dim = np.product(in_dim) + aux_dim + nb_classes
+        encoder_net = enet(
+            in_dim, latent_dim + coord, numlayers_e, numhidden_e,
+            softplus_out=softplus_out)
+    else:
+        enet = jconvEncoderNet if conv_e else jfcEncoderNet
+        encoder_net = enet(
+            in_dim, latent_dim + coord, discrete_dim, numlayers_e, numhidden_e,
+            softplus_out=softplus_out)
 
     meta_state_dict = {
         "model_type": "vae",
@@ -631,7 +828,11 @@ def init_VAE_nets(in_dim: Tuple[int],
         "numhidden_encoder": numhidden_e,
         "numhidden_decoder": numhidden_d,
         "skip": skip,
-        "nb_classes": nb_classes
+        "nb_classes": nb_classes,
+        "discrete_dim": discrete_dim,
+        "aux_dim": aux_dim,
+        "sigmoid_out": sigmoid_out,
+        "softplus_out": softplus_out
     }
     if not coord:
         meta_state_dict["conv_decoder"] = conv_d

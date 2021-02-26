@@ -2,7 +2,7 @@
 vae.py
 =======
 
-Module for analysis of system "building blocks"" with variational autoencoders
+Module for analysis of system "building blocks" with variational autoencoders
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
@@ -14,19 +14,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from scipy.stats import norm
+from torchvision.utils import make_grid
 
-from ..losses_metrics import rvae_loss, vae_loss
-from ..nets import (convDecoderNet, convEncoderNet, fcDecoderNet, fcEncoderNet,
-                    rDecoderNet, init_VAE_nets)
-from ..trainers import viBaseTrainer
-from ..utils import (crop_borders, extract_subimages, get_coord_grid,
-                     imcoordgrid, set_train_rng, subimg_trajectories,
-                     transform_coordinates)
+from ...losses_metrics import vae_loss
+
+from ...nets import init_VAE_nets
+from ...trainers import viBaseTrainer
+from ...utils import (crop_borders, extract_subimages, get_coord_grid,
+                      imcoordgrid, set_train_rng, subimg_trajectories,
+                      to_onehot)
 
 
 class BaseVAE(viBaseTrainer):
     """
-    General class for encoder-decoder type of deep latent variable models
+    General class for VAE models
 
     Args:
         in_dim:
@@ -54,7 +55,8 @@ class BaseVAE(viBaseTrainer):
                  in_dim: Tuple[int],
                  latent_dim: int,
                  nb_classes: int = 0,
-                 coord: bool = True,
+                 coord: int = 0,
+                 discrete_dim: Optional[List] = None,
                  seed: int = 0,
                  **kwargs: Union[int, bool]) -> None:
         super(BaseVAE, self).__init__()
@@ -79,60 +81,69 @@ class BaseVAE(viBaseTrainer):
 
         self.in_dim = in_dim
         self.z_dim = latent_dim
+        if isinstance(discrete_dim, list):
+            self.z_dim = self.z_dim + sum(discrete_dim)
+        self.discrete_dim = discrete_dim
+
         if coord:
             if len(in_dim) not in (2, 3):
                 raise NotImplementedError(
                     "VAE with rotation and translational invariance are " +
                     "available only for 2D image data")
-            self.z_dim = latent_dim + coord
+            self.z_dim = self.z_dim + coord
+            self.x_coord = imcoordgrid(in_dim).to(self.device)
         self.nb_classes = nb_classes
 
         (encoder_net, decoder_net,
          self.metadict) = init_VAE_nets(
-            in_dim, latent_dim, coord, nb_classes, **kwargs)
+            in_dim, latent_dim, coord, discrete_dim,
+            nb_classes, **kwargs)
         self.set_model(encoder_net, decoder_net)
-
+        self.sigmoid_out = self.metadict["sigmoid_out"]
         self.coord = coord
 
-    def load_weights(self, filepath: str) -> None:
+    def encode_(self,
+                x_new: Union[np.ndarray, torch.Tensor],
+                **kwargs: int) -> Tuple[np.ndarray]:
         """
-        Loads saved weights
-        """
-        weights = torch.load(filepath, map_location=self.device)
-        encoder_weights = weights["encoder"]
-        decoder_weights = weights["decoder"]
-        self.encoder_net.load_state_dict(encoder_weights)
-        self.encoder_net.eval()
-        self.decoder_net.load_state_dict(decoder_weights)
-        self.decoder_net.eval()
+        Encodes input image data using a trained VAE's encoder
 
-    def save_weights(self, *args: List[str]) -> None:
-        """
-        Saves trained weights
-        """
-        try:
-            savepath = args[0]
-        except IndexError:
-            savepath = "./VAE"
-        torch.save({"encoder": self.encoder_net.state_dict(),
-                   "decoder": self.decoder_net.state_dict()},
-                   savepath + ".tar")
+        Args:
+            x_test:
+                image array to encode
+            **num_batches:
+                number of batches (Default: 10)
 
-    def save_model(self, *args: List[str]) -> None:
+        Returns:
+            Concatenated array of encoded vectors
         """
-        Saves trained weights and the key model parameters
-        """
-        try:
-            savepath = args[0]
-        except IndexError:
-            savepath = "./VAE_metadict"
-        self.metadict["encoder"] = self.encoder_net.state_dict()
-        self.metadict["decoder"] = self.decoder_net.state_dict()
-        self.metadict["optimizer"] = self.optim
-        torch.save(self.metadict, savepath + ".tar")
+        def inference() -> np.ndarray:
+            with torch.no_grad():
+                encoded = self.encoder_net(x_i)
+            encoded = torch.cat(encoded, -1).cpu().numpy()
+            return encoded
+
+        if isinstance(x_new, np.ndarray):
+            x_new = torch.from_numpy(x_new).float()
+        if (x_new.ndim == len(self.in_dim) == 2 or
+           x_new.ndim == len(self.in_dim) == 3):
+            x_new = x_new.unsqueeze(0)
+        x_new = x_new.to(self.device)
+        num_batches = kwargs.get("num_batches", 10)
+        batch_size = len(x_new) // num_batches
+        z_encoded = []
+        for i in range(num_batches):
+            x_i = x_new[i*batch_size:(i+1)*batch_size]
+            z_encoded_i = inference()
+            z_encoded.append(z_encoded_i)
+        x_i = x_new[(i+1)*batch_size:]
+        if len(x_i) > 0:
+            z_encoded_i = inference()
+            z_encoded.append(z_encoded_i)
+        return np.concatenate(z_encoded)
 
     def encode(self,
-               x_test: Union[np.ndarray, torch.Tensor],
+               x_new: Union[np.ndarray, torch.Tensor],
                **kwargs: int) -> Tuple[np.ndarray]:
         """
         Encodes input image data using a trained VAE's encoder
@@ -144,38 +155,20 @@ class BaseVAE(viBaseTrainer):
                 number of batches (Default: 10)
 
         Returns:
-            Mean and SD of the encoded distribution
+            Mean and SD of the encoded continuous distribution,
+            and alphas ("class probabilities") for the encoded
+            discrete distribution(s) (if any)
         """
-        def inference() -> np.ndarray:
-            with torch.no_grad():
-                z_mean, z_sd = self.encoder_net(x_i)
-            return z_mean.cpu().numpy(), torch.exp(z_sd.cpu()).numpy()
-
-        if isinstance(x_test, np.ndarray):
-            x_test = torch.from_numpy(x_test).float()
-        if (x_test.ndim == len(self.in_dim) == 2 or
-           x_test.ndim == len(self.in_dim) == 3):
-            x_test = x_test.unsqueeze(0)
-        if torch.cuda.is_available():
-            x_test = x_test.cuda()
-            self.encoder_net.cuda()
-        num_batches = kwargs.get("num_batches", 10)
-        batch_size = len(x_test) // num_batches
-        z_mean_all = np.zeros((x_test.shape[0], self.z_dim))
-        z_sd_all = np.zeros((x_test.shape[0], self.z_dim))
-
-        for i in range(num_batches):
-            x_i = x_test[i*batch_size:(i+1)*batch_size]
-            z_mean_i, z_sd_i = inference()
-            z_mean_all[i*batch_size:(i+1)*batch_size] = z_mean_i
-            z_sd_all[i*batch_size:(i+1)*batch_size] = z_sd_i
-        x_i = x_test[(i+1)*batch_size:]
-        if len(x_i) > 0:
-            z_mean_i, z_sd_i = inference()
-            z_mean_all[(i+1)*batch_size:] = z_mean_i
-            z_sd_all[(i+1)*batch_size:] = z_sd_i
-
-        return z_mean_all, z_sd_all
+        z = self.encode_(x_new, **kwargs)
+        if not self.discrete_dim:
+            z_mean = z[:, :self.z_dim]
+            z_logsd = z[:, self.z_dim:]
+            return z_mean, z_logsd
+        cont_dim = self.z_dim - sum(self.discrete_dim)
+        z_mean = z[:, :cont_dim]
+        z_logsd = z[:, cont_dim:cont_dim+cont_dim]
+        alphas = z[:, cont_dim+cont_dim:]
+        return z_mean, z_logsd, alphas
 
     def decode(self, z_sample: Union[np.ndarray, torch.Tensor],
                y: Optional[Union[int, np.ndarray, torch.Tensor]] = None
@@ -197,13 +190,7 @@ class BaseVAE(viBaseTrainer):
         if len(z_sample.size()) == 1:
             z_sample = z_sample[None, ...]
         if self.coord:
-            xx = torch.linspace(-1, 1, self.in_dim[0])
-            yy = torch.linspace(1, -1, self.in_dim[1])
-            x0, x1 = torch.meshgrid(xx, yy)
-            x_coord = torch.stack([x0.T.flatten(), x1.T.flatten()], axis=1)
-            x_coord = x_coord.expand(z_sample.size(0), *x_coord.size())
-            if torch.cuda.is_available():
-                x_coord = x_coord.cuda()
+            x_coord = self.x_coord.expand(z_sample.size(0), *self.x_coord.size())
         z_sample = z_sample.cuda() if torch.cuda.is_available() else z_sample
         if y is not None:
             if isinstance(y, int):
@@ -223,12 +210,14 @@ class BaseVAE(viBaseTrainer):
                 x_decoded = self.decoder_net(x_coord, z_sample)
             else:
                 x_decoded = self.decoder_net(z_sample)
+        if self.sigmoid_out:
+            x_decoded = torch.sigmoid(x_decoded)
         imdec = x_decoded.cpu().numpy()
         return imdec
 
-    def forward_(self,
-                 x_new: Union[np.ndarray, torch.Tensor],
-                 **kwargs: int) -> np.ndarray:
+    def reconstruct(self,
+                    x_new: Union[np.ndarray, torch.Tensor],
+                    **kwargs: int) -> np.ndarray:
         """
         Forward prediction with uncertainty quantification by sampling from
         the encoded mean and std. Works only for regular VAE (and not for rVAE)
@@ -236,6 +225,8 @@ class BaseVAE(viBaseTrainer):
         Args:
             x_new:
                 image array to encode
+            **label:
+                class to be reconstructed (for cVAE, crVAE, jVAE, and jrVAE)
             **num_samples:
                 number of samples to generate from normal distribution
 
@@ -243,20 +234,34 @@ class BaseVAE(viBaseTrainer):
             Ensemble of "decoded" images
         """
         num_samples = kwargs.get("num_samples", 32)
+        label = kwargs.get("label")
         if isinstance(x_new, np.ndarray):
             x_new = torch.from_numpy(x_new).float()
         if torch.cuda.is_available():
             x_new = x_new.cuda()
             self.encoder_net.cuda()
         with torch.no_grad():
-            z_mean, z_logsd = self.encoder_net(x_new)
+            encoded = self.encoder_net(x_new)
+        if len(encoded) == 2:
+            z_mean, z_logsd = encoded
+        else:
+            z_mean, z_logsd, alphas = encoded
+        z_mean = z_mean[:, self.coord:]
+        z_logsd = z_logsd[:, self.coord:]
+        if label is not None:
+            n = self.nb_classes if self.discrete_dim is None else self.discrete_dim  # probably makes sense to use nb_classes for j(r)VAE's discrete_dim
+            alphas = to_onehot(
+                torch.tensor(label).unsqueeze(0).to(self.device),
+                torch.tensor(n).to(self.device))
         z_sd = torch.exp(z_logsd)
         ndist = torch.distributions.Normal(z_mean, z_sd)
         decoded_all = []
         for i in range(num_samples):
             z_sample = ndist.rsample()
             z_sample = z_sample.view(1, -1)
-            decoded_all.append(self.decode_(z_sample))
+            if len(encoded) > 2 or label is not None:
+                z_sample = torch.cat([z_sample, alphas], dim=1)
+            decoded_all.append(self.decode(z_sample))
         decoded_all = np.concatenate(decoded_all, axis=0)
         return decoded_all
 
@@ -374,7 +379,7 @@ class BaseVAE(viBaseTrainer):
             trajectories_enc_all.append(traj_enc)
         return trajectories_enc_all, frames, subimgs_all
 
-    def manifold2d(self, **kwargs: Union[int, List, str, bool]) -> None:
+    def manifold2d(self, **kwargs: Union[int, List, str, bool]) -> None:  # use torchvision's grid here
         """
         Performs mapping from latent space to data space allowing the learned
         manifold to be visualized. This works only for 2d latent variable
@@ -384,7 +389,8 @@ class BaseVAE(viBaseTrainer):
             **d (int): grid size
             **l1 (list): range of 1st latent variable
             **l2 (list): range of 2nd latent variable
-            **label(int): label in class-conditioned (r)VAE
+            **label (int): label in class-conditioned (r)VAE
+            **disc_idx (int): discrete "class"
             **cmap (str): color map (Default: gnuplot)
             **draw_grid (bool): plot semi-transparent grid
             **origin (str): plot origin (e.g. 'lower')
@@ -408,9 +414,14 @@ class BaseVAE(viBaseTrainer):
             grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
             grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
 
+        if self.discrete_dim:
+            z_disc = np.zeros((sum(self.discrete_dim)))[None]
+            z_disc[:, kwargs.get("disc_idx", 0)] = 1
         for i, yi in enumerate(grid_x):
             for j, xi in enumerate(grid_y):
                 z_sample = np.array([[xi, yi]])
+                if self.discrete_dim:
+                    z_sample = np.concatenate((z_sample, z_disc), -1)
                 if y is not None:
                     imdec = self.decode(z_sample, y)
                 else:
@@ -441,6 +452,59 @@ class BaseVAE(viBaseTrainer):
             fig.savefig(os.path.join(savedir, '{}.png'.format(fname)))
             plt.close(fig)
 
+    def manifold_traversal(self, cont_idx: int,
+                           d: int = 10,
+                           cont_idx_fixed: int = 0,
+                           plot: bool = True,
+                           **kwargs: Union[str, float]
+                           ) -> np.ndarray:
+        """
+        Latent space traversals for joint continuous and discrete
+        latent representations
+        """
+        if self.discrete_dim is None:
+            raise TypeError(
+                "Traversal of latent space is implemented only for joint",
+                " continuous and discrete latent distributions")
+        if len(self.in_dim) == 3 and self.in_dim[-1] != 3:
+            raise ValueError(
+                "This works only for a single channel and 3-channel images")
+        num_samples = d**2
+        cont_dim = self.z_dim - sum(self.discrete_dim) - self.coord
+        # Get continuous latent coordinates
+        samples_cont = np.zeros(shape=(num_samples, cont_dim)) + cont_idx_fixed
+        cdf_traversal = np.linspace(0.05, 0.95, d)
+        cont_traversal = norm.ppf(cdf_traversal)
+        for i in range(d):
+            for j in range(d):
+                samples_cont[i * d + j, cont_idx] = cont_traversal[j]
+        # Get discrete latent coordinates
+        disc_dim = self.discrete_dim[0]
+        n = np.arange(0, disc_dim)
+        n = np.tile(n, d // disc_dim + 1)[:d]
+        samples_disc = []
+        for i in range(d):
+            samples_disc_i = np.zeros((d, disc_dim))
+            samples_disc_i[:, n[i]] = 1
+            samples_disc.append(samples_disc_i)
+        samples_disc = np.concatenate(samples_disc)
+        # Put them together and pass through a decoder
+        samples = np.concatenate((samples_cont, samples_disc), -1)
+        decoded = self.decode(samples)
+        # Use a built-in torchvision utility to construct a nice grid
+        decoded = decoded.transpose(0, 3, 1, 2) if decoded.ndim == 4 else decoded[:, None]
+        grid = make_grid(torch.from_numpy(decoded),
+                         nrow=d, padding=kwargs.get("pad", 2)).numpy()
+        grid = grid.transpose(1, 2, 0) if len(self.in_dim) == 3 else grid[0]
+        grid = (grid - grid.min()) / grid.ptp()
+        if not kwargs.get("keep_square", False) and disc_dim != d:
+            grid = grid[:(self.in_dim[0]+kwargs.get("pad", 2)) * disc_dim]
+        if plot:
+            plt.figure(figsize=(12, 12))
+            plt.imshow(grid, cmap='gnuplot',
+                       origin=kwargs.get("origin", "lower"))
+        return grid
+
     @classmethod
     def visualize_manifold_learning(cls,
                                     frames_dir: str,
@@ -460,40 +524,6 @@ class BaseVAE(viBaseTrainer):
         movie_name = kwargs.get("moviename", "manifold_learning")
         duration = kwargs.get("frame_duration", 1)
         animation_from_png(frames_dir, movie_name, duration, remove_dir=False)
-
-    def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
-                *args: torch.Tensor) -> torch.Tensor:
-        """
-        Calculates ELBO
-        """
-        return vae_loss(self.loss, self.in_dim, x, x_reconstr, *args)
-
-    def forward_compute_elbo(self,
-                             x: torch.Tensor,
-                             y: Optional[torch.Tensor] = None,
-                             mode: str = "train"
-                             ) -> torch.Tensor:
-        """
-        VAE's forward pass with training/test loss computation
-        """
-        x = x.to(self.device)
-        if mode == "eval":
-            with torch.no_grad():
-                z_mean, z_logsd = self.encoder_net(x)
-        else:
-            z_mean, z_logsd = self.encoder_net(x)
-        z_sd = torch.exp(z_logsd)
-        z = self.reparameterize(z_mean, z_sd)
-        if y is not None:
-            targets = to_onehot(y, self.nb_classes)
-            z = torch.cat((z, targets), -1)
-        if mode == "eval":
-            with torch.no_grad():
-                x_reconstr = self.decoder_net(z)
-        else:
-            x_reconstr = self.decoder_net(z)
-
-        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd)
 
     def _check_inputs(self,
                       X_train: np.ndarray,
@@ -532,6 +562,111 @@ class BaseVAE(viBaseTrainer):
                 "The number of classes specified at initialization must be " +
                 "equal the the number of classes in train and test labels")
 
+    def _2torch(self,
+                X: Union[np.ndarray, torch.Tensor],
+                y: Union[np.ndarray, torch.Tensor] = None
+                ) -> torch.Tensor:
+        """
+        Rules for conversion of numpy arrays to torch tensors
+        """
+        if isinstance(X, np.ndarray):
+            X = torch.from_numpy(X).float()
+        if isinstance(y, np.ndarray):
+            y = torch.from_numpy(y).long()
+        return X, y
+
+
+class VAE(BaseVAE):
+    """
+    Implements a standard Variational Autoencoder (VAE)
+
+    Args:
+        in_dim:
+            Input dimensions for image data passed as (heigth, width)
+            for grayscale data or (height, width, channels)
+            for multichannel data
+        latent_dim:
+            Number of VAE latent dimensions
+        nb_classes:
+            Number of classes for class-conditional rVAE
+        seed:
+            seed for torch and numpy (pseudo-)random numbers generators
+        **conv_encoder (bool):
+            use convolutional layers in encoder
+        **conv_decoder (bool):
+            use convolutional layers in decoder
+        **numlayers_encoder (int):
+            number of layers in encoder (Default: 2)
+        **numlayers_decoder (int):
+            number of layers in decoder (Default: 2)
+        **numhidden_encoder (int):
+            number of hidden units OR conv filters in encoder (Default: 128)
+        **numhidden_decoder (int):
+            number of hidden units OR conv filters in decoder (Default: 128)
+
+    Example:
+
+    >>> input_dim = (28, 28) # Input data dimensions (without n_samples)
+    >>> # Intitialize model
+    >>> vae = aoi.models.VAE(input_dim)
+    >>> # Train
+    >>> vae.fit(imstack_train, training_cycles=100, batch_size=100)
+    >>> # Visualize learned manifold (for 2 latent dimesnions)
+    >>> vae.manifold2d(origin="upper", cmap="gnuplot2)
+
+    One can also pass labels to train a class-conditioned VAE
+
+    >>> # Intitialize model
+    >>> vae = aoi.models.VAE(input_dim, nb_classes=10)
+    >>> # Train
+    >>> vae.fit(imstack_train, labels_train, training_cycles=100, batch_size=100)
+    >>> # Visualize learned manifold for class 1
+    >>> vae.manifold2d(label=1, origin="upper", cmap="gnuplot2")
+    """
+    def __init__(self,
+                 in_dim: int = None,
+                 latent_dim: int = 2,
+                 nb_classes: int = 0,
+                 seed: int = 0,
+                 **kwargs: Union[int, bool, str]
+                 ) -> None:
+        super(VAE, self).__init__(in_dim, latent_dim, nb_classes, 0, **kwargs)
+        set_train_rng(seed)
+
+    def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
+                *args: torch.Tensor) -> torch.Tensor:
+        """
+        Calculates ELBO
+        """
+        return vae_loss(self.loss, self.in_dim, x, x_reconstr, *args)
+
+    def forward_compute_elbo(self,
+                             x: torch.Tensor,
+                             y: Optional[torch.Tensor] = None,
+                             mode: str = "train"
+                             ) -> torch.Tensor:
+        """
+        VAE's forward pass with training/test loss computation
+        """
+        x = x.to(self.device)
+        if mode == "eval":
+            with torch.no_grad():
+                z_mean, z_logsd = self.encoder_net(x)
+        else:
+            z_mean, z_logsd = self.encoder_net(x)
+        z_sd = torch.exp(z_logsd)
+        z = self.reparameterize(z_mean, z_sd)
+        if y is not None:
+            targets = to_onehot(y, self.nb_classes)
+            z = torch.cat((z, targets), -1)
+        if mode == "eval":
+            with torch.no_grad():
+                x_reconstr = self.decoder_net(z)
+        else:
+            x_reconstr = self.decoder_net(z)
+
+        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd)
+
     def fit(self,
             X_train: Union[np.ndarray, torch.Tensor],
             y_train: Optional[Union[np.ndarray, torch.Tensor]] = None,
@@ -566,8 +701,11 @@ class BaseVAE(viBaseTrainer):
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
-
+        if self.loss == "ce":
+            self.sigmoid_out = True  # Use sigmoid layer for "prediction" stage
+            self.metadict["sigmoid_out"] = True
         for e in range(self.training_cycles):
+            self.current_epoch = e
             elbo_epoch = self.train_epoch()
             self.loss_history["train_loss"].append(elbo_epoch)
             if self.test_iterator is not None:
@@ -576,295 +714,3 @@ class BaseVAE(viBaseTrainer):
             self.print_statistics(e)
             self.save_model(self.filename)
         return
-
-    def print_statistics(self, e):
-        """
-        Prints training and (optionally) test loss after each training cycle
-        """
-        if self.test_iterator is not None:
-            template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
-            print(template.format(e+1, self.training_cycles,
-                  -self.loss_history["train_loss"][-1],
-                  -self.loss_history["test_loss"][-1]))
-        else:
-            template = 'Epoch: {}/{}, Training loss: {:.4f}'
-            print(template.format(e+1, self.training_cycles,
-                  -self.loss_history["train_loss"][-1]))
-
-
-class VAE(BaseVAE):
-    """
-    Implements a standard Variational Autoencoder (VAE)
-
-    Args:
-        in_dim:
-            Input dimensions for image data passed as (heigth, width)
-            for grayscale data or (height, width, channels)
-            for multichannel data
-        latent_dim:
-            Number of VAE latent dimensions
-        nb_classes:
-            Number of classes for class-conditional rVAE
-        seed:
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units in decoder (Default: 128)
-
-    Example:
-
-    >>> input_dim = (28, 28) # Input data dimensions (without n_samples)
-    >>> # Intitialize model
-    >>> vae = aoi.models.VAE(input_dim)
-    >>> # Train
-    >>> vae.fit(imstack_train, training_cycles=100, batch_size=100)
-    >>> # Visualize learned manifold (for 2 latent dimesnions)
-    >>> vae.manifold2d(origin="upper", cmap="gnuplot2)
-
-    One can also pass labels to train a class-conditioned VAE
-    
-    >>> # Intitialize model
-    >>> vae = aoi.models.VAE(input_dim, nb_classes=10)
-    >>> # Train
-    >>> vae.fit(imstack_train, labels_train, training_cycles=100, batch_size=100)
-    >>> # Visualize learned manifold for class 1
-    >>> vae.manifold2d(label=1, origin="upper", cmap="gnuplot2")
-    """
-    def __init__(self,
-                 in_dim: int = None,
-                 latent_dim: int = 2,
-                 nb_classes: int = 0,
-                 seed: int = 0,
-                 **kwargs: Union[int, bool, str]
-                 ) -> None:
-        super(VAE, self).__init__(in_dim, latent_dim, nb_classes, 0, **kwargs)
-        set_train_rng(seed)
-
-    def _2torch(self,
-                X: Union[np.ndarray, torch.Tensor],
-                y: Union[np.ndarray, torch.Tensor] = None
-                ) -> torch.Tensor:
-        if isinstance(X, np.ndarray):
-            X = torch.from_numpy(X).float()
-        if isinstance(y, np.ndarray):
-            y = torch.from_numpy(y).long()
-        return X, y
-
-
-class rVAE(BaseVAE):
-    """
-    Implements rotationally and translationally invariant
-    Variational Autoencoder (VAE) based on the idea of "spatial decoder"
-    by Bepler et al. in arXiv:1909.11663. In addition, this class allows
-    the implementation of class-conditioned VAE with rotational and
-    translational variance
-
-    Args:
-        in_dim:
-            Input dimensions for image data passed as (heigth, width)
-            for grayscale data or (height, width, channels)
-            for multichannel data
-        latent_dim:
-            Number of VAE latent dimensions associated with image content
-        nb_classes:
-            Number of classes for class-conditional rVAE
-        translation:
-            account for xy shifts of image content (Default: True)
-        seed:
-            seed for torch and numpy (pseudo-)random numbers generators
-        **conv_encoder (bool):
-            use convolutional layers in encoder
-        **numlayers_encoder (int):
-            number of layers in encoder (Default: 2)
-        **numlayers_decoder (int):
-            number of layers in decoder (Default: 2)
-        **numhidden_encoder (int):
-            number of hidden units OR conv filters in encoder (Default: 128)
-        **numhidden_decoder (int):
-            number of hidden units in decoder (Default: 128)
-        **skip (bool):
-            uses generative skip model with residual paths between
-            latents and decoder layers (Default: False)
-
-    Example:
-
-    >>> input_dim = (28, 28)  # intput dimensions
-    >>> # Intitialize model
-    >>> rvae = aoi.models.rVAE(input_dim)
-    >>> # Train
-    >>> rvae.fit(imstack_train, training_cycles=100,
-                 batch_size=100, rotation_prior=np.pi/2)
-    >>> rvae.manifold2d(origin="upper", cmap="gnuplot2")
-    
-    One can also pass labels to train a class-conditioned rVAE
-    
-    >>> # Intitialize model
-    >>> rvae = aoi.models.rVAE(input_dim, nb_classes=10)
-    >>> # Train
-    >>> rvae.fit(imstack_train, labels_train, training_cycles=100,
-    >>>            batch_size=100, rotation_prior=np.pi/2)
-    >>> # Visualize learned manifold for class 1
-    >>> rvae.manifold2d(label=1, origin="upper", cmap="gnuplot2")
-    """
-
-    def __init__(self,
-                 in_dim: int = None,
-                 latent_dim: int = 2,
-                 nb_classes: int = 0,
-                 translation: bool = True,
-                 seed: int = 0,
-                 **kwargs: Union[int, bool, str]
-                 ) -> None:
-        """
-        Initializes rVAE model
-        """
-        coord = 3 if translation else 1  # xy translations and/or rotation
-        args = (in_dim, latent_dim, nb_classes, coord)
-        super(rVAE, self).__init__(*args, **kwargs)
-        set_train_rng(seed)
-        self.x_coord = None
-        self.translation = translation
-        self.dx_prior = None
-        self.phi_prior = None
-
-    def elbo_fn(self,
-                x: torch.Tensor,
-                x_reconstr: torch.Tensor,
-                *args: torch.Tensor,
-                **kwargs: float
-                ) -> torch.Tensor:
-        """
-        Computes ELBO
-        """
-        return rvae_loss(self.loss, self.in_dim, x, x_reconstr, *args, **kwargs)
-
-    def forward_compute_elbo(self,
-                             x: torch.Tensor,
-                             y: Optional[torch.Tensor] = None,
-                             mode: str = "train"
-                             ) -> torch.Tensor:
-        """
-        rVAE's forward pass with training/test loss computation
-        """
-        x_coord_ = self.x_coord.expand(x.size(0), *self.x_coord.size())
-        if mode == "eval":
-            with torch.no_grad():
-                z_mean, z_logsd = self.encoder_net(x)
-        else:
-            z_mean, z_logsd = self.encoder_net(x)
-        z_sd = torch.exp(z_logsd)
-        z = self.reparameterize(z_mean, z_sd)
-        phi = z[:, 0]  # angle
-        if self.translation:
-            dx = z[:, 1:3]  # translation
-            dx = (dx * self.dx_prior).unsqueeze(1)
-            z = z[:, 3:]  # image content
-        else:
-            dx = 0  # no translation
-            z = z[:, 1:]  # image content
-
-        if y is not None:
-            targets = to_onehot(y, self.nb_classes)
-            z = torch.cat((z, targets), -1)
-
-        x_coord_ = transform_coordinates(x_coord_, phi, dx)
-        if mode == "eval":
-            with torch.no_grad():
-                x_reconstr = self.decoder_net(x_coord_, z)
-        else:
-            x_reconstr = self.decoder_net(x_coord_, z)
-
-        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, phi_prior=self.phi_prior)
-
-    def fit(self,
-            X_train: Optional[Union[np.ndarray, torch.Tensor]],
-            y_train: Optional[Union[np.ndarray, torch.Tensor]] = None,
-            X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
-            y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
-            loss: str = "mse",
-            **kwargs) -> None:
-        """
-        Trains rVAE model
-
-        Args:
-            X_train:
-                3D or 4D stack of training images with dimensions
-                (n_images, height, width) for grayscale data or
-                or (n_images, height, width, channels) for multi-channel data
-            X_test:
-                3D or 4D stack of test images with the same dimensions
-                as for the X_train (Default: None)
-            y_train:
-                Vector with labels of dimension (n_images,), where n_images
-                is a number of training images
-            y_train:
-                Vector with labels of dimension (n_images,), where n_images
-                is a number of test images
-            loss:
-                reconstruction loss function, "ce" or "mse" (Default: "mse")
-            **translation_prior (float):
-                translation prior
-            **rotation_prior (float):
-                rotational prior
-            **filename (str):
-                file path for saving model aftereach training cycle ("epoch")
-            **recording (bool):
-                saves a learned 2d manifold at each training step
-        """
-        self._check_inputs(X_train, y_train, X_test, y_test)
-        self.x_coord = imcoordgrid(X_train.shape[1:]).to(self.device)
-        self.dx_prior = kwargs.get("translation_prior", 0.1)
-        self.phi_prior = kwargs.get("rotation_prior", 0.1)
-        self.compile_trainer(
-            (X_train, y_train), (X_test, y_test), **kwargs)
-        self.loss = loss  # this part needs to be handled better
-        self.recording = kwargs.get("recording", False)
-
-        for e in range(self.training_cycles):
-            elbo_epoch = self.train_epoch()
-            self.loss_history["train_loss"].append(elbo_epoch)
-            if self.test_iterator is not None:
-                elbo_epoch_test = self.evaluate_model()
-                self.loss_history["test_loss"].append(elbo_epoch_test)
-            self.print_statistics(e)
-            if self.recording and self.z_dim in [3, 5]:
-                self.manifold2d(savefig=True, filename=str(e))
-        self.save_model(self.filename)
-        if self.recording and self.z_dim in [3, 5]:
-            self.visualize_manifold_learning("./vae_learning")
-
-    def _2torch(self,
-                X: Union[np.ndarray, torch.Tensor],
-                y: Union[np.ndarray, torch.Tensor] = None
-                ) -> torch.Tensor:
-        """
-        Transforms a pair numpy arrays (images, labels) to torch tensors
-        """
-        if isinstance(X, np.ndarray):
-            X = torch.from_numpy(X).float()
-        if isinstance(y, np.ndarray):
-            y = torch.from_numpy(y).long()
-        return X, y
-
-
-def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor: # move to utils!
-    """
-    One-hot encoding of label
-    """
-    if torch.max(idx).item() >= n:
-        raise AssertionError(
-            "Labelling must start from 0 and "
-            "maximum label value must be less than total number of classes")
-    if idx.dim() == 1:
-        idx = idx.unsqueeze(1)
-    device_ = 'cuda' if torch.cuda.is_available() else 'cpu'
-    onehot = torch.zeros(idx.size(0), n, device=device_)
-    onehot.scatter_(1, idx, 1)
-    return onehot

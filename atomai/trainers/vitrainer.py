@@ -8,10 +8,12 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 
-from typing import Tuple, Type, Optional, Union, Callable
-import torch
+from typing import Callable, Optional, Tuple, Type, Union
+
 import numpy as np
-from ..utils import set_train_rng, get_array_memsize
+import torch
+
+from ..utils import get_array_memsize, reset_bnorm, set_train_rng, weights_init
 
 
 class viBaseTrainer:
@@ -28,7 +30,9 @@ class viBaseTrainer:
         self.decoder_net = None
         self.train_iterator = None
         self.test_iterator = None
+        self.aux_model_params = []
         self.optim = None
+        self.current_epoch = 0
         self.metadict = {}
         self.loss_history = {"train_loss": [], "test_loss": []}
         self.filename = "model"
@@ -45,6 +49,24 @@ class viBaseTrainer:
         self.encoder_net = encoder_net
         self.decoder_net = decoder_net
         self.encoder_net.to(self.device)
+        self.decoder_net.to(self.device)
+
+    def set_encoder(self,
+                    encoder_net: Type[torch.nn.Module]
+                    ) -> None:
+        """
+        Sets an encoder network only
+        """
+        self.encoder_net = encoder_net
+        self.encoder_net.to(self.device)
+
+    def set_decoder(self,
+                    decoder_net: Type[torch.nn.Module]
+                    ) -> None:
+        """
+        Sets a decoder network only
+        """
+        self.decoder_net = decoder_net
         self.decoder_net.to(self.device)
 
     def set_data(self,
@@ -119,6 +141,35 @@ class viBaseTrainer:
         """
         raise NotImplementedError
 
+    def _reset_rng(self, seed: int) -> None:
+        """
+        (re)sets seeds for pytorch and numpy random number generators
+        """
+        set_train_rng(seed)
+
+    def _reset_weights(self) -> None:
+        """
+        Resets weights of convolutional and linear NN layers
+        using Xavier initialization
+        """
+        self.encoder_net.apply(weights_init)
+        self.encoder_net.apply(reset_bnorm)
+        self.decoder_net.apply(weights_init)
+        self.decoder_net.apply(reset_bnorm)
+
+    def _reset_training_history(self) -> None:
+        """
+        Empties training/test losses and accuracies
+        (can be useful for ensemble training)
+        """
+        self.loss_history = {"train_loss": [], "test_loss": []}
+
+    def _delete_optimizer(self) -> None:
+        """
+        Sets optimizer to None.
+        """
+        self.optim = None
+
     def compile_trainer(self,
                         train_data: Tuple[Union[torch.Tensor, np.ndarray]],
                         test_data: Tuple[Union[torch.Tensor, np.ndarray]] = None,
@@ -157,12 +208,16 @@ class viBaseTrainer:
                 *train_data, *test_data, memory_alloc=alloc)
         else:
             self.set_data(*train_data, memory_alloc=alloc)
+
         params = list(self.decoder_net.parameters()) +\
             list(self.encoder_net.parameters())
-        if optimizer is None:
-            self.optim = torch.optim.Adam(params, lr=1e-4)
-        else:
-            self.optim = optimizer(params)
+        for aux_param in self.aux_model_params:
+            params.extend(list(aux_param))
+        if self.optim is None:
+            if optimizer is None:
+                self.optim = torch.optim.Adam(params, lr=1e-4)
+            else:
+                self.optim = optimizer(params)
         self.filename = kwargs.get("filename", "./model")
 
     @classmethod
@@ -171,12 +226,68 @@ class viBaseTrainer:
                        z_sd: torch.Tensor
                        ) -> torch.Tensor:
         """
-        Reparameterization trick
+        Reparameterization trick for continuous distributions
         """
         batch_dim = z_mean.size(0)
         z_dim = z_mean.size(1)
         eps = z_mean.new(batch_dim, z_dim).normal_()
         return z_mean + z_sd * eps
+
+    @classmethod
+    def reparameterize_discrete(cls,
+                                alpha: torch.Tensor,
+                                tau: float):
+        """
+        Reparameterization trick for discrete gumbel-softmax distributions
+        """
+        eps = 1e-12
+        su = alpha.new(alpha.size()).uniform_()
+        gumbel = -torch.log(-torch.log(su + eps) + eps)
+        log_alpha = torch.log(alpha + eps)
+        logit = (log_alpha + gumbel) / tau
+        return torch.nn.functional.softmax(logit, dim=1)
+
+    def kld_normal(self,
+                   z: torch.Tensor,
+                   q_param: Tuple[torch.Tensor],
+                   p_param: Optional[Tuple[torch.Tensor]] = None
+                   ) -> torch.Tensor:
+        """
+        Calculates KL divergence term between two normal distributions
+        or (if p_param = None) between normal and standard normal distributions
+
+        Args:
+            z: latent vector (reparametrized)
+            q_param: tuple with mean and SD of the 1st distribution
+            p_param: tuple with mean and SD of the 2nd distribution (optional)
+        """
+        qz = self.log_normal(z, *q_param)
+        if p_param is None:
+            pz = self.log_unit_normal(z)
+        else:
+            pz = self.log_normal(z, *p_param)
+        return qz - pz
+
+    @classmethod
+    def log_normal(cls,
+                   x: torch.Tensor,
+                   mu: torch.Tensor,
+                   log_sd: torch.Tensor
+                   ) -> torch.Tensor:
+        """
+        Computes log-pdf for a normal distribution
+        """
+        log_pdf = (-0.5 * np.log(2 * np.pi) - log_sd -
+                   (x - mu)**2 / (2 * torch.exp(log_sd)**2))
+        return torch.sum(log_pdf, dim=-1)
+
+    @classmethod
+    def log_unit_normal(cls, x: torch.Tensor) -> torch.Tensor:
+        """
+        Computes log-pdf of a unit normal distribution
+        """
+        log_pdf = -0.5 * (np.log(2 * np.pi) + x ** 2)
+        return torch.sum(log_pdf, dim=-1)
 
     def train_epoch(self):
         """
@@ -233,6 +344,20 @@ class viBaseTrainer:
             elbo_epoch_test += delta / c
         return elbo_epoch_test
 
+    def print_statistics(self, e):
+        """
+        Prints training and (optionally) test loss after each training cycle
+        """
+        if self.test_iterator is not None:
+            template = 'Epoch: {}/{}, Training loss: {:.4f}, Test loss: {:.4f}'
+            print(template.format(e+1, self.training_cycles,
+                  -self.loss_history["train_loss"][-1],
+                  -self.loss_history["test_loss"][-1]))
+        else:
+            template = 'Epoch: {}/{}, Training loss: {:.4f}'
+            print(template.format(e+1, self.training_cycles,
+                  -self.loss_history["train_loss"][-1]))
+
     def save_model(self, *args: str) -> None:
         """
         Saves trained weights and the key model parameters
@@ -269,4 +394,3 @@ class viBaseTrainer:
         self.encoder_net.eval()
         self.decoder_net.load_state_dict(decoder_weights)
         self.decoder_net.eval()
-
