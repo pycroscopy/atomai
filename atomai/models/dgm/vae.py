@@ -215,9 +215,9 @@ class BaseVAE(viBaseTrainer):
         imdec = x_decoded.cpu().numpy()
         return imdec
 
-    def forward_(self,
-                 x_new: Union[np.ndarray, torch.Tensor],
-                 **kwargs: int) -> np.ndarray:
+    def reconstruct(self,
+                    x_new: Union[np.ndarray, torch.Tensor],
+                    **kwargs: int) -> np.ndarray:
         """
         Forward prediction with uncertainty quantification by sampling from
         the encoded mean and std. Works only for regular VAE (and not for rVAE)
@@ -225,6 +225,8 @@ class BaseVAE(viBaseTrainer):
         Args:
             x_new:
                 image array to encode
+            **label:
+                class to be reconstructed (for cVAE, crVAE, jVAE, and jrVAE)
             **num_samples:
                 number of samples to generate from normal distribution
 
@@ -232,20 +234,34 @@ class BaseVAE(viBaseTrainer):
             Ensemble of "decoded" images
         """
         num_samples = kwargs.get("num_samples", 32)
+        label = kwargs.get("label")
         if isinstance(x_new, np.ndarray):
             x_new = torch.from_numpy(x_new).float()
         if torch.cuda.is_available():
             x_new = x_new.cuda()
             self.encoder_net.cuda()
         with torch.no_grad():
-            z_mean, z_logsd = self.encoder_net(x_new)
+            encoded = self.encoder_net(x_new)
+        if len(encoded) == 2:
+            z_mean, z_logsd = encoded
+        else:
+            z_mean, z_logsd, alphas = encoded
+        z_mean = z_mean[:, self.coord:]
+        z_logsd = z_logsd[:, self.coord:]
+        if label is not None:
+            n = self.nb_classes if self.discrete_dim is None else self.discrete_dim  # probably makes sense to use nb_classes for j(r)VAE's discrete_dim
+            alphas = to_onehot(
+                torch.tensor(label).unsqueeze(0).to(self.device),
+                torch.tensor(n).to(self.device))
         z_sd = torch.exp(z_logsd)
         ndist = torch.distributions.Normal(z_mean, z_sd)
         decoded_all = []
         for i in range(num_samples):
             z_sample = ndist.rsample()
             z_sample = z_sample.view(1, -1)
-            decoded_all.append(self.decode_(z_sample))
+            if len(encoded) > 2 or label is not None:
+                z_sample = torch.cat([z_sample, alphas], dim=1)
+            decoded_all.append(self.decode(z_sample))
         decoded_all = np.concatenate(decoded_all, axis=0)
         return decoded_all
 
