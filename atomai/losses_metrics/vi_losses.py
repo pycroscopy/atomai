@@ -59,26 +59,19 @@ def kld_normal(q_param: Tuple[torch.Tensor],
 
 def kld_discrete(alpha: torch.Tensor):
     """
-    Calculates the KL divergence between a categorical distribution and a
-    uniform categorical distribution.
-    (based on https://arxiv.org/pdf/1611.01144, https://arxiv.org/pdf/1804.00104 &
-    https://github.com/Schlumberger/joint-vae/blob/master/jointvae/training.py)
+    Calculates the KL divergence between a Gumbel-Softmax distribution
+    and a uniform categorical distribution.
 
     Args:
         alpha:
-            Parameters of the categorical or Gumbel-Softmax distribution.
+            Parameters of the Gumbel-Softmax distribution.
     """
     eps = 1e-12
-    disc_dim = int(alpha.size()[-1])
-    log_dim = torch.Tensor([np.log(disc_dim)])
-    if torch.cuda.is_available():
-        log_dim = log_dim.cuda()
-    # Calculate negative entropy of each row
-    neg_entropy = torch.sum(alpha * torch.log(alpha + eps), dim=1)
-    # Take mean of negative entropy across batch
-    mean_neg_entropy = torch.mean(neg_entropy, dim=0)
-    # KL loss of alpha with uniform categorical variable
-    return log_dim + mean_neg_entropy
+    cat_dim = alpha.size(-1)
+    h1 = torch.log(alpha + eps)
+    h2 = np.log(1. / cat_dim + eps)
+    kld_loss = torch.mean(torch.sum(alpha * (h1 - h2), dim=1), dim=0)
+    return kld_loss.view(1)
 
 
 def kld_rot(phi_prior: torch.Tensor, phi_logsd: torch.Tensor) -> torch.Tensor:
