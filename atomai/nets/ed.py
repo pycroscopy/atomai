@@ -489,7 +489,6 @@ class convDecoderNet(nn.Module):
                  latent_dim: int,
                  num_layers: int = 2,
                  hidden_dim: int = 32,
-                 num_classes: int = 0,  # num_classes is redundant (just pass latent_dim = latent_dim + nb_classes in init_vae_nets)
                  **kwargs: float) -> None:
         """
         Initializes network parameters
@@ -502,7 +501,7 @@ class convDecoderNet(nn.Module):
         dim = 2 if len(out_dim) > 1 else 1
         c = out_dim[-1] if len(out_dim) > 2 else 1
         self.fc_linear = nn.Linear(
-            latent_dim + num_classes, hidden_dim * np.product(out_dim[:2]),
+            latent_dim, hidden_dim * np.product(out_dim[:2]),
             bias=False)
         self.reshape_ = (hidden_dim, *out_dim[:2])
         self.decoder = ConvBlock(
@@ -549,8 +548,7 @@ class fcDecoderNet(nn.Module):
                  latent_dim: int,
                  num_layers: int = 2,
                  hidden_dim: int = 32,
-                 num_classes: int = 0
-                 ) -> None:  # num_classes is redundant (just pass latent_dim = latent_dim + nb_classes in init_vae_nets)
+                 ) -> None:
         """
         Initializes network parameters
         """
@@ -562,7 +560,7 @@ class fcDecoderNet(nn.Module):
         c = out_dim[-1] if len(out_dim) > 2 else 1
         decoder = []
         for i in range(num_layers):
-            hidden_dim_ = latent_dim + num_classes if i == 0 else hidden_dim
+            hidden_dim_ = latent_dim if i == 0 else hidden_dim
             decoder.extend([nn.Linear(hidden_dim_, hidden_dim), nn.Tanh()])
         self.decoder = nn.Sequential(*decoder)
         self.out = nn.Linear(hidden_dim, np.product(out_dim))
@@ -605,7 +603,6 @@ class rDecoderNet(nn.Module):
                  num_layers: int,
                  hidden_dim: int,
                  skip: bool = False,
-                 num_classes: int = 0  # num_classes is redundant (just pass latent_dim = latent_dim + nb_classes in init_vae_nets)
                  ) -> None:
         """
         Initializes network parameters
@@ -619,7 +616,7 @@ class rDecoderNet(nn.Module):
             self.reshape_ = (out_dim[0], out_dim[1], c)
         self.skip = skip
         self.coord_latent = coord_latent(
-            latent_dim+num_classes, hidden_dim, not skip)
+            latent_dim, hidden_dim, not skip)
         fc_decoder = []
         for i in range(num_layers):
             fc_decoder.extend([nn.Linear(hidden_dim, hidden_dim), nn.Tanh()])
@@ -749,16 +746,17 @@ def init_VAE_nets(in_dim: Tuple[int],
     discrete_dim_ = 0
     if discrete_dim:
         discrete_dim_ = sum(discrete_dim)
+    nb_classes_ = nb_classes if discrete_dim_ == 0 else 0
 
     if not coord:
         dnet = convDecoderNet if conv_d else fcDecoderNet
         decoder_net = dnet(
-            in_dim, latent_dim+discrete_dim_, numlayers_d, numhidden_d,
-            nb_classes)
+            in_dim, latent_dim+discrete_dim_+nb_classes_,
+            numlayers_d, numhidden_d)
     else:
         decoder_net = rDecoderNet(
-            in_dim, latent_dim+discrete_dim_, numlayers_d, numhidden_d,
-            skip, nb_classes)
+            in_dim, latent_dim+discrete_dim_+nb_classes_,
+            numlayers_d, numhidden_d, skip)
     if not discrete_dim:
         enet = convEncoderNet if conv_e else fcEncoderNet
         encoder_net = enet(
