@@ -699,6 +699,10 @@ class VAE(BaseVAE):
                 is a number of test images/spectra
             loss:
                 reconstruction loss function, "ce" or "mse" (Default: "mse")
+            **capacity (list):
+                List containing (max_capacity, num_iters, gamma) parameters
+                to control the capacity of the latent channel.
+                Based on https://arxiv.org/pdf/1804.03599.pdf
             **filename (str):
                 file path for saving model aftereach training cycle ("epoch")
         """
