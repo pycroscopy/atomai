@@ -8,14 +8,13 @@ rotationally-invariant variational autoencoders
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
-
-from typing import Optional, Union
+from copy import deepcopy as dc
+from typing import Optional, Union, List
 
 import numpy as np
 import torch
 
 from ...losses_metrics import rvae_loss
-
 from ...utils import set_train_rng, to_onehot, transform_coordinates
 from .vae import BaseVAE
 
@@ -57,7 +56,7 @@ class rVAE(BaseVAE):
 
     Example:
 
-    >>> input_dim = (28, 28)  # intput dimensions
+    >>> input_dim = (28, 28)  # input dimensions
     >>> # Intitialize model
     >>> rvae = aoi.models.rVAE(input_dim)
     >>> # Train
@@ -94,13 +93,14 @@ class rVAE(BaseVAE):
         self.translation = translation
         self.dx_prior = None
         self.phi_prior = None
-        self.anneal_dict = None
+        self.kdict_ = dc(kwargs)
+        self.kdict_["num_iter"] = 0
 
     def elbo_fn(self,
                 x: torch.Tensor,
                 x_reconstr: torch.Tensor,
                 *args: torch.Tensor,
-                **kwargs: float
+                **kwargs: Union[List, float, int]
                 ) -> torch.Tensor:
         """
         Computes ELBO
@@ -121,6 +121,7 @@ class rVAE(BaseVAE):
                 z_mean, z_logsd = self.encoder_net(x)
         else:
             z_mean, z_logsd = self.encoder_net(x)
+            self.kdict_["num_iter"] += 1
         z_sd = torch.exp(z_logsd)
         z = self.reparameterize(z_mean, z_sd)
         phi = z[:, 0]  # angle
@@ -142,16 +143,8 @@ class rVAE(BaseVAE):
                 x_reconstr = self.decoder_net(x_coord_, z)
         else:
             x_reconstr = self.decoder_net(x_coord_, z)
-        # KL annealing terms
-        b1 = b2 = 1
-        if isinstance(self.anneal_dict, dict):
-            e_ = self.current_epoch
-            b1 = self.anneal_dict["kl_im"]
-            b2 = self.anneal_dict["kl_rot"]
-            b1 = b1[-1] if len(b1) < e_ + 1 else b1[e_]
-            b2 = b2[-1] if len(b2) < e_ + 1 else b2[e_]
-        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd,
-                            phi_prior=self.phi_prior, b1=b1, b2=b2)
+        
+        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, **self.kdict_)
 
     def fit(self,
             X_train: Union[np.ndarray, torch.Tensor],
@@ -168,13 +161,13 @@ class rVAE(BaseVAE):
                 3D or 4D stack of training images with dimensions
                 (n_images, height, width) for grayscale data or
                 or (n_images, height, width, channels) for multi-channel data
-            X_test:
-                3D or 4D stack of test images with the same dimensions
-                as for the X_train (Default: None)
             y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of training images
-            y_train:
+            X_test:
+                3D or 4D stack of test images with the same dimensions
+                as for the X_train (Default: None)
+            y_test:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of test images
             loss:
@@ -183,6 +176,10 @@ class rVAE(BaseVAE):
                 translation prior
             **rotation_prior (float):
                 rotational prior
+            **capacity (list):
+                List containing (max_capacity, num_iters, gamma) parameters
+                to control the capacity of the latent channel.
+                Based on https://arxiv.org/pdf/1804.03599.pdf
             **filename (str):
                 file path for saving model aftereach training cycle ("epoch")
             **recording (bool):
@@ -190,8 +187,10 @@ class rVAE(BaseVAE):
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
-        self.phi_prior = kwargs.get("rotation_prior", 0.1)
-        self.anneal_dict = kwargs.get("anneal_dict")
+        self.kdict_["phi_prior"] = kwargs.get("rotation_prior", 0.1)
+        for k, v in kwargs.items():
+            if k in ["capacity"]:
+                self.kdict_[k] = v
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
@@ -208,8 +207,13 @@ class rVAE(BaseVAE):
                 elbo_epoch_test = self.evaluate_model()
                 self.loss_history["test_loss"].append(elbo_epoch_test)
             self.print_statistics(e)
+            self.update_metadict()
             if self.recording and self.z_dim in [3, 5]:
                 self.manifold2d(savefig=True, filename=str(e))
             self.save_model(self.filename)
         if self.recording and self.z_dim in [3, 5]:
             self.visualize_manifold_learning("./vae_learning")
+
+    def update_metadict(self):
+        self.metadict["num_epochs"] = self.current_epoch
+        self.metadict["num_iter"] = self.kdict_["num_iter"]

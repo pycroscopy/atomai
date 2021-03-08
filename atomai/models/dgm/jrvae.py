@@ -36,7 +36,8 @@ class jrVAE(BaseVAE):
             List specifying dimensionalities of discrete (Gumbel-Softmax)
             latent variables associated with image content
         nb_classes:
-            Number of classes for class-conditional VAE
+            Number of classes for class-conditional VAE.
+            (leave it at 0 to learn discrete latent reprenetations)
         translation:
             account for xy shifts of image content (Default: True)
         seed:
@@ -87,7 +88,6 @@ class jrVAE(BaseVAE):
         self.translation = translation
         self.dx_prior = None
         self.phi_prior = None
-        self.anneal_dict = None
         self.kdict_ = dc(kwargs)
         self.kdict_["num_iter"] = 0
 
@@ -166,13 +166,13 @@ class jrVAE(BaseVAE):
                 3D or 4D stack of training images with dimensions
                 (n_images, height, width) for grayscale data or
                 or (n_images, height, width, channels) for multi-channel data
-            X_test:
-                3D or 4D stack of test images with the same dimensions
-                as for the X_train (Default: None)
             y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of training images
-            y_train:
+            X_test:
+                3D or 4D stack of test images with the same dimensions
+                as for the X_train (Default: None)
+            y_test:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of test images
             loss:
@@ -184,28 +184,23 @@ class jrVAE(BaseVAE):
             **temperature (float):
                 Relaxation parameter for Gumbel-Softmax distribution
             **cont_capacity (list):
-                List containing (min_capacity, max_capacity, num_iters, gamma_z)
-                parameters to control the capacity of the continuous latent
-                channels. Default values: [0.0, 5.0, 25000, 30].
-                Based on https://arxiv.org/abs/1804.00104
+                List containing (max_capacity, num_iters, gamma) parameters
+                to control the capacity of the continuous latent channel.
+                Default values: [5.0, 25000, 30].
+                Based on https://arxiv.org/pdf/1804.03599.pdf & https://arxiv.org/abs/1804.00104
             **disc_capacity (list):
-                List containing (min_capacity, max_capacity, num_iters, gamma_c)
-                parameters to control the capacity of the discrete latent channels.
-                Default values: [0.0, 5.0, 25000, 30].
-                Based on https://arxiv.org/abs/1804.00104
-            **klrot_cap (bool):
-                Do not control capacity of KL term associated
-                with rotations of coordinate grid
+                List containing (max_capacity, num_iters, gamma) parameters
+                to control the capacity of the discrete latent channel(s).
+                Default values: [5.0, 25000, 30].
+                Based on https://arxiv.org/pdf/1804.03599.pdf & https://arxiv.org/abs/1804.00104
             **filename (str):
-                file path for saving model aftereach training cycle ("epoch")
+                file path for saving model after each training cycle ("epoch")
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
         self.kdict_["phi_prior"] = kwargs.get("rotation_prior", 0.1)
-        self.anneal_dict = kwargs.get("anneal_dict")
         for k, v in kwargs.items():
-            if k in ["cont_capacity", "disc_capacity",
-                     "temperature", "klrot_cap"]:
+            if k in ["cont_capacity", "disc_capacity", "temperature"]:
                 self.kdict_[k] = v
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
