@@ -408,17 +408,17 @@ class BaseVAE(viBaseTrainer):
         elif len(self.in_dim) == 3:
             figure = np.zeros((self.in_dim[0] * d, self.in_dim[1] * d, self.in_dim[-1]))
         if l1 and l2:
-            grid_x = np.linspace(l1[0], l1[1], d)
+            grid_x = np.linspace(l1[1], l1[0], d)
             grid_y = np.linspace(l2[0], l2[1], d)
         else:
-            grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
+            grid_x = norm.ppf(np.linspace(0.95, 0.05, d))
             grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
 
         if self.discrete_dim:
             z_disc = np.zeros((sum(self.discrete_dim)))[None]
             z_disc[:, kwargs.get("disc_idx", 0)] = 1
-        for i, yi in enumerate(grid_x):
-            for j, xi in enumerate(grid_y):
+        for i, xi in enumerate(grid_x):
+            for j, yi in enumerate(grid_y):
                 z_sample = np.array([[xi, yi]])
                 if self.discrete_dim:
                     z_sample = np.concatenate((z_sample, z_disc), -1)
@@ -432,7 +432,10 @@ class BaseVAE(viBaseTrainer):
             figure = (figure - figure.min()) / figure.ptp()
 
         fig, ax = plt.subplots(figsize=(10, 10))
-        ax.imshow(figure, cmap=cmap, origin=kwargs.get("origin", "lower"))
+        ax.imshow(figure, cmap=cmap, origin=kwargs.get("origin", "lower"),
+                  extent=[grid_x.min(), grid_x.max(), grid_y.min(), grid_y.max()])
+        ax.set_xlabel("$z_1$")
+        ax.set_ylabel("$z_2$")
         draw_grid = kwargs.get("draw_grid")
         if draw_grid:
             major_ticks_x = np.arange(0, d * self.in_dim[0], self.in_dim[0])
@@ -440,6 +443,9 @@ class BaseVAE(viBaseTrainer):
             ax.set_xticks(major_ticks_x)
             ax.set_yticks(major_ticks_y)
             ax.grid(which='major', alpha=0.6)
+        for item in ([ax.xaxis.label, ax.yaxis.label] +
+                     ax.get_xticklabels() + ax.get_yticklabels()):
+            item.set_fontsize(18)
         if not kwargs.get("savefig"):
             plt.show()
         else:
@@ -447,8 +453,6 @@ class BaseVAE(viBaseTrainer):
             fname = kwargs.get("filename", "manifold_2d")
             if not os.path.exists(savedir):
                 os.makedirs(savedir)
-            ax.set_xticklabels([])
-            ax.set_yticklabels([])
             fig.savefig(os.path.join(savedir, '{}.png'.format(fname)))
             plt.close(fig)
 
@@ -503,6 +507,10 @@ class BaseVAE(viBaseTrainer):
             plt.figure(figsize=(12, 12))
             plt.imshow(grid, cmap='gnuplot',
                        origin=kwargs.get("origin", "lower"))
+            plt.xlabel("$z_{cont}$", fontsize=18)
+            plt.ylabel("$z_{disc}$", fontsize=18)
+            plt.xticks([])
+            plt.yticks([])
             plt.show()
         return grid
 
