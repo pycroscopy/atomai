@@ -67,10 +67,11 @@ def load_seg_model(meta_dict: Dict[str, torch.Tensor]) -> Type[Segmentor]:
     model_name = meta_dict.pop("model")
     nb_classes = meta_dict.pop("nb_classes")
     weights = meta_dict.pop("weights")
-    optimizer = meta_dict.pop("optimizer")
     model = Segmentor(model_name, nb_classes, **meta_dict)
     model.net.load_state_dict(weights)
-    model.optimizer = optimizer
+    if "optimizer" in meta_dict.keys():
+        optimizer = meta_dict.pop("optimizer")
+        model.optimizer = optimizer
     model.net.eval()
     return model
 

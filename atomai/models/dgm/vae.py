@@ -8,6 +8,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import os
+from copy import deepcopy as dc
 from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -17,7 +18,6 @@ from scipy.stats import norm
 from torchvision.utils import make_grid
 
 from ...losses_metrics import vae_loss
-
 from ...nets import init_VAE_nets
 from ...trainers import viBaseTrainer
 from ...utils import (crop_borders, extract_subimages, get_coord_grid,
@@ -408,17 +408,17 @@ class BaseVAE(viBaseTrainer):
         elif len(self.in_dim) == 3:
             figure = np.zeros((self.in_dim[0] * d, self.in_dim[1] * d, self.in_dim[-1]))
         if l1 and l2:
-            grid_x = np.linspace(l1[0], l1[1], d)
+            grid_x = np.linspace(l1[1], l1[0], d)
             grid_y = np.linspace(l2[0], l2[1], d)
         else:
-            grid_x = norm.ppf(np.linspace(0.05, 0.95, d))
+            grid_x = norm.ppf(np.linspace(0.95, 0.05, d))
             grid_y = norm.ppf(np.linspace(0.05, 0.95, d))
 
         if self.discrete_dim:
             z_disc = np.zeros((sum(self.discrete_dim)))[None]
             z_disc[:, kwargs.get("disc_idx", 0)] = 1
-        for i, yi in enumerate(grid_x):
-            for j, xi in enumerate(grid_y):
+        for i, xi in enumerate(grid_x):
+            for j, yi in enumerate(grid_y):
                 z_sample = np.array([[xi, yi]])
                 if self.discrete_dim:
                     z_sample = np.concatenate((z_sample, z_disc), -1)
@@ -432,7 +432,10 @@ class BaseVAE(viBaseTrainer):
             figure = (figure - figure.min()) / figure.ptp()
 
         fig, ax = plt.subplots(figsize=(10, 10))
-        ax.imshow(figure, cmap=cmap, origin=kwargs.get("origin", "lower"))
+        ax.imshow(figure, cmap=cmap, origin=kwargs.get("origin", "lower"),
+                  extent=[grid_x.min(), grid_x.max(), grid_y.min(), grid_y.max()])
+        ax.set_xlabel("$z_1$")
+        ax.set_ylabel("$z_2$")
         draw_grid = kwargs.get("draw_grid")
         if draw_grid:
             major_ticks_x = np.arange(0, d * self.in_dim[0], self.in_dim[0])
@@ -440,6 +443,9 @@ class BaseVAE(viBaseTrainer):
             ax.set_xticks(major_ticks_x)
             ax.set_yticks(major_ticks_y)
             ax.grid(which='major', alpha=0.6)
+        for item in ([ax.xaxis.label, ax.yaxis.label] +
+                     ax.get_xticklabels() + ax.get_yticklabels()):
+            item.set_fontsize(18)
         if not kwargs.get("savefig"):
             plt.show()
         else:
@@ -447,8 +453,6 @@ class BaseVAE(viBaseTrainer):
             fname = kwargs.get("filename", "manifold_2d")
             if not os.path.exists(savedir):
                 os.makedirs(savedir)
-            ax.set_xticklabels([])
-            ax.set_yticklabels([])
             fig.savefig(os.path.join(savedir, '{}.png'.format(fname)))
             plt.close(fig)
 
@@ -503,6 +507,11 @@ class BaseVAE(viBaseTrainer):
             plt.figure(figsize=(12, 12))
             plt.imshow(grid, cmap='gnuplot',
                        origin=kwargs.get("origin", "lower"))
+            plt.xlabel("$z_{cont}$", fontsize=18)
+            plt.ylabel("$z_{disc}$", fontsize=18)
+            plt.xticks([])
+            plt.yticks([])
+            plt.show()
         return grid
 
     @classmethod
@@ -632,13 +641,16 @@ class VAE(BaseVAE):
                  ) -> None:
         super(VAE, self).__init__(in_dim, latent_dim, nb_classes, 0, **kwargs)
         set_train_rng(seed)
+        self.kdict_ = dc(kwargs)
+        self.kdict_["num_iter"] = 0
 
     def elbo_fn(self, x: torch.Tensor, x_reconstr: torch.Tensor,
-                *args: torch.Tensor) -> torch.Tensor:
+                *args: torch.Tensor,
+                **kwargs) -> torch.Tensor:
         """
         Calculates ELBO
         """
-        return vae_loss(self.loss, self.in_dim, x, x_reconstr, *args)
+        return vae_loss(self.loss, self.in_dim, x, x_reconstr, *args, **kwargs)
 
     def forward_compute_elbo(self,
                              x: torch.Tensor,
@@ -654,6 +666,7 @@ class VAE(BaseVAE):
                 z_mean, z_logsd = self.encoder_net(x)
         else:
             z_mean, z_logsd = self.encoder_net(x)
+            self.kdict_["num_iter"] += 1
         z_sd = torch.exp(z_logsd)
         z = self.reparameterize(z_mean, z_sd)
         if y is not None:
@@ -665,7 +678,7 @@ class VAE(BaseVAE):
         else:
             x_reconstr = self.decoder_net(z)
 
-        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd)
+        return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, **self.kdict_)
 
     def fit(self,
             X_train: Union[np.ndarray, torch.Tensor],
@@ -683,21 +696,28 @@ class VAE(BaseVAE):
                 (n_images, height, width) for grayscale data or
                 or (n_images, height, width, channels) for multi-channel data.
                 For spectra, 2D stack of spectra with dimensions (length,)
-            X_test:
-                3D or 4D stack of test images or 2D stack of spectra with
-                the same dimensions as for the X_train (Default: None)
             y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of training images/spectra
-            y_train:
+            X_test:
+                3D or 4D stack of test images or 2D stack of spectra with
+                the same dimensions as for the X_train (Default: None)
+            y_test:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of test images/spectra
             loss:
                 reconstruction loss function, "ce" or "mse" (Default: "mse")
+            **capacity (list):
+                List containing (max_capacity, num_iters, gamma) parameters
+                to control the capacity of the latent channel.
+                Based on https://arxiv.org/pdf/1804.03599.pdf
             **filename (str):
                 file path for saving model aftereach training cycle ("epoch")
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
+        for k, v in kwargs.items():
+            if k in ["capacity"]:
+                self.kdict_[k] = v
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
@@ -712,5 +732,10 @@ class VAE(BaseVAE):
                 elbo_epoch_test = self.evaluate_model()
                 self.loss_history["test_loss"].append(elbo_epoch_test)
             self.print_statistics(e)
+            self.update_metadict()
             self.save_model(self.filename)
         return
+
+    def update_metadict(self):
+        self.metadict["num_epochs"] = self.current_epoch
+        self.metadict["num_iter"] = self.kdict_["num_iter"]

@@ -36,6 +36,7 @@ class jVAE(BaseVAE):
             latent variables associated with image content
         nb_classes:
             Number of classes for class-conditional VAE
+            (leave it at 0 to learn discrete latent reprenetations)
         seed:
             seed for torch and numpy (pseudo-)random numbers generators
         **conv_encoder (bool):
@@ -148,27 +149,27 @@ class jVAE(BaseVAE):
                 (n_images, height, width) for grayscale data or
                 or (n_images, height, width, channels) for multi-channel data.
                 For spectra, 2D stack of spectra with dimensions (length,)
-            X_test:
-                3D or 4D stack of test images or 2D stack of spectra with
-                the same dimensions as for the X_train (Default: None)
             y_train:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of training images/spectra
-            y_train:
+            X_test:
+                3D or 4D stack of test images or 2D stack of spectra with
+                the same dimensions as for the X_train (Default: None)
+            y_test:
                 Vector with labels of dimension (n_images,), where n_images
                 is a number of test images/spectra
             loss:
                 reconstruction loss function, "ce" or "mse" (Default: "mse")
             **cont_capacity (list):
-                List containing (min_capacity, max_capacity, num_iters, gamma_z)
-                parameters to control the capacity of the continuous latent
-                channels. Default values: [0.0, 5.0, 25000, 30].
-                Based on https://arxiv.org/abs/1804.00104
+                List containing (max_capacity, num_iters, gamma) parameters
+                to control the capacity of the continuous latent channel.
+                Default values: [5.0, 25000, 30].
+                Based on https://arxiv.org/pdf/1804.03599.pdf & https://arxiv.org/abs/1804.00104
             **disc_capacity (list):
-                List containing (min_capacity, max_capacity, num_iters, gamma_c)
-                parameters to control the capacity of the discrete latent channels.
-                Default values: [0.0, 5.0, 25000, 30].
-                Based on https://arxiv.org/abs/1804.00104
+                List containing (max_capacity, num_iters, gamma) parameters
+                to control the capacity of the discrete latent channel(s).
+                Default values: [5.0, 25000, 30].
+                Based on https://arxiv.org/pdf/1804.03599.pdf & https://arxiv.org/abs/1804.00104
             **filename (str):
                 file path for saving model aftereach training cycle ("epoch")
         """
