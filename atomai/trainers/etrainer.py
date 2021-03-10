@@ -287,14 +287,15 @@ class BaseEnsembleTrainer(BaseTrainer):
         tor = lambda x: torch.from_numpy(x)
         return tor(X), tor(y), tor(X_), tor(y_)
 
-    def save_ensemble_metadict(self) -> None:
+    def save_ensemble_metadict(self, filename: str = None) -> None:
         """
         Saves meta dictionary with ensemble weights and key information about
         model's structure (needed to load it back) to disk
         """
+        fname = self.filename if filename is None else filename
         ensemble_metadict = dc(self.meta_state_dict)
         ensemble_metadict["weights"] = self.ensemble_state_dict
-        torch.save(ensemble_metadict, self.filename + "_ensemble_metadict.tar")
+        torch.save(ensemble_metadict, fname + "_ensemble_metadict.tar")
 
 
 class EnsembleTrainer(BaseEnsembleTrainer):
