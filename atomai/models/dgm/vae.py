@@ -109,9 +109,9 @@ class BaseVAE(viBaseTrainer):
         Encodes input image data using a trained VAE's encoder
 
         Args:
-            x_test:
+            x_new:
                 image array to encode
-            **num_batches:
+            **num_batches (int):
                 number of batches (Default: 10)
 
         Returns:
@@ -149,9 +149,9 @@ class BaseVAE(viBaseTrainer):
         Encodes input image data using a trained VAE's encoder
 
         Args:
-            x_test:
+            x_new:
                 image array to encode
-            **num_batches:
+            **num_batches (int):
                 number of batches (Default: 10)
 
         Returns:
@@ -178,8 +178,8 @@ class BaseVAE(viBaseTrainer):
         via the learned generative model
 
         Args:
-            z_sample: point(s) in latent space
-            y: label
+            z_sample: coordinates in latent space
+            y: label (optional)
 
         Returns:
             Generated ("decoded") image(s)
@@ -225,9 +225,9 @@ class BaseVAE(viBaseTrainer):
         Args:
             x_new:
                 image array to encode
-            **label:
+            **label (int):
                 class to be reconstructed (for cVAE, crVAE, jVAE, and jrVAE)
-            **num_samples:
+            **num_samples (int):
                 number of samples to generate from normal distribution
 
         Returns:
@@ -273,7 +273,7 @@ class BaseVAE(viBaseTrainer):
 
         Args:
             imgdata:
-                3D numpy array. Can also be a single 2D image
+                3D numpy array of images. Can also be a single 2D image
             **num_batches (int):
                 number of batches for for encoding pixels of a single image
 
