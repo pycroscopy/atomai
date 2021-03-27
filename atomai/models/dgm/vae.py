@@ -157,7 +157,11 @@ class BaseVAE(viBaseTrainer):
         Returns:
             Mean and SD of the encoded continuous distribution,
             and alphas ("class probabilities") for the encoded
-            discrete distribution(s) (if any)
+            discrete distribution(s) (if any). For rVAE, the order 
+            is theta(rotation), x and y (translations), z_mean, z_sd.
+            For jVAE and jrVAE, the order is the same except they also
+            have the discrete classes, i.e. for jrVAE: theta, x, y, 
+            z_mean, z_sd, alphas.
         """
         z = self.encode_(x_new, **kwargs)
         if not self.discrete_dim:
