@@ -296,6 +296,6 @@ def animation_from_png(png_dir: str, moviename: str = 'anim',
                             key=lambda fname: int(fname.split('.')[0])):
         if file_name.endswith('.png'):
             images.append(imageio.imread(os.path.join(png_dir, file_name)))
-    imageio.mimsave(os.path.join(savedir, moviename + '.gif'), images)
+    imageio.mimsave(os.path.join(savedir, moviename + '.gif'), images, duration=duration)
     if remove_dir:
         shutil.rmtree(png_dir)
