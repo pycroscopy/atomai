@@ -459,6 +459,7 @@ class BaseVAE(viBaseTrainer):
                 os.makedirs(savedir)
             fig.savefig(os.path.join(savedir, '{}.png'.format(fname)))
             plt.close(fig)
+        return figure
 
     def manifold_traversal(self, cont_idx: int,
                            d: int = 10,
