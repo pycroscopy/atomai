@@ -1,1 +1,1 @@
-Deep generative model for learning discrete and continuous disentangled representations.
+Deep generative models for learning discrete and continuous disentangled representations.
