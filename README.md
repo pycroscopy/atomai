@@ -1,5 +1,5 @@
 [![PyPI version](https://badge.fury.io/py/atomai.svg)](https://badge.fury.io/py/atomai)
-[![Build Status](https://travis-ci.com/pycroscopy/atomai.svg?branch=master)](https://travis-ci.com/pycroscopy/atomai)
+[![build](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml/badge.svg)](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml)
 [![Documentation Status](https://readthedocs.org/projects/atomai/badge/?version=latest)](https://atomai.readthedocs.io/en/latest/?badge=latest)
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/8fa8829627f040dda46e2dc30e48aca1)](https://app.codacy.com/manual/ziatdinovmax/atomai?utm_source=github.com&utm_medium=referral&utm_content=ziatdinovmax/atomai&utm_campaign=Badge_Grade_Dashboard)
