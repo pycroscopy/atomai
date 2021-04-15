@@ -22,3 +22,9 @@ Welcome to AtomAI's documentation!
    nets
    losses_metrics
    data_processing
+   
+.. toctree::
+   :maxdepth: 3
+   :caption: Examples
+
+   examples
