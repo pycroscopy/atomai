@@ -109,9 +109,9 @@ class BaseVAE(viBaseTrainer):
         Encodes input image data using a trained VAE's encoder
 
         Args:
-            x_test:
+            x_new:
                 image array to encode
-            **num_batches:
+            **num_batches (int):
                 number of batches (Default: 10)
 
         Returns:
@@ -149,15 +149,20 @@ class BaseVAE(viBaseTrainer):
         Encodes input image data using a trained VAE's encoder
 
         Args:
-            x_test:
+            x_new:
                 image array to encode
-            **num_batches:
+            **num_batches (int):
                 number of batches (Default: 10)
 
         Returns:
             Mean and SD of the encoded continuous distribution,
             and alphas ("class probabilities") for the encoded
-            discrete distribution(s) (if any)
+            discrete distribution(s) (if any). For rVAE, the output is (z_mean, z_sd).
+            For jVAE and jrVAE, the output is (z_mean, z_sd, alphas).
+            In all the cases z_mean consists of the encoded angle as 1st dimension,
+            encoded x- and y-shift as 2nd and 3rd dimensions (if translation is set to True),
+            and standard VAE latent variables as 4th, 5th, ..., n-th dimensions
+            (if translation is set to True; otherwise, 2nd, 3rd, ... n-th dimensions)
         """
         z = self.encode_(x_new, **kwargs)
         if not self.discrete_dim:
@@ -178,8 +183,8 @@ class BaseVAE(viBaseTrainer):
         via the learned generative model
 
         Args:
-            z_sample: point(s) in latent space
-            y: label
+            z_sample: coordinates in latent space
+            y: label (optional)
 
         Returns:
             Generated ("decoded") image(s)
@@ -225,9 +230,9 @@ class BaseVAE(viBaseTrainer):
         Args:
             x_new:
                 image array to encode
-            **label:
+            **label (int):
                 class to be reconstructed (for cVAE, crVAE, jVAE, and jrVAE)
-            **num_samples:
+            **num_samples (int):
                 number of samples to generate from normal distribution
 
         Returns:
@@ -273,7 +278,7 @@ class BaseVAE(viBaseTrainer):
 
         Args:
             imgdata:
-                3D numpy array. Can also be a single 2D image
+                3D numpy array of images. Can also be a single 2D image
             **num_batches (int):
                 number of batches for for encoding pixels of a single image
 
@@ -455,6 +460,7 @@ class BaseVAE(viBaseTrainer):
                 os.makedirs(savedir)
             fig.savefig(os.path.join(savedir, '{}.png'.format(fname)))
             plt.close(fig)
+        return figure
 
     def manifold_traversal(self, cont_idx: int,
                            d: int = 10,

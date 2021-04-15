@@ -242,7 +242,7 @@ class SegPredictor(BasePredictor):
                 3D image stack or a single 2D image (all greyscale)
             return_image:
                 Returns images used as input into NN
-            **num_batches: number of batches
+            **num_batches (int): number of batches
             **norm (bool): Normalize data to (0, 1) during pre-processing
         """
         image_data = self.preprocess(
@@ -269,9 +269,9 @@ class SegPredictor(BasePredictor):
         Make prediction with a trained model and calculate coordinates
 
         Args:
-            image_data (2D or 3D numpy array):
+            image_data:
                 Image stack or a single image (all greyscale)
-            compute_coords (bool):
+            compute_coords:
                 Computes centers of the mass of individual blobs
                 in the segmented images (Default: True)
             **num_batches (int):
@@ -359,7 +359,7 @@ class ImSpecPredictor(BasePredictor):
         Predict spectra from images or vice versa
 
         Args:
-            signal (numpy array): Input image/spectrum or batch of images/spectra
+            signal: Input image/spectrum or batch of images/spectra
             **num_batches (int): number of batches (Default: 10)
             **norm (bool): Normalize data to (0, 1) during pre-processing
         """
@@ -376,7 +376,7 @@ class ImSpecPredictor(BasePredictor):
         Make prediction with a trained model
 
         Args:
-            signal (numpy array): Input image/spectrum or batch of images/spectra
+            signal: Input image/spectrum or batch of images/spectra
             **num_batches (int): number of batches (Default: 10)
             **norm (bool): Normalize data to (0, 1) during pre-processing
         """
@@ -399,13 +399,13 @@ class Locator:
     Transforms pixel data from NN output into coordinate data
 
     Args:
-        decoded_imgs (4D numpy array):
+        decoded_imgs:
             Output of a neural network
-        threshold (float):
+        threshold:
             Value at which the neural network output is thresholded
-        dist_edge (int):
+        dist_edge:
             Distance within image boundaries not to consider
-        dim_order (str):
+        dim_order:
             'channel_last' or 'channel_first' (Default: 'channel last')
 
     Example:
