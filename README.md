@@ -14,6 +14,12 @@
 
 AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the [AICrystallographer project](https://github.com/pycroscopy/AICrystallographer). The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib.
 
+Partial list of scientific papers using AtomAI:
+
+- Exploring order parameters and dynamic processes in disordered systems via variational autoencoders. *Science Advances* 7, eabd5084 (2021).
+- Disentangling Rotational Dynamics and Ordering Transitions in a System of Self-Organizing Protein Nanorods via Rotationally Invariant Latent Representations. *ACS Nano* (2021), doi:10.1021/acsnano.0c08914
+- Tracking atomic structure evolution during directed electron beam induced Si-atom motion in graphene via deep machine learning. *Nanotechnology* 32, 035703 (2020), doi:10.1088/1361-6528/abb8a6
+
 ## How to use it
 
 ### Quickstart: AtomAI in the Cloud
