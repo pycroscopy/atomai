@@ -5,8 +5,6 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
 
 *   | **DCNN**: Train a Deep Neural Network for Atom Finding |DCNN|
 
-*   | **Statistics**: Multivariate Analysis of Distortion Domains in Single Atomic Image |Statistics|
-
 *   | **VAE-I**: Disentangling Image Content from Rotations |VAE-I|
 
 *   | **VAE-II**: Exploring Order Parameter in Disordered Systems |VAE-II|
@@ -16,10 +14,7 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
 *   | **Training data**: Training Data Preparation |Training data|
 
 .. |DCNN| image:: https://colab.research.google.com/assets/colab-badge.svg
-   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb
-
-.. |Statistics| image:: https://colab.research.google.com/assets/colab-badge.svg
-   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb
+   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb
 
 .. |VAE-I| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb
