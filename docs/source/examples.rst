@@ -3,7 +3,7 @@ Colab notebooks
 
 The easiest way to start using AtomAI is via Google Colab, which is a free research tool from Google for machine learning education and research built on top of Jupyter Notebook. The following notebooks can be executed in Google Colab by simply clicking on the "Open in Colab" icon:
 
-*   | **DCNN**: Train a Deep Neural Network for Semantic Segmentation of Microscopy Data |DCNN|
+*   | **DCNN**: Semantic Segmentation of Microscopy Data |DCNN|
 
 *   | **Im2Spec**: Predicting 1D Spectra from 2D Images |Im2Spec|
 
