@@ -5,6 +5,8 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
 
 *   | **DCNN**: Train a Deep Neural Network for Atom Finding |DCNN|
 
+*   | **Im2Spec**: Predicting 1D Spectra from 2D Images |Im2Spec|
+
 *   | **VAE-I**: Disentangling Image Content from Rotations |VAE-I|
 
 *   | **VAE-II**: Exploring Order Parameter in Disordered Systems |VAE-II|
@@ -15,12 +17,15 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
 
 .. |DCNN| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb
+   
+.. |Im2Spec| image:: https://colab.research.google.com/assets/colab-badge.svg
+   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/ImSpec.ipynb
 
 .. |VAE-I| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb
 
 .. |VAE-II| image:: https://colab.research.google.com/assets/colab-badge.svg
-   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb
+   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb
    
 .. |Custom models| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb
