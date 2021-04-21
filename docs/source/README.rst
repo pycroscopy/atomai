@@ -37,17 +37,15 @@ Quickstart: AtomAI in the Cloud
 
 The easiest way to start using AtomAI is via `Google Colab <https://colab.research.google.com/notebooks/intro.ipynb>`_
 
-1) `Train a Deep Fully Convolutional Neural Network for Atom Finding <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb>`_
+1) `Train a Deep Fully Convolutional Neural Network for Atom Finding <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb>`_
 
-2) `Multivariate Statistical Analysis of Distortion Domains in a Single Atomic Image <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb>`_
+2) `Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb>`_
 
-3) `Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb>`_
+3) `Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb>`_
 
-4) `Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb>`_
+4) `Implementation of Custom Image Denoiser in AtomAI <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb>`_
 
-5) `Implementation of Custom Image Denoiser in AtomAI <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb>`_
-
-6) `Prepare Training Data From Experimental Image with Atomic Coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
+5) `Prepare Training Data From Experimental Image with Atomic Coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
 
 Semantic segmentation
 ^^^^^^^^^^^^^^^^^^^^^^
