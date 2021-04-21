@@ -14,7 +14,7 @@
 
 AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the [AICrystallographer project](https://github.com/pycroscopy/AICrystallographer). The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib.
 
-#### Partial list of scientific papers using AtomAI:
+#### Partial list of scientific papers that used AtomAI:
 
 - Exploring order parameters and dynamic processes in disordered systems via variational autoencoders. *Science Advances* 7, eabd5084 (2021).
 - Disentangling Rotational Dynamics and Ordering Transitions in a System of Self-Organizing Protein Nanorods via Rotationally Invariant Latent Representations. *ACS Nano* (2021), doi:10.1021/acsnano.0c08914
@@ -26,17 +26,15 @@ AtomAI is a Pytorch-based package for deep/machine learning analysis of microsco
 
 The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) 
 
-1) [Train a Deep Fully Convolutional Neural Network for Atom Finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomnet.ipynb)
+1) [Train a Deep Fully Convolutional Neural Network for Atom Finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb)
 
-2) [Multivariate Statistical Analysis of Distortion Domains in a Single Atomic Image](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_atomstat.ipynb)
+2) [Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb)
 
-3) [Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb)
+3) [Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
 
-4) [Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+4) [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
 
-5) [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
-
-6) [Prepare Training Data from Experimental Image with Atomic Coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+5) [Prepare Training Data from Experimental Image with Atomic Coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ### Semantic segmentation
 
