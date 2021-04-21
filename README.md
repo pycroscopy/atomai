@@ -28,13 +28,15 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 
 1) [Train a Deep Fully Convolutional Neural Network for Atom Finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb)
 
-2) [Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb)
+2) [Im2Spec: Predict 1D Spectra from 2D Images](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/ImSpec.ipynb) 
 
-3) [Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_vae.ipynb)
+3) [Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb)
 
-4) [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
+4) [Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb)
 
-5) [Prepare Training Data from Experimental Image with Atomic Coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
+5) [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
+
+6) [Prepare Training Data from Experimental Image with Atomic Coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ### Semantic segmentation
 
