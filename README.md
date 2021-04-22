@@ -110,7 +110,7 @@ rvae.fit(
     batch_size=100)
     
 # Visualize the learned manifold
-rvae.manifold2d()
+rvae.manifold2d();
 ```
 One can also use the trained VAE to view the data distribution in the latent space. In this example the first 3 latent variables are associated with rotations and xy-translations (they are automatically added in rVAE to whatever number of latent dimensions is specified), whereas the last 2 latent variables are associated with images content.
 ```python
