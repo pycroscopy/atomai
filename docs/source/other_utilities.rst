@@ -12,7 +12,7 @@ Statistics
 
 Image transforms
 ----------------
-.. autoclass:: atomai.stat.datatransform
+.. autoclass:: atomai.transforms.datatransform
     :members:
     :undoc-members:
     :member-order: bysource
