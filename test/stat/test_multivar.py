@@ -29,7 +29,7 @@ def imstack_():
     test_coord_m = np.load(test_coord_m_)
     test_coord_m = {'0': test_coord_m}
     imstack = imlocal(
-        test_nn_output, test_coord_m, crop_size=32, coord_class=1)
+        test_nn_output, test_coord_m, window_size=32, coord_class=1)
     return imstack
 
 
