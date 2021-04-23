@@ -41,7 +41,7 @@ class imlocal:
             where *N* is a number of detected atoms/defects,
             the first 2 columns are *xy* coordinates
             and the third columns is class (starts with 0)
-        crop_size (int):
+        window_size (int):
             Side of the square for subimage cropping
         coord_class (int):
             Class of atoms/defects around around which
@@ -53,9 +53,9 @@ class imlocal:
     Identification of distortion domains in a single atomic image:
 
         >>> # First obtain a "cleaned" image and atomic coordinates using a trained model
-        >>> nn_input, (nn_output, coordinates) = atomnet.predictor(expdata, model, use_gpu=False).run()
-        >>> # Now get local image descriptors using atomstat.imlocal
-        >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
+        >>> nn_output, coordinates = model.predict(expdata)
+        >>> # Now get local image descriptors using ```atomai.stat.imlocal```
+        >>> imstack = stat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
         >>> # Compute PCA scree plot to estimate the number of components/sources
         >>> imstack.pca_scree_plot(plot_results=True);
         >>> # Do PCA analysis and plot results
@@ -66,7 +66,7 @@ class imlocal:
     Analysis of atomic/defect trajectories from movies (3D image stack):
 
         >>> # Get local descriptors (such as subimages centered around impurities)
-        >>> imstack = atomstat.imlocal(nn_output, coordinates, crop_size=32, coord_class=1)
+        >>> imstack = stat.imlocal(nn_output, coordinates, window_size=32, coord_class=1)
         >>> # Calculate Gaussian mixture model (GMM) components
         >>> components_img, classes_list = imstack.gmm(n_components=10, plot_results=True)
         >>> # Calculate GMM components and transition probabilities for different trajectories
@@ -75,9 +75,9 @@ class imlocal:
     def __init__(self,
                  network_output: np.ndarray,
                  coord_class_dict_all: Dict[int, np.ndarray],
-                 crop_size: int = None,
+                 window_size: int = None,
                  coord_class: int = 0,
-                 window_size: int = None) -> None:
+                 ) -> None:
         """
         Initializes parameters and collects a stack of subimages
         for the statistical analysis of local descriptors
@@ -86,12 +86,7 @@ class imlocal:
         self.nb_classes = network_output.shape[-1]
         self.coord_all = coord_class_dict_all
         self.coord_class = np.float(coord_class)
-        self.r = crop_size
-        if window_size is not None:
-            self.r = window_size
-        else:
-            warnings.warn("The crop_size argument is deprecated. Use window_size to specify size of subimages",
-                          UserWarning)
+        self.r = window_size
         (self.imgstack,
          self.imgstack_com,
          self.imgstack_frames) = self.extract_subimages_()
