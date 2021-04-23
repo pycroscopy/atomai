@@ -1,7 +1,18 @@
-Image transforms
-=================
+Other utilities
+================
 
-.. autoclass:: atomai.transforms.datatransform
+Statistics
+----------
+.. autoclass:: atomai.stat.imlocal
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    
+.. autofunction:: atomai.stat.update_classes
+
+Image transforms
+----------------
+.. autoclass:: atomai.stat.datatransform
     :members:
     :undoc-members:
     :member-order: bysource
@@ -40,7 +51,7 @@ Image pre/post processing
 
 
 Atomic Coordinates
--------------------
+------------------
 
 .. autofunction:: atomai.utils.map_bonds
 .. autofunction:: atomai.utils.find_com
