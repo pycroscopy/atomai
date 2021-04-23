@@ -21,7 +21,7 @@ Welcome to AtomAI's documentation!
    trainers_predictors
    nets
    losses_metrics
-   data_processing
+   other_utilities
    
 .. toctree::
    :maxdepth: 3
