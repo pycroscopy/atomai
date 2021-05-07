@@ -41,9 +41,9 @@ The easiest way to start using AtomAI is via `Google Colab <https://colab.resear
 
 2) `Im2Spec: Predicting 1D Spectral Data from 2D Image Data <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/ImSpec.ipynb>`_
 
-3) `Variational Autoencoders I: Learning Disentangled Representations of Arbitrarily Rotated Handwritten Digits <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_rVAE_digits.ipynb>`_
+3) `Defect sniffer: Deep learning and Graph Analysis to Locate Specific Types of Defects <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/GraphAnalysis.ipynb>`_
 
-4) `Variational Autoencoders II: Simple Analysis of Structural Transformations in Atomic Movies <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb>`_
+4) `Variational Autoencoders: Simple Analysis of Structural Transformations in Atomic Movies <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb>`_
 
 5) `Implementation of Custom Image Denoiser in AtomAI <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb>`_
 
