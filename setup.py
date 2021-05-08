@@ -31,7 +31,7 @@ if __name__ == "__main__":
             'matplotlib>=3.2,<3.4',
             'scipy>=1.3.0',
             'scikit-learn>=0.22.1',
-            'scikit-image==0.16.2',
+            'scikit-image>=0.16.2',
             'opencv-python>=4.1.0',
             'networkx>=2.5',
             'mendeleev>=0.6.0',
