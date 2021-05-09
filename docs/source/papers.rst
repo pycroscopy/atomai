@@ -1,3 +1,6 @@
+Scientific output
+=================
+
 Scientific papers that used AtomAI or its predecessor, `AICrystallographer <https://github.com/pycroscopy/AICrystallographer>`_:
 
 1. Exploring order parameters and dynamic processes in disordered systems via variational autoencoders. *Science Advances* 7, eabd5084 (2021). DOI: 10.1126/sciadv.abd5084
