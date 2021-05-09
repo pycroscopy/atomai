@@ -12,6 +12,7 @@ Welcome to AtomAI's documentation!
 
    README.rst
    LICENSE.rst
+   papers.rst
 
 .. toctree::
    :maxdepth: 3
