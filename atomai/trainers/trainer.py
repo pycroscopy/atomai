@@ -114,7 +114,7 @@ class BaseTrainer:
         Sets optimizer to None.
         """
         self.optimizer = None
-    
+
     def set_data(self,
                  X_train: Union[torch.Tensor, np.ndarray],
                  y_train: Union[torch.Tensor, np.ndarray],
@@ -472,6 +472,10 @@ class BaseTrainer:
                 where parameters *a* and *gamma* can be passed as a dictionary,
                 together with parameter *e_p* determining every n-th epoch at
                 which a perturbation is applied
+            **lr_scheduler (list of floats):
+                List with learning rates for each training iteration/epoch.
+                If the length of list is smaller than the number of training iterations,
+                the last values in the list is used for the remaining iterations.
             **batch_seed (int):
                 Random state for generating sequence of training and test batches
             **overwrite_train_data (bool):
@@ -494,6 +498,7 @@ class BaseTrainer:
         self.batch_size = batch_size
         self.compute_accuracy = compute_accuracy
         self.swa = swa
+        self.lr_scheduler = kwargs.get("lr_scheduler")
         alloc = kwargs.get("memory_alloc", 4)
 
         if self.data_is_set:
@@ -533,10 +538,6 @@ class BaseTrainer:
                 batch_idx_train, random_state=kwargs.get("batch_seed", 1))
             self.batch_idx_test = shuffle(
                 batch_idx_test, random_state=kwargs.get("batch_seed", 1))
-            #self.batch_idx_train = np.random.randint(
-            #    0, len(self.X_train), self.training_cycles)
-            #self.batch_idx_test = np.random.randint(
-            #    0, len(self.X_test), self.training_cycles)
 
         self.print_loss = kwargs.get("print_loss")
         if self.print_loss is None:
@@ -548,6 +549,12 @@ class BaseTrainer:
         self.filename = kwargs.get("filename", "./model")
         self.plot_training_history = kwargs.get("plot_training_history", True)
 
+    def select_lr(self, e: int) -> None:
+        lr_i = (self.lr_scheduler[e] if e < len(self.lr_scheduler)
+                else self.lr_scheduler[-1])
+        for g in self.optimizer.param_groups:
+            g['lr'] = lr_i
+
     def run(self) -> Type[torch.nn.Module]:
         """
         Trains a neural network, prints the statistics,
@@ -556,6 +563,8 @@ class BaseTrainer:
         the data augmentation "on-the-fly"
         """
         for e in range(self.training_cycles):
+            if self.lr_scheduler:
+                self.select_lr(e)
             if self.full_epoch:
                 self.step_full()
             else:
@@ -764,7 +773,7 @@ class ImSpecTrainer(BaseTrainer):
         seed = kwargs.get("seed", 1)
         kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
         set_train_rng(seed)
-        
+
         self.in_dim, self.out_dim = in_dim, out_dim
         (self.net,
          self.meta_state_dict) = init_imspec_model(in_dim, out_dim, latent_dim,
