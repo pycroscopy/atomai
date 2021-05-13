@@ -1,5 +1,5 @@
 """
-ase_obj_coords.py
+aseutils.py
 
 =================
 
@@ -18,7 +18,7 @@ def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
                   frame_number: int, material_system: str,
                   map_dict: Dict[int, str],
                   filepath: str,
-                  ang2px: float) -> None:
+                  px2ang: float) -> None:
     """
     Create Atomic Simulation Environment (ASE) object.
     This object is a text file that can be readable by ase.io.vasp.read_vasp.
@@ -32,8 +32,8 @@ def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
         map_dict: dictionary which maps atomic classes from the NN output
         (keys) to strings corresponding to chemical elements (values)
         filepath: Savepath for the ASE object
-        ang2px: Angstrom-to-pixel conversion coefficient; specific to each experiment
-            (the pixel coordinates are divided by this value)
+        px2anf: Pixels-to-angstroms conversion coefficient,
+        which is specific to each experiment
 
     Examples:
 
@@ -41,8 +41,9 @@ def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
     >>> ase_obj_atom_basic(coordinates, 0, "Graphene",
     >>>                       map_dict = {0: "C", 1: "Si"},
     >>>                       "/content/Drive/POSCAR_general",
-    >>>                       ang2px=10.5)
+    >>>                       px2ang=0.104)
     """
+    ang2px = 1 / px2ang
     # make a list of dictionaries for all classes of atoms seperately
     all_dicts = []
     for c_atom in range(len(map_dict)):
@@ -55,7 +56,7 @@ def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
     length_coords = []
     for m in range(len(all_dicts)):
         pick_one_aoi = np.array(all_dicts[m][frame_number])  # np array
-        pick_one_aoi = pick_one_aoi / ang2pix  # pixel to angstrom conversion
+        pick_one_aoi = pick_one_aoi / ang2px  # pixel to angstrom conversion
         all_atoms.append(pick_one_aoi)
         length_coords.append(pick_one_aoi.shape[0])
 
@@ -100,7 +101,7 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
                 frame_number: int, material_system: str,
                 map_dict: Dict[int, str],
                 filepath: str,
-                ang2px: float) -> None:
+                px2ang: float) -> None:
     """
     Create Atomic Simulation Environment (ASE) object.
     This object is a text file that can be readable by ase.io.vasp.read_vasp.
@@ -117,8 +118,8 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
         map_dict: dictionary which maps atomic classes from the NN output
         (keys) to strings corresponding to chemical elements (values)
         filepath: Savepath for the ASE object
-        ang2px: Angstrom-to-pixel conversion coefficient; specific to each experiment
-            (the pixel coordinates are divided by this value)
+        px2ang: Pixels-to-Angstrom conversion coefficient,
+        which is specific to each experiment
 
     Examples:
 
@@ -128,8 +129,9 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
     >>>             [0.00000,0.00000,86.00000], coordinates, 0,
     >>>             "Graphene", map_dict = {0: "C", 1: "Si"},
     >>>             "/content/Drive/POSCAR_adv",
-    >>>             ang2px=10.5)
+    >>>             px2ang=0.104)
     """
+    ang2px = 1 / px2ang
     all_dicts = []
     for c_atom in range(len(map_dict)):
         coordinates_filtered = {}
@@ -141,7 +143,7 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
     length_coords = []
     for m in range(len(all_dicts)):
         pick_one_aoi = np.array(all_dicts[m][frame_number])  # np array
-        pick_one_aoi = pick_one_aoi / ang2pix  # pixel to angstrom conversion
+        pick_one_aoi = pick_one_aoi / ang2px  # pixel to angstrom conversion
         all_atoms.append(pick_one_aoi)
         length_coords.append(pick_one_aoi.shape[0])
 
