@@ -581,7 +581,7 @@ class BaseTrainer:
         if not self.full_epoch:
             self.eval_model()
         if self.swa:
-            print("Performing stochastic weights averaging...")
+            print("Performing stochastic weight averaging...")
             self.net.load_state_dict(average_weights(self.running_weights))
             self.eval_model()
         if self.plot_training_history:
