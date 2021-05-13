@@ -120,6 +120,10 @@ class Segmentor(SegTrainer):
                 where parameters *a* and *gamma* can be passed as a dictionary,
                 together with parameter *e_p* determining every *n*-th epoch at
                 which a perturbation is applied
+            **lr_scheduler (list of floats):
+                List with learning rates for each training iteration/epoch.
+                If the length of list is smaller than the number of training iterations,
+                the last values in the list is used for the remaining iterations.
             **print_loss (int):
                 Prints loss every *n*-th epoch
             **accuracy_metrics (str):

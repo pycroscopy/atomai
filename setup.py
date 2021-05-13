@@ -34,8 +34,8 @@ if __name__ == "__main__":
             'scikit-image>=0.16.2',
             'opencv-python>=4.1.0',
             'networkx>=2.5',
-            'mendeleev>=0.6.0',
-            'torchvision>=0.2.1'
+            'mendeleev<=0.6.1',
+            'torchvision>=0.8.0'
         ],
         classifiers=['Programming Language :: Python',
                      'Development Status :: 3 - Alpha',
