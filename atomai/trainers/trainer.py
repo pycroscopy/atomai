@@ -522,6 +522,7 @@ class BaseTrainer:
         params = self.net.parameters()
         if self.optimizer is None:
             if optimizer is None:
+                # will be overwitten by lr_scheduler (if activated)
                 self.optimizer = torch.optim.Adam(params, lr=1e-3)
             else:
                 self.optimizer = optimizer(params)
@@ -563,7 +564,7 @@ class BaseTrainer:
         the data augmentation "on-the-fly"
         """
         for e in range(self.training_cycles):
-            if self.lr_scheduler:
+            if self.lr_scheduler is not None:
                 self.select_lr(e)
             if self.full_epoch:
                 self.step_full()
