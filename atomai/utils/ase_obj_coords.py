@@ -127,7 +127,7 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
         coordinates_filtered = {}
         for k, c in coords_dict.items():
             coordinates_filtered[k] = c[c[:, -1] == c_atom]
-            all_dicts.append(coordinates_filtered)
+        all_dicts.append(coordinates_filtered)
 
     all_atoms = []
     length_coords = []
