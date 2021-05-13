@@ -66,3 +66,9 @@ Visualization
 .. autofunction:: atomai.utils.plot_trajectories
 .. autofunction:: atomai.utils.plot_transitions
 .. autofunction:: atomai.utils.plot_trajectories_transitions
+
+ASE utilities
+-------------
+.. autofunction:: atomai.utils.ase_obj_basic
+.. autofunction:: atomai.utils.ase_obj_adv
+
