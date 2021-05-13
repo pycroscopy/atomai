@@ -13,11 +13,11 @@ import numpy as np
 from typing import Dict, List, Union
 
 
-def ase_obj_atom_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
-                       frame_number: int, material_system: str,
-                       map_dict: Dict,
-                       filepath: str, filename_wr: str,
-                       ang2pix=10.5) -> None:
+def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
+                  frame_number: int, material_system: str,
+                  map_dict: Dict,
+                  filepath: str, filename_wr: str,
+                  ang2pix=10.5) -> None:
     """
     Create Atomic Simulation Environment (ASE) object.
     This object is a text file that can be readable by ase.io.vasp.read_vasp.
@@ -32,6 +32,12 @@ def ase_obj_atom_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
         (keys) to strings corresponding to chemical elements (values)
         filepath: location to save the ASE object (string)
         filename_wr: name of ASE object (string)
+
+    Example:
+    >>> # call function
+    >>> #ase_obj_atom_basic(coordinates, 0, "Graphene",
+                            map_dict = {0: "C", 1: "Si"},
+                            "/content/Drive","POSCAR_general")
     """
     # make a list of dictionaries for all classes of atoms seperately
 
@@ -108,6 +114,13 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
         (keys) to strings corresponding to chemical elements (values)
         filepath: location to save the ASE object (string)
         filename_wr: name of ASE object (string)
+    Example:
+    >>> # call function
+    >>> #ase_obj_adv([86.00000,0.00000,0.00000],
+                            [0.00000,86.00000,0.00000],
+                            [0.00000,0.00000,86.00000], coordinates, 0,
+                            "Graphene", map_dict = {0: "C", 1: "Si"},
+                            "/content/Drive","POSCAR_adv")
     """
     all_dicts = []
     for c_atom in range(len(map_dict)):
