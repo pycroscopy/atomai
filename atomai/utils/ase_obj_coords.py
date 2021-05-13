@@ -1,4 +1,3 @@
-
 """
 ase_obj_coords.py.
 
@@ -11,14 +10,14 @@ Created by Ayana Ghosh (email: research.aghosh@gmail.com)
 """
 
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Union
 
 
-def ase_obj_single_atom_basic(coords_dict: Dict[int, np.ndarray],
-                              frame_number: int,
-                              material_system: str, atom_name: str,
-                              filepath: str, filename_wr: str,
-                              ang2pix=10.5) -> None:
+def ase_obj_atom_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
+                       frame_number: int, material_system: str,
+                       map_dict: Dict,
+                       filepath: str, filename_wr: str,
+                       ang2pix=10.5) -> None:
     """
     Create Atomic Simulation Environment (ASE) object.
     This object is a text file that can be readable by ase.io.vasp.read_vasp.
@@ -26,23 +25,41 @@ def ase_obj_single_atom_basic(coords_dict: Dict[int, np.ndarray],
     And uses a cubic cell to construct the object.
 
     Args:
-        coords_dict: dictionary object of coordinates produecd by AtomAI
+        coords_dict: dictionary object of coordinates produced by AtomAI
         frame_number: image frame number
         material_system: name of material (string)
+        map_dict: dictionary which maps atomic classes from the NN output
+        (keys) to strings corresponding to chemical elements (values)
         filepath: location to save the ASE object (string)
         filename_wr: name of ASE object (string)
     """
-    pick_one_aoi = np.array(coords_dict[frame_number])  # np array
-    pick_one_aoi = pick_one_aoi / ang2pix  # pixel to angstrom conversion
+    # make a list of dictionaries for all classes of atoms seperately
 
-    a_lattice = np.max(pick_one_aoi) + 0.5
+    all_dicts = []
+    for c_atom in range(len(map_dict)):
+        coordinates_filtered = {}
+        for k, c in coords_dict.items():
+            coordinates_filtered[k] = c[c[:, -1] == c_atom]
+        all_dicts.append(coordinates_filtered)
+
+    all_atoms = []
+    length_coords = []
+    for m in range(len(all_dicts)):
+        pick_one_aoi = np.array(all_dicts[m][frame_number])  # np array
+        pick_one_aoi = pick_one_aoi / ang2pix  # pixel to angstrom conversion
+        all_atoms.append(pick_one_aoi)
+        length_coords.append(pick_one_aoi.shape[0])
+
+    all_atoms_arr = all_atoms[0]
+    for a in range(1, len(all_atoms)):
+        all_atoms_arr = np.concatenate([all_atoms_arr, all_atoms[a]], axis=0)
+
+    a_lattice = np.max(all_atoms_arr) + 0.2
     b_lattice = a_lattice
     c_lattice = a_lattice
 
-    c_coords_aoi = (np.max(pick_one_aoi)) / 2
-    pick_one_aoi[:, 2] = c_coords_aoi
-    length_coords = pick_one_aoi.shape[0]
-
+    c_coords_aoi = (np.max(all_atoms_arr))
+    all_atoms_arr[:, 2] = c_coords_aoi
     # open a text file and write to it following the format of .vasp file
     file1 = open(str(filepath) + str(filename_wr), "w")
     file1.write(str(material_system) + "\n")
@@ -50,24 +67,28 @@ def ase_obj_single_atom_basic(coords_dict: Dict[int, np.ndarray],
     file1.write("  " + str(a_lattice) + " 0.0000 0.0000 \n")
     file1.write("  0.0000 " + str(b_lattice) + " 0.0000 \n")
     file1.write("  0.0000 0.0000 " + str(c_lattice) + "\n")
-    file1.write(" " + atom_name + "\n")
-    file1.write(" " + str(length_coords) + "\n")
+    for j in range(len(map_dict)):
+        file1.write(" " + list(map_dict.values())[j] + " ")
+    file1.write("\n")
+    for s in range(len(length_coords)):
+        file1.write(" " + str(length_coords[s]))
+    file1.write("\n")
     file1.write("Cartesian \n")
 
-    for i in range(length_coords):
-        file1.write(str(pick_one_aoi[i][0]) + "\t" +
-                    str(pick_one_aoi[i][1]) + "\t" +
-                    str(pick_one_aoi[i][2]) + "\n")
+    for i in range(all_atoms_arr.shape[0]):
+        file1.write(str(all_atoms_arr[i][0]) + "\t" +
+                    str(all_atoms_arr[i][1]) + "\t" +
+                    str(all_atoms_arr[i][2]) + "\n")
     file1.close()
 
     print("You have successfully created an ASE object. \n")
     print("This is a cubic cell of " + material_system + ". \n")
     print("Now you can read it in using ase.io.vasp.read_vasp. \n")
 
-
 def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
-                coords_dict: Dict[int, np.ndarray], frame_number: float,
-                material_system: str, atom_names: List[str], atoms_num: str,
+                coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
+                frame_number: int, material_system: str,
+                map_dict: Dict,
                 filepath: str, filename_wr: str,
                 ang2pix=10.5) -> None:
     """
@@ -80,21 +101,35 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
         a_lattice: list of lattice vector in a direction ([a1,a2,a3])
         b_lattice: list of lattice vector in a direction ([b1,b2,c3])
         c_lattice: list of lattice vector in a direction ([c1,c2,c3])
-        coords_dict: dictionary object of coordinates produecd by AtomAI
+        coords_dict: dictionary object of coordinates produced by AtomAI
         frame_number: image frame number
         material_system: name of material (string)
-        atom_names: list of all atoms present in the system (string)
-        atoms_num: list of number of each kind of atom present
+        map_dict: dictionary which maps atomic classes from the NN output
+        (keys) to strings corresponding to chemical elements (values)
         filepath: location to save the ASE object (string)
         filename_wr: name of ASE object (string)
     """
-    pick_one_aoi = np.array(coords_dict[frame_number])  # convert to np array
-    pick_one_aoi = pick_one_aoi / ang2pix  # pixel to angstrom conversion
+    all_dicts = []
+    for c_atom in range(len(map_dict)):
+        coordinates_filtered = {}
+        for k, c in coords_dict.items():
+            coordinates_filtered[k] = c[c[:, -1] == c_atom]
+            all_dicts.append(coordinates_filtered)
 
-    c_coords_aoi = (np.max(pick_one_aoi)) / 2
+    all_atoms = []
+    length_coords = []
+    for m in range(len(all_dicts)):
+        pick_one_aoi = np.array(all_dicts[m][frame_number])  # np array
+        pick_one_aoi = pick_one_aoi / ang2pix  # pixel to angstrom conversion
+        all_atoms.append(pick_one_aoi)
+        length_coords.append(pick_one_aoi.shape[0])
 
-    pick_one_aoi[:, 2] = c_coords_aoi
-    length_coords = pick_one_aoi.shape[0]
+    all_atoms_arr = all_atoms[0]
+    for a in range(1, len(all_atoms)):
+        all_atoms_arr = np.concatenate([all_atoms_arr, all_atoms[a]], axis=0)
+
+    c_coords_aoi = (np.max(all_atoms_arr))
+    all_atoms_arr[:, 2] = c_coords_aoi
 
     # open a text file and write to it following the format of .vasp file
     file1 = open(str(filepath) + str(filename_wr), "w")
@@ -107,18 +142,18 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
     file1.write("  " + str(c_lattice[0]) + " " + str(c_lattice[1]) + " " +
                 str(c_lattice[2]) + "\n")
 
-    for j in range(len(atom_names)):
-        file1.write(" " + atom_names[j] + " ")
-        file1.write("\n")
-    for k in range(len(atoms_num)):
-        file1.write(" " + str(atoms_num[k]) + " ")
+    for j in range(len(map_dict)):
+        file1.write(" " + list(map_dict.values())[j] + " ")
+    file1.write("\n")
+    for s in range(len(length_coords)):
+        file1.write(" " + str(length_coords[s]))
     file1.write("\n")
     file1.write("Cartesian \n")
 
-    for i in range(length_coords):
-        file1.write(str(pick_one_aoi[i][0]) + "\t" +
-                    str(pick_one_aoi[i][1]) + "\t" +
-                    str(pick_one_aoi[i][2]) + "\n")
+    for i in range(all_atoms_arr.shape[0]):
+        file1.write(str(all_atoms_arr[i][0]) + "\t" +
+                    str(all_atoms_arr[i][1]) + "\t" +
+                    str(all_atoms_arr[i][2]) + "\n")
     file1.close()
     print("You have successfully created an ASE object. \n")
     print("You have prepared " + material_system + ". \n")
