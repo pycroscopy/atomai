@@ -1,7 +1,7 @@
 """
-ase_obj_coords.py.
+ase_obj_coords.py
 
-=========
+=================
 
 Module for working with atom/defect/particle coordinates and converting
 to ASE object
@@ -9,15 +9,16 @@ to ASE object
 Created by Ayana Ghosh (email: research.aghosh@gmail.com)
 """
 
+from typing import Dict, Union
+
 import numpy as np
-from typing import Dict, List, Union
 
 
 def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
                   frame_number: int, material_system: str,
-                  map_dict: Dict,
-                  filepath: str, filename_wr: str,
-                  ang2pix=10.5) -> None:
+                  map_dict: Dict[int, str],
+                  filepath: str,
+                  ang2px: float) -> None:
     """
     Create Atomic Simulation Environment (ASE) object.
     This object is a text file that can be readable by ase.io.vasp.read_vasp.
@@ -27,20 +28,22 @@ def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
     Args:
         coords_dict: dictionary object of coordinates produced by AtomAI
         frame_number: image frame number
-        material_system: name of material (string)
+        material_system: name of material
         map_dict: dictionary which maps atomic classes from the NN output
         (keys) to strings corresponding to chemical elements (values)
-        filepath: location to save the ASE object (string)
-        filename_wr: name of ASE object (string)
+        filepath: Savepath for the ASE object
+        ang2px: Angstrom-to-pixel conversion coefficient; specific to each experiment
+            (the pixel coordinates are divided by this value)
 
-    Example:
+    Examples:
+
     >>> # call function
-    >>> #ase_obj_atom_basic(coordinates, 0, "Graphene",
-                            map_dict = {0: "C", 1: "Si"},
-                            "/content/Drive","POSCAR_general")
+    >>> ase_obj_atom_basic(coordinates, 0, "Graphene",
+    >>>                       map_dict = {0: "C", 1: "Si"},
+    >>>                       "/content/Drive/POSCAR_general",
+    >>>                       ang2px=10.5)
     """
     # make a list of dictionaries for all classes of atoms seperately
-
     all_dicts = []
     for c_atom in range(len(map_dict)):
         coordinates_filtered = {}
@@ -67,7 +70,7 @@ def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
     c_coords_aoi = (np.max(all_atoms_arr))
     all_atoms_arr[:, 2] = c_coords_aoi
     # open a text file and write to it following the format of .vasp file
-    file1 = open(str(filepath) + str(filename_wr), "w")
+    file1 = open(str(filepath), "w")
     file1.write(str(material_system) + "\n")
     file1.write(" 1.0000 \n")
     file1.write("  " + str(a_lattice) + " 0.0000 0.0000 \n")
@@ -91,12 +94,13 @@ def ase_obj_basic(coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
     print("This is a cubic cell of " + material_system + ". \n")
     print("Now you can read it in using ase.io.vasp.read_vasp. \n")
 
+
 def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
                 coords_dict: Union[Dict[int, np.ndarray], np.ndarray],
                 frame_number: int, material_system: str,
-                map_dict: Dict,
-                filepath: str, filename_wr: str,
-                ang2pix=10.5) -> None:
+                map_dict: Dict[int, str],
+                filepath: str,
+                ang2px: float) -> None:
     """
     Create Atomic Simulation Environment (ASE) object.
     This object is a text file that can be readable by ase.io.vasp.read_vasp.
@@ -109,18 +113,22 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
         c_lattice: list of lattice vector in a direction ([c1,c2,c3])
         coords_dict: dictionary object of coordinates produced by AtomAI
         frame_number: image frame number
-        material_system: name of material (string)
+        material_system: name of material
         map_dict: dictionary which maps atomic classes from the NN output
         (keys) to strings corresponding to chemical elements (values)
-        filepath: location to save the ASE object (string)
-        filename_wr: name of ASE object (string)
-    Example:
+        filepath: Savepath for the ASE object
+        ang2px: Angstrom-to-pixel conversion coefficient; specific to each experiment
+            (the pixel coordinates are divided by this value)
+
+    Examples:
+
     >>> # call function
-    >>> #ase_obj_adv([86.00000,0.00000,0.00000],
-                            [0.00000,86.00000,0.00000],
-                            [0.00000,0.00000,86.00000], coordinates, 0,
-                            "Graphene", map_dict = {0: "C", 1: "Si"},
-                            "/content/Drive","POSCAR_adv")
+    >>> ase_obj_adv([86.00000,0.00000,0.00000],
+    >>>             [0.00000,86.00000,0.00000],
+    >>>             [0.00000,0.00000,86.00000], coordinates, 0,
+    >>>             "Graphene", map_dict = {0: "C", 1: "Si"},
+    >>>             "/content/Drive/POSCAR_adv",
+    >>>             ang2px=10.5)
     """
     all_dicts = []
     for c_atom in range(len(map_dict)):
@@ -145,7 +153,7 @@ def ase_obj_adv(a_lattice: float, b_lattice: float, c_lattice: float,
     all_atoms_arr[:, 2] = c_coords_aoi
 
     # open a text file and write to it following the format of .vasp file
-    file1 = open(str(filepath) + str(filename_wr), "w")
+    file1 = open(str(filepath), "w")
     file1.write(str(material_system) + "\n")
     file1.write(" 1.0000 \n")
     file1.write("  " + str(a_lattice[0]) + " " + str(a_lattice[1]) + " " +
