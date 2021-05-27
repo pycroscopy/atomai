@@ -324,7 +324,7 @@ class SegResNet(nn.Module):
                  nb_classes: int = 1,
                  nb_filters: int = 32,
                  batch_norm: bool = True,
-                 upsampling_mode: bool = True,
+                 upsampling_mode: str = "bilinear",
                  **kwargs: List[int]
                  ) -> None:
         '''
