@@ -58,7 +58,8 @@ nn_output, coordinates = model.predict(expdata)
 ```
 
 ### ImSpec models
-AtomAI also provides models that can be used for predicting spectra from image data and vice versa. These models can be used for predicting property (functionality) from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
+AtomAI also provides models that can be used for predicting spectra from image data and vice versa. These models can be used for predicting property (functionality) from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are very similar to those of the semantic segmentation model, with the main difference being that one has to specify the dimensions of input and output
+data:
 ```python
 in_dim = (16, 16)  # Input dimensions (image height and width)
 out_dim = (64,)  # Output dimensions (spectra length)
