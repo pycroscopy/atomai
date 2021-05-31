@@ -14,7 +14,8 @@ def stem_smbfo(filedir: str = './'):
     Args:
         filedir: directory to save the downloaded data
     """
-    print("If you use this dataset in your work, please consider citing it"
+    print("Downloading the dataset. This may take a few minutes. "
+          "If you use this dataset in your work, please consider citing it"
           " using the following DOI: https://doi.org/10.13139/ORNLNCCS/1773704")
     url = "https://zenodo.org/record/4876786/files/composition_series_dict_full.npy"
     urllib.request.urlretrieve(
