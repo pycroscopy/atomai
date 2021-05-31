@@ -35,7 +35,8 @@ if __name__ == "__main__":
             'opencv-python>=4.1.0',
             'networkx>=2.5',
             'mendeleev<=0.6.1',
-            'torchvision>=0.8.0'
+            'torchvision>=0.8.0',
+            'progressbar2>=3.38.0'
         ],
         classifiers=['Programming Language :: Python',
                      'Development Status :: 3 - Alpha',

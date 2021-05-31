@@ -10,3 +10,4 @@ sphinx_autodoc_typehints>=1.11.0
 recommonmark>=0.6.0
 sphinx_rtd_theme>=0.5.0
 mendeleev<=0.6.1
+progressbar2>=3.38.0
