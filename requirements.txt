@@ -11,4 +11,4 @@ scikit-image>=0.16.2
 opencv-python>=4.1.0
 networkx>=2.5
 mendeleev<=0.6.1
-progressbar>=2.5
+progressbar2>=3.38.0
