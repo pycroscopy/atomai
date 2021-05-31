@@ -1,7 +1,6 @@
 """
 aseutils.py
-
-=================
+===========
 
 Module for working with atom/defect/particle coordinates and converting
 to ASE object

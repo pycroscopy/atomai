@@ -349,7 +349,7 @@ def find_cycle_clusters(coordinate_data: np.ndarray,
     """
     Finds clusters of cycles with a specific number of elements
     (can be used for identifying e.g. topological defects in graphene)
-    
+
     Args:
         coordinate_data (numpy array):
             3D or 4D numpy array where the last column is atom class (0, 1, ...)
@@ -444,7 +444,7 @@ def plot_graph(G: Type[nx.Graph],
             atomic_labels = nx.get_node_attributes(G, 'atom')
         nx.draw_networkx_labels(G, pos, labels=atomic_labels, ax=ax,
                                 font_size=kwargs.get("label_size", 7),
-                                font_color= kwargs.get("label_color", "black"))
+                                font_color=kwargs.get("label_color", "black"))
     plt.show()
 
 

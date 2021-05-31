@@ -143,7 +143,7 @@ class rVAE(BaseVAE):
                 x_reconstr = self.decoder_net(x_coord_, z)
         else:
             x_reconstr = self.decoder_net(x_coord_, z)
-        
+
         return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, **self.kdict_)
 
     def fit(self,

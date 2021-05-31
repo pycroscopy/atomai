@@ -89,7 +89,7 @@ class BasePredictor:
         batch_size = len(data) // num_batches
         if batch_size < 1:
             num_batches = batch_size = 1
-        #prediction_all = np.zeros(shape=out_shape)
+        # prediction_all = np.zeros(shape=out_shape)
         prediction_all = torch.zeros(out_shape)
         for i in range(num_batches):
             if self.verbose:
@@ -311,7 +311,7 @@ class ImSpecPredictor(BasePredictor):
             Use GPU accelration for prediction
         verbose:
             Verbosity
-    
+
     Example:
 
         >>> # Predict spectra from images with pretrained im2spec model
