@@ -5,13 +5,14 @@ import numpy as np
 import progressbar
 
 
-def stem_smbfo(filedir: str = './'):
+def stem_smbfo(download: bool = True, filedir: str = './'):
     """
     Downloads the scanning transmission electron microscopy (STEM) datasets
     from the combinatorial library of the Sm-doped BiFeO3 (BFO) grown to cover
     the composition range from pure ferroelectric BFO to orthorhombic 20% Sm-doped BFO.
 
     Args:
+        download: downloads the dataset from the public repository
         filedir: directory to save the downloaded data
     
     Returns:
@@ -36,9 +37,10 @@ def stem_smbfo(filedir: str = './'):
     print("Downloading the dataset. This may take a few minutes. "
           "If you use this dataset in your work, please consider citing it"
           " using the following DOI: https://doi.org/10.13139/ORNLNCCS/1773704")
-    url = "https://zenodo.org/record/4876786/files/composition_series_dict_full.npy"
-    urllib.request.urlretrieve(
-        url, os.path.join(filedir, "SmBFO_composition_series.npy"), ProgressBar())
+    if download:
+        url = "https://zenodo.org/record/4876786/files/composition_series_dict_full.npy"
+        urllib.request.urlretrieve(
+            url, os.path.join(filedir, "SmBFO_composition_series.npy"), ProgressBar())
     dataset = np.load(
         os.path.join(filedir, "SmBFO_composition_series.npy"), allow_pickle=True)[()]
     return dataset
