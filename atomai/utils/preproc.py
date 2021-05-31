@@ -234,7 +234,6 @@ def preprocess_training_image_data_(images_all: Union[np.ndarray, torch.Tensor],
             labels_test_all, num_classes)
 
 
-
 def preprocess_training_image_data(images_all: Union[np.ndarray, torch.Tensor],
                                    labels_all: Union[np.ndarray, torch.Tensor],
                                    images_test_all: Union[np.ndarray, torch.Tensor],
@@ -284,34 +283,34 @@ def preprocess_training_imspec_data_(X_train: Union[np.ndarray, torch.Tensor],
                                      X_test: Union[np.ndarray, torch.Tensor],
                                      y_test: Union[np.ndarray, torch.Tensor],
                                      ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], Tuple[Tuple[int]]]:
-        """
-        Preprocesses training and test data for im2spec/spec2im models
-        """
-        all_data = (X_train, y_train, X_test, y_test)
-        all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
-        all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
-        if not all_numpy and not all_torch:
-            raise TypeError(
-                "Provide training and test data in the form" +
-                " of numpy arrays or torch tensors")
+    """
+    Preprocesses training and test data for im2spec/spec2im models
+    """
+    all_data = (X_train, y_train, X_test, y_test)
+    all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
+    all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
+    if not all_numpy and not all_torch:
+        raise TypeError(
+            "Provide training and test data in the form" +
+            " of numpy arrays or torch tensors")
 
-        X_train, y_train, X_test, y_test = check_signal_dims(
-            X_train, y_train, X_test, y_test)
-        in_dim = X_train.shape[2:]
-        out_dim = y_train.shape[2:]
+    X_train, y_train, X_test, y_test = check_signal_dims(
+        X_train, y_train, X_test, y_test)
+    in_dim = X_train.shape[2:]
+    out_dim = y_train.shape[2:]
 
-        if all_numpy:
-            X_train = torch.from_numpy(X_train).float()
-            y_train = torch.from_numpy(y_train).float()
-            X_test = torch.from_numpy(X_test).float()
-            y_test = torch.from_numpy(y_test).float()
-        else:
-            X_train = X_train.float()
-            y_train = y_train.float()
-            X_test = X_test.float()
-            y_test = y_test.float()
+    if all_numpy:
+        X_train = torch.from_numpy(X_train).float()
+        y_train = torch.from_numpy(y_train).float()
+        X_test = torch.from_numpy(X_test).float()
+        y_test = torch.from_numpy(y_test).float()
+    else:
+        X_train = X_train.float()
+        y_train = y_train.float()
+        X_test = X_test.float()
+        y_test = y_test.float()
 
-        return X_train, y_train, X_test, y_test, (in_dim, out_dim)
+    return X_train, y_train, X_test, y_test, (in_dim, out_dim)
 
 
 def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
@@ -320,47 +319,47 @@ def preprocess_training_imspec_data(X_train: Union[np.ndarray, torch.Tensor],
                                     y_test: Union[np.ndarray, torch.Tensor],
                                     batch_size: int, memory_alloc: float = 4
                                     ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], Tuple[Tuple[int]]]:
-        """
-        Preprocesses training and test data for im2spec/spec2im models
+    """
+    Preprocesses training and test data for im2spec/spec2im models
 
-        Args:
-            X_train (numpy array):
-                4D numpy array with image data (n_samples x 1 x height x width)
-                or 3D numpy array with spectral data (n_samples x 1 x signal_length).
-                It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
-                which will be added automatically.
-            y_train (numpy array):
-                3D numpy array with spectral data (n_samples x 1 x signal_length)
-                or 4D numpy array with image data (n_samples x 1 x height x width).
-                It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
-                which will be added automatically. Note that if your X_train data are images,
-                then your y_train must be spectra and vice versa.
-            X_test (numpy array):
-                4D numpy array with image data (n_samples x 1 x height x width)
-                or 3D numpy array with spectral data (n_samples x 1 x signal_length).
-                It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
-                which will be added automatically.
-            y_test (numpy array):
-                3D numpy array with spectral data (n_samples x 1 x signal_length)
-                or 4D numpy array with image data (n_samples x 1 x height x width).
-                It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
-                which will be added automatically. Note that if your X_train data are images,
-                then your y_train must be spectra and vice versa.
-            memory_alloc (int or float):
-                Threshold (in GB) for holding all training data on GPU
+    Args:
+        X_train (numpy array):
+            4D numpy array with image data (n_samples x 1 x height x width)
+            or 3D numpy array with spectral data (n_samples x 1 x signal_length).
+            It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
+            which will be added automatically.
+        y_train (numpy array):
+            3D numpy array with spectral data (n_samples x 1 x signal_length)
+            or 4D numpy array with image data (n_samples x 1 x height x width).
+            It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
+            which will be added automatically. Note that if your X_train data are images,
+            then your y_train must be spectra and vice versa.
+        X_test (numpy array):
+            4D numpy array with image data (n_samples x 1 x height x width)
+            or 3D numpy array with spectral data (n_samples x 1 x signal_length).
+            It is also possible to pass 3D and 2D arrays by ignoring the channel dim,
+            which will be added automatically.
+        y_test (numpy array):
+            3D numpy array with spectral data (n_samples x 1 x signal_length)
+            or 4D numpy array with image data (n_samples x 1 x height x width).
+            It is also possible to pass 2D and 3D arrays by ignoring the channel dim,
+            which will be added automatically. Note that if your X_train data are images,
+            then your y_train must be spectra and vice versa.
+        memory_alloc (int or float):
+            Threshold (in GB) for holding all training data on GPU
 
-        Returns:
+    Returns:
         4-element tuple containing lists of numpy arrays or torch tensors
         with training and test data
-        """
-        data_all = preprocess_training_imspec_data_(
-            X_train, y_train, X_test, y_test)
-        dims = data_all[-1]
+    """
+    data_all = preprocess_training_imspec_data_(
+        X_train, y_train, X_test, y_test)
+    dims = data_all[-1]
 
-        X_train, y_train, X_test, y_test = array2list(
-                *data_all[:-1], batch_size, memory_alloc)
+    X_train, y_train, X_test, y_test = array2list(
+            *data_all[:-1], batch_size, memory_alloc)
 
-        return X_train, y_train, X_test, y_test, dims
+    return X_train, y_train, X_test, y_test, dims
 
 
 def init_dataloaders(X_train: torch.Tensor,

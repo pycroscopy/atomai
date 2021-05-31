@@ -32,7 +32,7 @@ class EnsemblePredictor(BasePredictor):
         out_dim: Output data size (for models with fully-connected layers)
         **output_shape: Optionally one may specify the exact output shape
         **verbose: verbosity
-    
+
     Example:
 
         >>> p = aoi.predictors.EnsemblePredictor(skeleton, ensemble, nb_classes=3)
@@ -265,4 +265,3 @@ def ensemble_locate(nn_output_ensemble: np.ndarray,
         coord_mean_all[i] = coord_mean
         coord_var_all[i] = coord_var
     return coord_mean_all, coord_var_all
-

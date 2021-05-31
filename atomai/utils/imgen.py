@@ -50,7 +50,7 @@ class MakeAtom:
             (np.cos(self.theta)**2)/(2*self.sigma_y**2)
         g = self.offset + self.intensity*np.exp(
             -(a*((self.x-self.xo)**2) + 2*b*(self.x-self.xo)*(self.y-self.yo) +\
-            c*((self.y-self.yo)**2)))
+              c*((self.y-self.yo)**2)))
         return g
 
     def circularmask(self, image: np.ndarray, radius: int) -> np.ndarray:

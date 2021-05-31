@@ -184,7 +184,7 @@ class Segmentor(SegTrainer):
             **num_batches (int): number of batches (Default: 10)
             **norm (bool): Normalize data to (0, 1) during pre-processing
             **verbose (bool): verbosity
-        
+
         Returns:
             Semantically segmented image and coordinates of (atomic) objects
 

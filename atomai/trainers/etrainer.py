@@ -311,7 +311,7 @@ class EnsembleTrainer(BaseEnsembleTrainer):
         **kwargs:
             Number of input, output, and latent dimensions
             for imspec models (in_dim, out_dim, latent_dim)
-    
+
     Example:
 
         >>> # Train an ensemble of Unet-s

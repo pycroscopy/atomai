@@ -10,7 +10,6 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 from typing import Tuple, List, Dict, Union
 
 import copy
-import warnings
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -354,7 +353,7 @@ class imlocal:
         explained_var = pca.explained_variance_ratio_
         if plot_results:
             # Plotting
-            _, ax = plt.subplots(1, 1, figsize=(6,6))
+            _, ax = plt.subplots(1, 1, figsize=(6, 6))
             ax.plot(explained_var, '-o')
             ax.set_xlim(-0.5, 50)
             ax.set_xlabel('Number of components')
@@ -624,7 +623,7 @@ class imlocal:
         c0 = start_coord
         for k, c in coord_class_dict.items():
             d, index = spatial.cKDTree(
-                c[:,:2]).query(c0, distance_upper_bound=rmax)
+                c[:, :2]).query(c0, distance_upper_bound=rmax)
             if d != np.inf:
                 flow = np.append(flow, [c[index]], axis=0)
                 frames.append(k)
@@ -675,10 +674,10 @@ class imlocal:
         else:
             classes = np.zeros(len(self.imgstack_frames))
         coord_class_dict = {
-            i : np.concatenate(
+            i: np.concatenate(
                 (self.imgstack_com[np.where(self.imgstack_frames == i)[0]],
-                    classes[np.where(self.imgstack_frames == i)[0]][..., None]),
-                    axis=-1)
+                 classes[np.where(self.imgstack_frames == i)[0]][..., None]),
+                axis=-1)
             for i in self.imgstack_frames
         }
         all_trajectories = []
