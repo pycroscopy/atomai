@@ -8,7 +8,7 @@ from ..transforms import imspec_augmentor
 
 class ImSpec(ImSpecTrainer):
     """
-    Model for converting images to spectra and vice versa
+    Model for predicting spectra from images and vice versa
 
     Args:
         in_dim:
@@ -43,12 +43,12 @@ class ImSpec(ImSpecTrainer):
 
     Example:
 
-    >>> in_dim = (16, 16)  # Input dimensions
-    >>> out_dim = (64,)  # Output dimensions
+    >>> in_dim = (16, 16)  # Input dimensions (images)
+    >>> out_dim = (64,)  # Output dimensions (spectra)
     >>> # Initialize and train model
     >>> model = aoi.models.ImSpec(in_dim, out_dim, latent_dim=10)
     >>> model.fit(imgs_train, spectra_train, imgs_test, spectra_test,
-    >>>        full_epoch=True, training_cycles=120, swa=True)
+    >>>           full_epoch=True, training_cycles=120, swa=True)
     >>> # Make a prediction with the trained model
     >>> prediction = model.predict(imgs_test, norm=False)
     """
