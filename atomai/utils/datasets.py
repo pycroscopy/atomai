@@ -9,10 +9,29 @@ def stem_smbfo(filedir: str = './'):
     """
     Downloads the scanning transmission electron microscopy (STEM) datasets
     from the combinatorial library of the Sm-doped BiFeO3 (BFO) grown to cover
-    the composition range from pure ferroelectric BFO to orthorhombic 20% Sm-doped BFO
+    the composition range from pure ferroelectric BFO to orthorhombic 20% Sm-doped BFO.
 
     Args:
         filedir: directory to save the downloaded data
+    
+    Returns:
+        Nested dictionary where the 1st dictionary describes different
+        Sm concentrations, and the 2nd dictionary has chemical and physical
+        descriptors for each concentration.
+        
+    Examples:
+
+        >>> # Download the dataset
+        >>> dataset = atomai.utils.datasets.stem_smbfo()
+        >>> # Plot main image and polarization values for each Sm concentration
+        >>> for k, d in dataset.items():
+        >>>     _, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16, 5))
+        >>>     y, x = d["xy_COM"].T  # get the center of the mass for each unit cell
+        >>>     ax1.imshow(d["main_image"], origin="lower", cmap='gray')
+        >>>     ax1.set_title(k)
+        >>>     ax2.scatter(x, y, c=d["Pxy"][:, 0], s=3, cmap='RdBu_r')
+        >>>     ax3.scatter(x, y, c=d["Pxy"][:, 1], s=3, cmap='RdBu_r')
+        >>>     plt.show()
     """
     print("Downloading the dataset. This may take a few minutes. "
           "If you use this dataset in your work, please consider citing it"
