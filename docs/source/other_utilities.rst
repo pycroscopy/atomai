@@ -72,3 +72,7 @@ ASE utilities
 .. autofunction:: atomai.utils.ase_obj_basic
 .. autofunction:: atomai.utils.ase_obj_adv
 
+Datasets
+--------
+.. autofunction:: atomai.utils.datasets.stem_smbfo
+
