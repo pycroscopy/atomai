@@ -75,4 +75,5 @@ ASE utilities
 Datasets
 --------
 .. autofunction:: atomai.utils.datasets.stem_smbfo
+.. autofunction:: atomai.utils.datasets.stem_graphene
 
