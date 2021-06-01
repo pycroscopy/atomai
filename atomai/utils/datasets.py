@@ -75,7 +75,7 @@ def stem_graphene(download: bool = True,
         >>> metadata = dataset[3]["metadata] # dictionary with experimental parameters
     """
     print("If you use this dataset in your work, please consider citing it"
-          " using the following DOI: 10.13139/ORNLNCCS/1773705.")
+          " using the following DOI: https://doi.org/10.13139/ORNLNCCS/1773705.")
     if download:
         print("Downloading the dataset. This may take a few minutes.")
         url = "https://zenodo.org/record/4885132/files/graphene_imgstacks_dict.npy"
