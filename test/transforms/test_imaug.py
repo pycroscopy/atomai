@@ -23,7 +23,7 @@ def test_individual_noise_transforms(transforms):
 
 @pytest.mark.parametrize(
     "transforms",
-    [{"zoom": True}, {"rotation": True}])
+    [{"rotation": True}, {"rotation": True, "zoom": True}])
 def test_individual_affine_transforms(transforms):
     X = np.random.randn(2, 32, 32)
     y = np.random.randint(0, 2, size=(2, 32, 32, 1)).astype(np.float64)
