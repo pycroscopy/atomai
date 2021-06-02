@@ -15,6 +15,8 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
 
 *   | **Training data**: Training Data Preparation |Training data|
 
+*   | **Datasets**: Experimental datasets for ML applications |Datasets|
+
 .. |DCNN| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb
    
@@ -29,6 +31,9 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
    
 .. |Custom models| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb
-   
+      
 .. |Training data| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb
+   
+.. |Datasets| image:: https://colab.research.google.com/assets/colab-badge.svg
+   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_datasets.ipynb

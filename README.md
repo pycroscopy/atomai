@@ -12,7 +12,11 @@
 
 ## What is AtomAI
 
-AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python or machine learning. The purpose of the AtomAI is to provide an environment that bridges the instrument specific libraries and general physical analysis by enabling the seamless deployment of machine learning algorithms including deep convolutional neural networks, invariant variational autoencoders, and decomposition/unmixing techniques for image and hyperspectral data analysis. Ultimately, it aims to combine the power and flexibility of the PyTorch deep learning framework and simplicity and intuitive nature of packages such as scikit-learn, with a focus on scientific data.  The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib.
+AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python or machine learning. The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib.
+
+## Why AtomAI
+
+The purpose of the AtomAI is to provide an environment that bridges the instrument specific libraries and general physical analysis by enabling the seamless deployment of machine learning algorithms including deep convolutional neural networks, invariant variational autoencoders, and decomposition/unmixing techniques for image and hyperspectral data analysis. Ultimately, it aims to combine the power and flexibility of the PyTorch deep learning framework and simplicity and intuitive nature of packages such as scikit-learn, with a focus on scientific data.  
 
 #### Scientific papers that used AtomAI:
 
@@ -22,7 +26,7 @@ AtomAI is a Pytorch-based package for deep/machine learning analysis of microsco
 
   [**Show full list**](https://atomai.readthedocs.io/en/latest/papers.html)
 
-## How to use it
+## How to use AtomAI
 
 ### Quickstart: AtomAI in the Cloud
 
