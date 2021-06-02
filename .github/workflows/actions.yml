@@ -51,3 +51,23 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+        
+    - name: Generate coverage report
+      run: |
+        pip install pytest
+        pip install pytest-cov
+        pytest --cov=./ --cov-report=xml
+        
+    - name: Upload coverage to Codecov
+      if: ${{ matrix.python-version == env.PYTHON_MAIN_VERSION }}
+      uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        # directory: ./coverage/reports/
+        flags: unittests
+        env_vars: OS,PYTHON
+        name: codecov-umbrella
+        fail_ci_if_error: true
+        # path_to_write_report: ./coverage/codecov_report.txt
+        verbose: true
