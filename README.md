@@ -6,7 +6,7 @@
 [![Downloads](https://pepy.tech/badge/atomai/month)](https://pepy.tech/project/atomai)
 
 [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
-[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/pycroscopy/atomai)
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/pycroscopy/atomai) [![Join the chat at https://gitter.im/pycroscopy/AtomAI](https://badges.gitter.im/pycroscopy/AtomAI.svg)](https://gitter.im/pycroscopy/AtomAI?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 # AtomAI
 
