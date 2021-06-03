@@ -29,7 +29,7 @@ The purpose of the AtomAI is to provide an environment that bridges the instrume
 
 ## Chat with us about DL/ML in Microscopy (beta)
 
-Have some specific questions about applications of deep/machine learning (DL/ML) in microscopy? Feel free to ask us them on Gitter! [![Gitter](https://badges.gitter.im/pycroscopy/AtomAI.svg)](https://gitter.im/pycroscopy/AtomAI?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+Have some specific questions about applications of deep/machine learning (DL/ML) in microscopy? Feel free to ask them Gitter! [![Gitter](https://badges.gitter.im/pycroscopy/AtomAI.svg)](https://gitter.im/pycroscopy/AtomAI?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 ## How to use AtomAI
 
