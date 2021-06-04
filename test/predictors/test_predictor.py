@@ -3,19 +3,19 @@ import sys
 import numpy as np
 import torch
 import pytest
-from numpy.testing import assert_equal, assert_, assert_allclose
+from numpy.testing import assert_
 
 sys.path.append("../../../")
 
-from atomai.predictors import BasePredictor, SegPredictor
-from atomai.nets import ConvBlock
+from atomai.predictors import BasePredictor, SegPredictor, ImSpecPredictor
+from atomai.nets import ConvBlock, Unet, ResHedNet, SegResNet, dilnet, SignalED
 
 
 def init_model():
     model = torch.nn.Sequential(ConvBlock(2, 1, 1, 8), ConvBlock(2, 1, 8, 1))
     return model
 
-#@pytest.mark.parametrize("model", [nets.Unet, nets.dilnet, nets.SegResNet, nets.ResHedNet])
+
 def test_basepredictor_preprocess_np():
     x_np = np.random.randn(2, 8, 8)
     model = init_model()
@@ -73,4 +73,37 @@ def test_basepredictor_predict():
     x_torch = torch.randn(2, 1, 8, 8)
     model = init_model()
     p = BasePredictor(model)
-    p.predict(x_torch, x_torch.shape)
+    out = p.predict(x_torch, x_torch.shape)
+    assert_(not torch.equal(x_torch, out))
+    assert_(not out.is_cuda)
+
+
+@pytest.mark.parametrize("model", [Unet, dilnet, SegResNet, ResHedNet])
+@pytest.mark.parametrize("shape", [(2, 8, 8), (8, 8)])
+def test_Segmentor_predict(model, shape):
+    x_np = np.random.randn(*shape)
+    p = SegPredictor(model())
+    out = p.predict(x_np)
+    assert_(isinstance(out, np.ndarray))
+    assert_(not np.array_equal(x_np, out))
+
+
+@pytest.mark.parametrize("shape", [(2, 8, 8), (8, 8)])
+def test_ImSpec_predict(shape):
+    x_np = np.random.randn(*shape)
+    model = SignalED((8, 8), (16,), 2)
+    p = ImSpecPredictor(model, (16,))
+    out = p.predict(x_np)
+    assert_(isinstance(out, np.ndarray))
+    assert_(out.shape, (16,))
+
+
+@pytest.mark.parametrize("shape", [(2, 16), (16,)])
+def test_SpecIm_predict(shape):
+    x_np = np.random.randn(*shape)
+    model = SignalED((16,), (8, 8), 2)
+    p = ImSpecPredictor(model, (8, 8))
+    out = p.predict(x_np)
+    assert_(isinstance(out, np.ndarray))
+    assert_(out.shape, (8, 8))
+
