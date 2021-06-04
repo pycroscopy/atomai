@@ -26,23 +26,29 @@ The purpose of the AtomAI is to provide an environment that bridges the instrume
 
   [**Show full list**](https://atomai.readthedocs.io/en/latest/papers.html)
 
+
+## Chat with us about DL/ML in Microscopy (beta)
+
+Have some specific questions about applications of deep/machine learning (DL/ML) in microscopy? Feel free to ask them on Gitter! [![Gitter](https://badges.gitter.im/pycroscopy/AtomAI.svg)](https://gitter.im/pycroscopy/AtomAI?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+
 ## How to use AtomAI
 
 ### Quickstart: AtomAI in the Cloud
 
 The easiest way to start using AtomAI is via [Google Colab](https://colab.research.google.com/notebooks/intro.ipynb): 
 
-1) [Train a Deep Fully Convolutional Neural Network for Atom Finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb)
+- [Train a Deep Fully Convolutional Neural Network for Atom Finding](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb)
 
-2) [Im2Spec: Predict 1D Spectra from 2D Images](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/ImSpec.ipynb) 
+- [Im2Spec: Predict 1D Spectra from 2D Images](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/ImSpec.ipynb) 
 
-3) [Defect sniffer: Deep Learning and Graph Analysis to Locate Specific Types of Defects](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/GraphAnalysis.ipynb)
+- [Defect sniffer: Deep Learning and Graph Analysis to Locate Specific Types of Defects](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/GraphAnalysis.ipynb)
 
-4) [Variational Autoencoders: Exploring Order Parameters in Disordered Systems from Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb)
+- [Variational Autoencoders: Exploring Order Parameters in Disordered Systems from Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb)
 
-5) [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
+- [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
+   
+  [*More examples ->*](https://atomai.readthedocs.io/en/latest/examples.html)
 
-6) [Prepare Training Data from Experimental Image with Atomic Coordinates](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb)
 
 ### Semantic segmentation
 
