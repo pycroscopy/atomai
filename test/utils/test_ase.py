@@ -13,7 +13,6 @@ test_file_m_ = os.path.join(
     os.path.dirname(__file__), 'test_data/POSCAR_general')
 
 
-@pytest.fixture
 def test_ase_linecount():
     items_per_line = []
     target_header_count = [1, 1, 3, 3, 3, 2, 2, 1]
