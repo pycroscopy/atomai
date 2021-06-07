@@ -151,7 +151,7 @@ def get_imgstack(imgdata: np.ndarray,
             img_cr = np.copy(
                 imgdata[cx-r//2:cx+r//2,
                         cy-r//2:cy+r//2])
-        if img_cr.shape[0:2] == (int(r), int(r)):
+        if img_cr.shape[0:2] == (int(r), int(r)) and not np.isnan(img_cr).any():
             img_cr_all.append(img_cr[None, ...])
             com.append(c[None, ...])
     if len(img_cr_all) == 0:
