@@ -66,7 +66,7 @@ class dklGPR(dklGPTrainer):
             lr: learning rate (Default: 0.01)
             print_loss: print loss at every n-th training cycle (epoch)
         """
-        _ = self.run()
+        _ = self.run(X, y, training_cycles, **kwargs)
 
     def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
         with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():

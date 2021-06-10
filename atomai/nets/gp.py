@@ -45,3 +45,15 @@ class GPRegressionModel(gpytorch.models.ExactGP):
             base_kernel, num_dims=embedim, grid_size=50)
         self.feature_extractor = feature_extractor
         self.scale_to_bounds = gpytorch.utils.grid.ScaleToBounds(-1., 1.)
+
+    def forward(self, x: torch.Tensor) -> gpytorch.distributions.MultivariateNormal:
+        """
+        Forward pass
+        """
+        # Pass data through a neural network
+        embedded_x = self.feature_extractor(x)
+        embedded_x = self.scale_to_bounds(embedded_x)
+        # Standard GP part
+        mean_x = self.mean_module(embedded_x)
+        covar_x = self.covar_module(embedded_x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
