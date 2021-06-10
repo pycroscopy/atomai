@@ -144,6 +144,26 @@ def set_train_rng(seed: int = 1):
         torch.backends.cudnn.benchmark = False
 
 
+def set_seed_and_precision(seed: int = 42, precision: str = "double"):
+    """Sets the tensor type and seed"""
+    if precision == 'single':
+        tensor_type = torch.FloatTensor
+        tensor_type_gpu = torch.cuda.FloatTensor
+    else:
+        tensor_type = torch.DoubleTensor
+        tensor_type_gpu = torch.cuda.DoubleTensor
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.set_default_tensor_type(tensor_type_gpu)
+    else:
+        torch.set_default_tensor_type(tensor_type)
+
+
 class Hook():
     """
     Returns the input and output of a
