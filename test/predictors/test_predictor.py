@@ -80,7 +80,7 @@ def test_basepredictor_predict():
 
 @pytest.mark.parametrize("model", [Unet, dilnet, SegResNet, ResHedNet])
 @pytest.mark.parametrize("shape", [(2, 8, 8), (8, 8)])
-def test_Segmentor_predict(model, shape):
+def test_SegPredictor_predict(model, shape):
     x_np = np.random.randn(*shape)
     p = SegPredictor(model())
     out = p.predict(x_np)
@@ -89,7 +89,7 @@ def test_Segmentor_predict(model, shape):
 
 
 @pytest.mark.parametrize("shape", [(2, 8, 8), (8, 8)])
-def test_ImSpec_predict(shape):
+def test_ImSpecPredictor_predict(shape):
     x_np = np.random.randn(*shape)
     model = SignalED((8, 8), (16,), 2)
     p = ImSpecPredictor(model, (16,))
@@ -99,7 +99,7 @@ def test_ImSpec_predict(shape):
 
 
 @pytest.mark.parametrize("shape", [(2, 16), (16,)])
-def test_SpecIm_predict(shape):
+def test_SpecImPredictor_predict(shape):
     x_np = np.random.randn(*shape)
     model = SignalED((16,), (8, 8), 2)
     p = ImSpecPredictor(model, (8, 8))
@@ -107,3 +107,30 @@ def test_SpecIm_predict(shape):
     assert_(isinstance(out, np.ndarray))
     assert_(out.shape, (8, 8))
 
+
+@pytest.mark.parametrize("model", [Unet, dilnet, SegResNet, ResHedNet])
+@pytest.mark.parametrize("shape", [(2, 8, 8), (8, 8)])
+def test_SegPredictor_run_wcoord(model, shape):
+    x_np = np.random.randn(*shape)
+    p = SegPredictor(model())
+    out = p.run(x_np, compute_coords=True)
+    assert_(len(out) == 2)
+
+
+@pytest.mark.parametrize("model", [Unet, dilnet, SegResNet, ResHedNet])
+@pytest.mark.parametrize("shape", [(2, 8, 8), (8, 8)])
+def test_SegPredictor_run_nocoord(model, shape):
+    x_np = np.random.randn(*shape)
+    p = SegPredictor(model())
+    out = p.run(x_np, compute_coords=False)
+    assert_(isinstance(out, np.ndarray))
+
+
+@pytest.mark.parametrize("shape", [(2, 8, 8), (8, 8)])
+def test_ImSpecPredictor_run(shape):
+    x_np = np.random.randn(*shape)
+    model = SignalED((8, 8), (16,), 2)
+    p = ImSpecPredictor(model, (16,))
+    out = p.run(x_np)
+    assert_(isinstance(out, np.ndarray))
+    assert_(out.shape, (16,))
