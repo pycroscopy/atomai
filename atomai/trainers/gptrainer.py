@@ -158,7 +158,7 @@ class dklGPTrainer:
             if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
                     e == self.training_cycles - 1]):
                 self.print_statistics(e)
-            return self.gp_model
+        return self.gp_model
 
     def print_statistics(self, e):
         print('Epoch {}/{} ...'.format(e+1, self.training_cycles),
