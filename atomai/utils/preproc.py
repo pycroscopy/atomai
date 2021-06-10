@@ -370,7 +370,7 @@ def init_dataloaders(X_train: torch.Tensor,
                      memory_alloc: float = 4
                      ) -> Tuple[Type[torch.utils.data.DataLoader]]:
     """
-    Returns two pytorch dataloaders for training and test data
+    Returns two initialized PyTorch dataloaders for training and test data
     """
     device_ = 'cuda' if torch.cuda.is_available() else 'cpu'
     all_data = [X_train, y_train, X_test, y_test]
@@ -386,6 +386,18 @@ def init_dataloaders(X_train: torch.Tensor,
         torch.utils.data.TensorDataset(X_test, y_test),
         batch_size=batch_size, drop_last=True)
     return train_loader, test_loader
+
+
+def init_dataloader(X: Union[torch.tensor, Tuple[torch.tensor]],
+                    shuffle: bool = True, **kwargs: int
+                    ) -> Type[torch.utils.data.DataLoader]:
+    """Returns the initialized PyTorch dataloader."""
+    batch_size = kwargs.get("batch_size", 500)
+    X = (X,) if isinstance(X, torch.Tensor) else X
+    tensor_set = torch.utils.data.dataset.TensorDataset(*X)
+    data_loader = torch.utils.data.DataLoader(
+        dataset=tensor_set, batch_size=batch_size, shuffle=shuffle)
+    return data_loader
 
 
 def init_fcnn_dataloaders(X_train: np.ndarray,

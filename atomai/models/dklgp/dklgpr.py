@@ -7,17 +7,24 @@ Deep kernel learning (DKL)-based gaussian process regression (GPR)
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+from typing import Tuple, Type, Union
+
+import gpytorch
+import numpy as np
+import torch
+
 from ...trainers import dklGPTrainer
+from ...utils import init_dataloader
 
 
 class dklGPR(dklGPTrainer):
-     """
+    """
     Deep kernel learning (DKL)-based Gaussian process regression (GPR)
 
     Args:
         indim: input feature dimension
         embedim: embedding dimension (determines dimensionality of kernel space)
-        
+
     Keyword Args:
         device:
             Sets device to which model and data will be moved.
@@ -59,9 +66,9 @@ class dklGPR(dklGPTrainer):
             lr: learning rate (Default: 0.01)
             print_loss: print loss at every n-th training cycle (epoch)
         """
-       _ = self.run()
+        _ = self.run()
 
-       def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
+    def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
         with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
             y_pred = self.gp_model(x_new.to(self.device))
         return y_pred.mean.cpu(), y_pred.stddev.cpu()
@@ -84,13 +91,13 @@ class dklGPR(dklGPTrainer):
             predicted_var.append(var)
         return (torch.cat(predicted_mean, 1).numpy().squeeze(),
                 torch.cat(predicted_var, 1).numpy().squeeze())
-    
+
     def _embed(self, x_new: torch.Tensor):
         self.gp_model.feature_extractor.eval()
         with torch.no_grad():
             embeded = self.gp_model.feature_extractor(x_new)
         return embeded.cpu()
-    
+
     def embed(self, x_new: Union[torch.Tensor, np.ndarray],
               **kwargs: int) -> torch.Tensor:
         """
