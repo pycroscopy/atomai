@@ -144,7 +144,7 @@ def set_train_rng(seed: int = 1):
         torch.backends.cudnn.benchmark = False
 
 
-def set_seed_and_precision(seed: int = 42, precision: str = "double"):
+def set_seed_and_precision(seed: int = 42, precision: str = "double", **kwargs):
     """Sets the tensor type and seed"""
     if precision == 'single':
         tensor_type = torch.FloatTensor
