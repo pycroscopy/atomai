@@ -45,7 +45,7 @@ class dklGPTrainer:
         set_seed_and_precision(**kwargs)
         self.dimdict = {"input_dim": indim, "embedim": embedim}
         self.device = kwargs.get(
-            "device", 'cuda' if torch.cuda.is_available() else 'cpu')
+            "device", 'cuda:0' if torch.cuda.is_available() else 'cpu')
         precision = kwargs.get("precision", "double")
         self.dtype = torch.float32 if precision == "single" else torch.float64
         self.gp_model = None
