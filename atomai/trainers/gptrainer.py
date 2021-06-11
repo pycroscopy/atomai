@@ -170,3 +170,7 @@ class dklGPTrainer:
     def print_statistics(self, e):
         print('Epoch {}/{} ...'.format(e+1, self.training_cycles),
               'Training loss: {}'.format(np.around(self.train_loss[-1], 4)))
+
+    def save_weights(self, filename: str) -> None:
+        """Saves weights of the feature extractor."""
+        torch.save(self.gp_model.feature_extractor.state_dict(), filename)
