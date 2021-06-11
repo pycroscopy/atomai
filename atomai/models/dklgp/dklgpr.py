@@ -46,7 +46,7 @@ class dklGPR(dklGPTrainer):
 
     def fit(self, X: Union[torch.Tensor, np.ndarray],
             y: Union[torch.Tensor, np.ndarray],
-            training_cycles: int = 50,
+            training_cycles: int = 1,
             **kwargs: Union[Type[torch.nn.Module], bool, float]
             ) -> None:
         """
