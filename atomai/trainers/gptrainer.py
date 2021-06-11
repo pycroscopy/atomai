@@ -123,6 +123,18 @@ class dklGPTrainer:
         self.training_cycles = training_cycles
         self.compiled = True
 
+    def train_step(self, X: torch. Tensor, y: torch.Tensor) -> None:
+        """
+        Single training step with backpropagation
+        to computegradients and optimizes weights.
+        """
+        self.optimizer.zero_grad()
+        output = self.gp_model(X)
+        loss = -self.mll(output, y).sum()
+        loss.backward()
+        self.optimizer.step()
+        self.train_loss.append(loss.item())
+
     def run(self, X: Union[torch.Tensor, np.ndarray],
             y: Union[torch.Tensor, np.ndarray],
             training_cycles: int = 50,
@@ -149,12 +161,7 @@ class dklGPTrainer:
         if not self.compiled:
             self.compile_trainer(X, y, training_cycles, **kwargs)
         for e in range(self.training_cycles):
-            self.optimizer.zero_grad()
-            output = self.gp_model(X)
-            loss = -self.mll(output, y).sum()
-            loss.backward()
-            self.optimizer.step()
-            self.train_loss.append(loss.item())
+            self.train_step(X, y)
             if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
                     e == self.training_cycles - 1]):
                 self.print_statistics(e)
