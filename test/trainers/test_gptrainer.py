@@ -76,3 +76,17 @@ def test_trainer_run():
     t = dklGPTrainer(indim, precision="single")
     _ = t.run(X, y, 3)
     assert_equal(len(t.train_loss), 3)
+
+
+def test_trainer_save_weights():
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(50)
+    t = dklGPTrainer(indim, precision="single")
+    _ = t.run(X, y, 1)
+    w1 = dc(t.gp_model.feature_extractor.state_dict())
+    t.save_weights("m.pt")
+    loaded_weights = torch.load("m.pt")
+    t.gp_model.feature_extractor.load_state_dict(loaded_weights)
+    w2 = t.gp_model.feature_extractor.state_dict()
+    assert_(weights_equal(w1, w2))
