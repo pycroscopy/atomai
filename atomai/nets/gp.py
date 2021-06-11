@@ -2,7 +2,7 @@
 gp.py
 =====
 
-Modules for Gaussian process regression with deep kenrel learning
+Modules for Gaussian process regression with deep kernel learning
 """
 
 from typing import Type
@@ -30,7 +30,8 @@ class GPRegressionModel(gpytorch.models.ExactGP):
     """DKL GPR module"""
     def __init__(self, X: torch.Tensor, y: torch.Tensor,
                  likelihood: Type[gpytorch.likelihoods.Likelihood],
-                 feature_extractor: Type[torch.nn.Module], embedim: int) -> None:
+                 feature_extractor: Type[torch.nn.Module], embedim: int,
+                 grid_size: int = 50) -> None:
         """
         Initializes DKL GP module
         """
@@ -42,7 +43,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
                 ard_num_dims=embedim, batch_shape=torch.Size([batch_dim])),
                 batch_shape=torch.Size([batch_dim]))
         self.covar_module = gpytorch.kernels.GridInterpolationKernel(
-            base_kernel, num_dims=embedim, grid_size=50)
+            base_kernel, num_dims=embedim, grid_size=grid_size)
         self.feature_extractor = feature_extractor
         self.scale_to_bounds = gpytorch.utils.grid.ScaleToBounds(-1., 1.)
 

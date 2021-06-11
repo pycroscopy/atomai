@@ -79,7 +79,7 @@ class dklGPTrainer:
     def compile_trainer(self, X: Union[torch.Tensor, np.ndarray],
                         y: Union[torch.Tensor, np.ndarray],
                         training_cycles: int = 1,
-                        **kwargs: Union[Type[torch.nn.Module], bool, float]
+                        **kwargs: Union[Type[torch.nn.Module], int, bool, float]
                         ) -> None:
         """
         Initializes deep kernel (feature extractor NN + base kernel),
@@ -93,6 +93,8 @@ class dklGPTrainer:
         Keyword Args:
             feature_extractor:
                 (Optional) Custom neural network for feature extractor
+            grid_size:
+                Grid size for structured kernel interpolation (Default: 50)
             freeze_weights:
                 Freezes weights of feature extractor, that is, they are not
                 passed to the optimizer. Used for a transfer learning.
@@ -105,7 +107,8 @@ class dklGPTrainer:
             feature_extractor = fcFeatureExtractor(input_dim, embedim)
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
         self.gp_model = GPRegressionModel(
-            X, y, likelihood, feature_extractor, embedim)
+            X, y, likelihood, feature_extractor, embedim,
+            kwargs.get("grid_size", 50))
         self.likelihood = likelihood
         self.gp_model.to(self.device)
         self.likelihood.to(self.device)
@@ -138,7 +141,7 @@ class dklGPTrainer:
     def run(self, X: Union[torch.Tensor, np.ndarray],
             y: Union[torch.Tensor, np.ndarray],
             training_cycles: int = 1,
-            **kwargs: Union[Type[torch.nn.Module], bool, float]
+            **kwargs: Union[Type[torch.nn.Module], int, bool, float]
             ) -> None:
         """
         Initializes and trains a deep kernel GP model
@@ -154,6 +157,8 @@ class dklGPTrainer:
             freeze_weights:
                 Freezes weights of feature extractor, that is, they are not
                 passed to the optimizer. Used for a transfer learning.
+            grid_size:
+                Grid size for structured kernel interpolation (Default: 50)
             lr: learning rate (Default: 0.01)
             print_loss: print loss at every n-th training cycle (epoch)
         """
