@@ -20,17 +20,17 @@ def load_with_pickle(filename):
     return pyObj
 
 map_dict_atoms_ = os.path.join(
-    os.path.dirname(__file__), "test_data/map_dict")
+    os.path.dirname(__file__), "test_data/map_dict_chk")
 coords_dict_ = os.path.join(
     os.path.dirname(__file__), "test_data/coordinates_dict")
 map_dict_ck = load_with_pickle(map_dict_atoms_)
 coord_dict = load_with_pickle(coords_dict_)
 
-ase_obj_basic(coord_dict, 0, "Graphene", map_dict_ck,
-              "test_data/POSCAR_general", 0.104)
+ase_obj_basic(coord_dict, 0, "Graphene", map_dict = map_dict_ck, 
+              "test_data/POSCAR_general", px2ang = 0.104)
 
 ase_obj_adv([86.00000, 0.00000, 0.00000],
             [0.00000, 86.00000, 0.00000],
             [0.00000, 0.00000, 86.00000],
-            coord_dict, 0, "Graphene", map_dict_ck,
-            "test_data/POSCAR_adv_general", 0.104)
+            coord_dict, 0, "Graphene", map_dict = map_dict_ck,
+            "test_data/POSCAR_adv_general", px2ang = 0.104)
