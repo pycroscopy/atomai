@@ -1,11 +1,13 @@
 [![PyPI version](https://badge.fury.io/py/atomai.svg)](https://badge.fury.io/py/atomai)
-[![build](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml/badge.svg)](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml)
-[![codecov](https://codecov.io/gh/pycroscopy/atomai/branch/master/graph/badge.svg?token=SZVMH250OC)](https://codecov.io/gh/pycroscopy/atomai)
 [![Documentation Status](https://readthedocs.org/projects/atomai/badge/?version=latest)](https://atomai.readthedocs.io/en/latest/?badge=latest)
 
-[![Downloads](https://pepy.tech/badge/atomai/month)](https://pepy.tech/project/atomai)
+[![build](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml/badge.svg)](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml)
+[![codecov](https://codecov.io/gh/pycroscopy/atomai/branch/master/graph/badge.svg?token=SZVMH250OC)](https://codecov.io/gh/pycroscopy/atomai)
+
 [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/pycroscopy/atomai)
+
+[![Downloads](https://pepy.tech/badge/atomai/month)](https://pepy.tech/project/atomai)
 
 # AtomAI
 
@@ -15,7 +17,7 @@ AtomAI is a Pytorch-based package for deep/machine learning analysis of microsco
 
 
 <p align="center">
-  <img src="misc/logo_rectan.png" width="95%" title="AtomAI">
+  <img src="misc/logo_rectan.png" width="80%" title="AtomAI">
 <p align="justify">
 
 ## Why AtomAI
