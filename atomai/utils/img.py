@@ -357,6 +357,8 @@ def extract_patches(images: np.ndarray, masks: np.ndarray,
     """
     if np.ndim(images) == 2:
         images = images[None, ...]
+    if np.ndim(masks) == 2:
+        masks = masks[None, ...]
     images_aug, masks_aug = [], []
     for im, ma in zip(images, masks):
         im_aug, ma_aug = extract_patches_(
