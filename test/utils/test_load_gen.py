@@ -26,10 +26,10 @@ coords_dict_ = os.path.join(
 map_dict = load_with_pickle(map_dict_atoms_)
 coord_dict = load_with_pickle(coords_dict_)
 
-ase_obj_basic(map_dict, 0,
-			  "Graphene", coord_dict, "test_data/", "POSCAR_general")
+ase_obj_basic(coord_dict, 0,
+			  "Graphene", map_dict, "test_data/POSCAR_general", px2ang=0.104)
 ase_obj_adv([86.00000, 0.00000, 0.00000],
 			 [0.00000, 86.00000, 0.00000],
 			 [0.00000, 0.00000, 86.00000],
-			 coord_dict, 0, "Graphene", map_dict, "test_data",
-             "POSCAR_adv_general")
+			 coord_dict, 0, "Graphene", map_dict, "test_data/POSCAR_adv_general",
+             px2ang=0.104)
