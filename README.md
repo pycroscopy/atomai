@@ -49,7 +49,7 @@ The easiest way to start using AtomAI is via [Google Colab](https://colab.resear
 
 - [Variational Autoencoders: Exploring Order Parameters in Disordered Systems from Atomic Movies](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb)
 
-- [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/ziatdinovmax/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
+- [Implementation of Custom Image Denoiser in AtomAI](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb)
    
   [*More examples ->*](https://atomai.readthedocs.io/en/latest/examples.html)
 
