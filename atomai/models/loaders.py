@@ -10,6 +10,7 @@ Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 import warnings
 from copy import deepcopy as dc
 from typing import Type, Tuple, Dict, Union
+import urllib.request
 
 import torch
 from .segmentor import Segmentor
@@ -34,15 +35,17 @@ def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE],
     loaded_dict = torch.load(filepath, map_location=device)
     if 'model_type' in loaded_dict.keys():
         model_type = loaded_dict.pop("model_type")
-        if model_type == "seg":
-            model = load_seg_model(loaded_dict)
-        elif model_type == "imspec":
-            model = load_imspec_model(loaded_dict)
-        elif model_type == "vae":
-            model = load_vae_model(loaded_dict)
-        else:
-            raise ValueError(
-                "The model type {} cannot be loaded".format(model_type))
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            if model_type == "seg":
+                model = load_seg_model(loaded_dict)
+            elif model_type == "imspec":
+                model = load_imspec_model(loaded_dict)
+            elif model_type == "vae":
+                model = load_vae_model(loaded_dict)
+            else:
+                raise ValueError(
+                    "The model type {} cannot be loaded".format(model_type))
     else:
         model = loaded_dict["weights"]
         warnings.warn("Returning model's state dictionary." +
@@ -167,3 +170,28 @@ def load_ensemble(filepath: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[
                       "skeleton by yourself")
         return None, ensemble_weights
     return smodel.net, ensemble_weights
+
+
+def load_pretrained_model(model_name: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE], ImSpec]:
+    """
+    Loads pretrained models. Currently available models are
+    'G_MD' (Segmentor model for graphene data trained on simulated data)
+    and 'BFO' (Segmentor model for BFO-like systems trained in experimental data).
+    Note that each model has an optimal pixel-to-angstrom ratio for which it produces
+    the optimal results. Refer to the example notebooks for more details.
+
+    Args:
+        model_name: Model name ('G_MD', 'BFO')
+
+    Returns
+        Model in evaluation state
+    """
+    if model_name == "BFO":
+        url = "https://github.com/ziatdinovmax/atomai/blob/master/pretrained/bfo.tar?raw=true"
+        urllib.request.urlretrieve(url, './bfo.tar')
+        model = load_model("./bfo.tar")
+    elif model_name == "G_MD":
+        url = "https://github.com/ziatdinovmax/atomai/blob/master/pretrained/G_MD.tar?raw=true"
+        urllib.request.urlretrieve(url, "./G_MD.tar")
+        model = load_model("./G_MD.tar")
+    return model

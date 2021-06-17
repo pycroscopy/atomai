@@ -1,12 +1,13 @@
 import sys
-import pytest
+
 import numpy as np
-from numpy.testing import assert_array_equal, assert_equal, assert_
+import pytest
+from numpy.testing import assert_, assert_array_equal, assert_equal
 
 sys.path.append("../../../")
 
-from atomai.models import (Segmentor, ImSpec, VAE, rVAE, jVAE,
-                           jrVAE, load_model, load_ensemble)
+from atomai.models import (VAE, ImSpec, Segmentor, jrVAE, jVAE, load_ensemble,
+                           load_model, load_pretrained_model, rVAE)
 from atomai.trainers import EnsembleTrainer
 
 
@@ -174,3 +175,12 @@ def test_io_ensemble_imspec():
             assert_array_equal(
                 p1.detach().cpu().numpy(),
                 p2.detach().cpu().numpy())
+
+
+@pytest.mark.parametrize("model_name", ["G_MD", "BFO"])
+def test_load_pretrained(model_name):
+    model = load_pretrained_model(model_name)
+    assert_(hasattr(model, "fit"))
+    assert_(hasattr(model, "predict"))
+    assert_(hasattr(model, "net"))
+    assert_(hasattr(model.net, "state_dict"))
