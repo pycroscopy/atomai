@@ -11,6 +11,8 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
 
 *   | **VAE**: Exploring Order Parameter in Disordered Systems |VAE|
 
+*   | **Deep Kernel Learning**: Functionality from Structural Data |DKL|
+
 *   | **Custom models**: Implementation of Custom Image Denoiser |Custom models|
 
 *   | **Training data**: Training Data Preparation |Training data|
@@ -37,3 +39,6 @@ The easiest way to start using AtomAI is via Google Colab, which is a free resea
    
 .. |Datasets| image:: https://colab.research.google.com/assets/colab-badge.svg
    :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_datasets.ipynb
+
+.. |DKL| image:: https://colab.research.google.com/assets/colab-badge.svg
+   :target: https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_dkl_ferroic.ipynb
