@@ -392,7 +392,7 @@ def init_dataloader(X: Union[torch.tensor, Tuple[torch.tensor]],
                     shuffle: bool = True, **kwargs: int
                     ) -> Type[torch.utils.data.DataLoader]:
     """Returns the initialized PyTorch dataloader."""
-    batch_size = kwargs.get("batch_size", 500)
+    batch_size = kwargs.get("batch_size", len(X))
     X = (X,) if isinstance(X, torch.Tensor) else X
     tensor_set = torch.utils.data.dataset.TensorDataset(*X)
     data_loader = torch.utils.data.DataLoader(
