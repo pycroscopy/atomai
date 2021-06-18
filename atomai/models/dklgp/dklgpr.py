@@ -68,10 +68,12 @@ class dklGPR(dklGPTrainer):
         """
         _ = self.run(X, y, training_cycles, **kwargs)
 
-    def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
+    def _predict(self, x_new: torch.Tensor, **kwargs: int) -> Tuple[torch.Tensor]:
+        num_samples = kwargs.get("num_samples", 1000)
         with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
-            y_pred = self.gp_model(x_new.to(self.device))
-        return y_pred.mean.cpu(), y_pred.stddev.cpu()
+            posterior = self.gp_model(x_new.to(self.device))
+            samples = posterior.rsample(torch.Size([num_samples,]))
+        return samples.mean(0).cpu(), samples.var(0).cpu()
 
     def predict(self, x_new: Union[torch.Tensor, np.ndarray],
                 **kwargs) -> Tuple[np.ndarray]:
@@ -86,7 +88,7 @@ class dklGPR(dklGPTrainer):
         predicted_mean, predicted_var = [], []
         for (x,) in data_loader:
             x = x.expand(gp_batch_dim, *x.shape)
-            mean, var = self._predict(x)
+            mean, var = self._predict(x, **kwargs)
             predicted_mean.append(mean)
             predicted_var.append(var)
         return (torch.cat(predicted_mean, 1).numpy().squeeze(),
