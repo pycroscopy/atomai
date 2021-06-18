@@ -68,20 +68,35 @@ class dklGPR(dklGPTrainer):
         """
         _ = self.run(X, y, training_cycles, **kwargs)
 
-    def _predict(self, x_new: torch.Tensor, **kwargs: int) -> Tuple[torch.Tensor]:
-        num_samples = kwargs.get("num_samples", 1000)
+    def _compute_posterior(self, X: torch.Tensor) -> gpytorch.distributions.MultivariateNormal:
+        """
+        Computes the posterior over model outputs at the provided points (X).
+        """
+        self.gp_model.eval()
+        self.likelihood.eval()
         with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
-            posterior = self.gp_model(x_new.to(self.device))
-            samples = posterior.rsample(torch.Size([num_samples,]))
-        return samples.mean(0).cpu(), samples.var(0).cpu()
+            posterior = self.gp_model(X.to(self.device))
+        return posterior
+
+    def sample_from_posterior(self, X, num_samples: int = 1000) -> np.ndarray:
+        """
+        Computes the posterior over model outputs at the provided points (X)
+        and samples from it
+        """
+        X, _ = self.set_data(X)
+        posterior = self._compute_posterior(X)
+        samples = posterior.rsample(torch.Size([num_samples, ]))
+        return samples.cpu().numpy()
+
+    def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
+        y_pred = self._compute_posterior(x_new)
+        return y_pred.mean.cpu(), y_pred.variance.cpu()
 
     def predict(self, x_new: Union[torch.Tensor, np.ndarray],
                 **kwargs) -> Tuple[np.ndarray]:
         """
-        Prediction using the trained model
+        Prediction of mean and variance using the trained model
         """
-        self.gp_model.eval()
-        self.likelihood.eval()
         gp_batch_dim = self.gp_model.train_targets.size(0)
         x_new, _ = self.set_data(x_new, device='cpu')
         data_loader = init_dataloader(x_new, shuffle=False, **kwargs)
