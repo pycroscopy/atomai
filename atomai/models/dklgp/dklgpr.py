@@ -7,6 +7,7 @@ Deep kernel learning (DKL)-based gaussian process regression (GPR)
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
+import warnings
 from typing import Tuple, Type, Union
 
 import gpytorch
@@ -74,8 +75,11 @@ class dklGPR(dklGPTrainer):
         """
         self.gp_model.eval()
         self.likelihood.eval()
-        with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
-            posterior = self.gp_model(X.to(self.device))
+        wrn = gpytorch.models.exact_gp.GPInputWarning
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=wrn)
+            with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
+                posterior = self.gp_model(X.to(self.device))
         return posterior
 
     def sample_from_posterior(self, X, num_samples: int = 1000) -> np.ndarray:
