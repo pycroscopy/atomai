@@ -33,6 +33,22 @@ def test_model_predict():
     assert_(isinstance(y_pred[1], np.ndarray))
 
 
+@pytest.mark.parametrize("reg_dim", [1, 2])
+def test_sample_from_posterior(reg_dim):
+    indim = 32
+    num_samples = 100
+    X = np.random.randn(50, indim)
+    y = np.random.randn(reg_dim, 50)
+    X_test = np.random.randn(50, indim)
+    t = dklGPR(indim, precision="single")
+    t.fit(X, y)
+    samples = t.sample_from_posterior(X_test, num_samples)
+    assert_equal(samples.shape[0], num_samples)
+    assert_equal(samples.shape[1], reg_dim)
+    assert_equal(samples.shape[2], len(X))
+    assert_(isinstance(samples, np.ndarray))
+
+
 @pytest.mark.parametrize("embedim", [1, 2])
 def test_model_embed(embedim):
     indim = 32
