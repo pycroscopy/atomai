@@ -36,8 +36,8 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         Initializes DKL GP module
         """
         super(GPRegressionModel, self).__init__(X, y, likelihood)
-        self.mean_module = gpytorch.means.ConstantMean()
         batch_dim = y.size(0)
+        self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([batch_dim]))
         base_kernel = gpytorch.kernels.ScaleKernel(
             gpytorch.kernels.RBFKernel(
                 ard_num_dims=embedim, batch_shape=torch.Size([batch_dim])),
