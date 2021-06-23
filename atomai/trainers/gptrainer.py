@@ -105,7 +105,8 @@ class dklGPTrainer:
         feature_extractor = kwargs.get("feature_extractor")
         if feature_extractor is None:
             feature_extractor = fcFeatureExtractor(input_dim, embedim)
-        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        likelihood = gpytorch.likelihoods.GaussianLikelihood(
+            batch_shape=torch.Size([y.shape[0]]))
         self.gp_model = GPRegressionModel(
             X, y, likelihood, feature_extractor, embedim,
             kwargs.get("grid_size", 50))

@@ -107,7 +107,7 @@ class dklGPR(dklGPTrainer):
         predicted_mean, predicted_var = [], []
         for (x,) in data_loader:
             x = x.expand(gp_batch_dim, *x.shape)
-            mean, var = self._predict(x, **kwargs)
+            mean, var = self._predict(x)
             predicted_mean.append(mean)
             predicted_var.append(var)
         return (torch.cat(predicted_mean, 1).numpy().squeeze(),
