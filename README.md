@@ -118,11 +118,11 @@ imstack, com, frames = aoi.utils.extract_subimages(nn_output, coords, window_siz
 
 # Intitialize rVAE model
 input_dim = (32, 32)
-rvae = aoi.models.rVAE(input_dim) 
+rvae = aoi.models.rVAE(input_dim, latent_dim=2) 
 
 # Train
 rvae.fit(
-    imstack_train, latent_dim=2,
+    imstack_train, 
     rotation_prior=np.pi/3, training_cycles=100,
     batch_size=100)
     
