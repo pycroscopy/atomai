@@ -373,7 +373,7 @@ def extract_patches(images: np.ndarray, masks: np.ndarray,
 
 def extract_patches_and_spectra(hdata: np.ndarray, *args: np.ndarray,
                                 coordinates: np.ndarray = None,
-                                patch_size: int = None,
+                                window_size: int = None,
                                 avg_pool: int = 2,
                                 **kwargs: Union[int, List[int]]
                                 ) -> Tuple[np.ndarray]:
@@ -381,22 +381,34 @@ def extract_patches_and_spectra(hdata: np.ndarray, *args: np.ndarray,
     Extracts image patches and associated spectra
     (corresponding to each patch center) from hyperspectral dataset
     """
+    F = torch.nn.functional
+    if hdata.ndim not in (3, 4):
+        raise ValueError("Hyperspectral data must 3D or 4D")
     if len(args) > 0:
         img = args[0]
+        if img.ndim != 2:
+            raise ValueError("Image data must be 2D")
     else:
         band = kwargs.get("band", 0)
-        if isinstance(band, int):
-            band = [band, band+1]
-        img = hdata[..., band[0]:band[1]].mean(-1)
-    patches, coords, _ = extract_subimages(img, coordinates, patch_size)
+        if hdata.ndim == 3:
+            if isinstance(band, int):
+                band = [band, band+1]
+            img = hdata[..., band[0]:band[1]].mean(-1)
+        else:
+            if isinstance(band, int):
+                band = [band, band+1, band, band+1]
+            elif isinstance(band, list) and len(band) == 2:
+                band = [*band, *band]
+            img = hdata[..., band[0]:band[1], band[2]:band[3]].mean((-2, -1))
+    patches, coords, _ = extract_subimages(img, coordinates, window_size)
     patches = patches.squeeze()
     spectra = []
     for c in coords:
         spectra.append(hdata[int(c[0]), int(c[1])])
-    if avg_pool > 1:
-        spectra = torch.tensor(spectra).unsqueeze(1)
-        spectra = torch.nn.functional.avg_pool1d(spectra, avg_pool, avg_pool)
-        spectra = spectra.squeeze().numpy()
+    avg_pool = 2*[avg_pool] if (isinstance(avg_pool, int) & hdata.ndim ==4) else avg_pool
+    torch_pool = F.avg_pool1d if hdata.ndim == 3 else F.avg_pool2d
+    spectra = torch.tensor(spectra).unsqueeze(1)
+    spectra = torch_pool(spectra, avg_pool, avg_pool).squeeze().numpy()
     return patches, spectra, coords
 
 
