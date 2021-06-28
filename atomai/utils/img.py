@@ -10,6 +10,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 from typing import Tuple, Optional, Dict, Union, List
 from collections import OrderedDict
 import numpy as np
+import torch
 import cv2
 from scipy import fftpack, ndimage
 from sklearn.feature_extraction.image import extract_patches_2d
@@ -88,6 +89,24 @@ def cv_resize_stack(imgdata: np.ndarray, rs: Union[int, Tuple[int]],
         img_rs = cv_resize(img, rs, round_)
         imgdata_rs[i] = img_rs
     return imgdata_rs
+
+
+def cv_rotate(img: np.ndarray, a: int) -> np.ndarray:
+    """
+    Rotates a 2D image (img) by a specified angle (a)
+    The image can have single (h x w) or multiple (h x w x c) channels
+
+    Args:
+        img: Input image with dimensions h x w or h x w x channels
+        a: rotationa angle in degrees
+
+    Returns:
+        Rotated image
+    """
+    origin = tuple(np.array(img.shape[1::-1]) / 2)
+    rotmat = cv2.getRotationMatrix2D(origin, a, 1)
+    img_r = cv2.warpAffine(img, rotmat, img.shape[1::-1], cv2.INTER_CUBIC)
+    return img_r
 
 
 def img_pad(image_data: np.ndarray, pooling: int) -> np.ndarray:
@@ -368,6 +387,69 @@ def extract_patches(images: np.ndarray, masks: np.ndarray,
     images_aug = np.concatenate(images_aug, axis=0)
     masks_aug = np.concatenate(masks_aug, axis=0)
     return images_aug, masks_aug
+
+
+def extract_patches_and_spectra(hdata: np.ndarray, *args: np.ndarray,
+                                coordinates: np.ndarray = None,
+                                window_size: int = None,
+                                avg_pool: int = 2,
+                                **kwargs: Union[int, List[int]]
+                                ) -> Tuple[np.ndarray]:
+    """
+    Extracts image patches and associated spectra
+    (corresponding to patch centers) from hyperspectral dataset
+
+    Args:
+        hdata:
+            3D or 4D hyperspectral data
+        *args:
+            2D image for patch extraction. If not provided, then
+            patches will be extracted from hyperspectral data
+            averaged over a specified band (range of "slices")
+        coordinates:
+            2D numpy array with xy coordinates
+        window_size:
+            Image patch size
+        avg_pool:
+            Kernel size and stride for average pooling in spectral dimension(s)
+        **band:
+            Range of slices in hyperspectral data to average over
+            for producing a 2D image if the latter is not provided as a separate
+            argument. For 3D data, it can be integer (use a single slice)
+            or a 2-element list. For 4D data, it can be integer or a 4-element list.
+
+        Returns:
+            3-element tuple with image patches, associated spectra and coordinates
+    """
+    F = torch.nn.functional
+    if hdata.ndim not in (3, 4):
+        raise ValueError("Hyperspectral data must 3D or 4D")
+    if len(args) > 0:
+        img = args[0]
+        if img.ndim != 2:
+            raise ValueError("Image data must be 2D")
+    else:
+        band = kwargs.get("band", 0)
+        if hdata.ndim == 3:
+            if isinstance(band, int):
+                band = [band, band+1]
+            img = hdata[..., band[0]:band[1]].mean(-1)
+        else:
+            if isinstance(band, int):
+                band = [band, band+1, band, band+1]
+            elif isinstance(band, list) and len(band) == 2:
+                band = [*band, *band]
+            img = hdata[..., band[0]:band[1], band[2]:band[3]].mean((-2, -1))
+    patches, coords, _ = extract_subimages(img, coordinates, window_size)
+    patches = patches.squeeze()
+    spectra = []
+    for c in coords:
+        spectra.append(hdata[int(c[0]), int(c[1])])
+    avg_pool = 2*[avg_pool] if (isinstance(avg_pool, int) & hdata.ndim == 4) else avg_pool
+    torch_pool = F.avg_pool1d if hdata.ndim == 3 else F.avg_pool2d
+    spectra = torch.tensor(spectra).unsqueeze(1)
+    spectra = torch_pool(spectra, avg_pool, avg_pool).squeeze().numpy()
+    return patches, spectra, coords
 
 
 def FFTmask(imgsrc: np.ndarray, maskratio: int = 10) -> Tuple[np.ndarray]:

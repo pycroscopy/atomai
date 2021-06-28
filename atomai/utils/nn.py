@@ -315,3 +315,17 @@ def renumerate_classes(coord_class_dict: Dict[int, np.ndarray],
         coord_class_dict_[i][:, -1] = renumerate_classes_(
             coord_class_dict_[i][:, -1], start_from_1=True)
     return coord_class_dict_
+
+
+def channels2indices(mask: np.ndarray):
+    """
+    Maps target classes to tensor indices.
+
+    Args:
+        mask: n x h x w x n_channels numpy array
+        where the last channel corresponds to a background
+    """
+    mask_sq = np.zeros(mask.shape[:-1])
+    for c in range(mask.shape[-1]):
+        mask_sq += mask[..., c] * c
+    return mask_sq
