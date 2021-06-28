@@ -99,7 +99,7 @@ def cv_rotate(img: np.ndarray, a: int) -> np.ndarray:
     Args:
         img: Input image with dimensions h x w or h x w x channels
         a: rotationa angle in degrees
-    
+
     Returns:
         Rotated image
     """
@@ -397,7 +397,29 @@ def extract_patches_and_spectra(hdata: np.ndarray, *args: np.ndarray,
                                 ) -> Tuple[np.ndarray]:
     """
     Extracts image patches and associated spectra
-    (corresponding to each patch center) from hyperspectral dataset
+    (corresponding to patch centers) from hyperspectral dataset
+
+    Args:
+        hdata:
+            3D or 4D hyperspectral data
+        *args:
+            2D image for patch extraction. If not provided, then
+            patches will be extracted from hyperspectral data
+            averaged over a specified band (range of "slices")
+        coordinates:
+            2D numpy array with xy coordinates
+        window_size:
+            Image patch size
+        avg_pool:
+            Kernel size and stride for average pooling in spectral dimension(s)
+        **band:
+            Range of slices in hyperspectral data to average over
+            for producing a 2D image if the latter is not provided as a separate
+            argument. For 3D data, it can be integer (use a single slice)
+            or a 2-element list. For 4D data, it can be integer or a 4-element list.
+
+        Returns:
+            3-element tuple with image patches, associated spectra and coordinates
     """
     F = torch.nn.functional
     if hdata.ndim not in (3, 4):
@@ -423,7 +445,7 @@ def extract_patches_and_spectra(hdata: np.ndarray, *args: np.ndarray,
     spectra = []
     for c in coords:
         spectra.append(hdata[int(c[0]), int(c[1])])
-    avg_pool = 2*[avg_pool] if (isinstance(avg_pool, int) & hdata.ndim ==4) else avg_pool
+    avg_pool = 2*[avg_pool] if (isinstance(avg_pool, int) & hdata.ndim == 4) else avg_pool
     torch_pool = F.avg_pool1d if hdata.ndim == 3 else F.avg_pool2d
     spectra = torch.tensor(spectra).unsqueeze(1)
     spectra = torch_pool(spectra, avg_pool, avg_pool).squeeze().numpy()
