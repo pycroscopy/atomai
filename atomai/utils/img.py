@@ -10,6 +10,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 from typing import Tuple, Optional, Dict, Union, List
 from collections import OrderedDict
 import numpy as np
+import torch
 import cv2
 from scipy import fftpack, ndimage
 from sklearn.feature_extraction.image import extract_patches_2d
@@ -368,6 +369,35 @@ def extract_patches(images: np.ndarray, masks: np.ndarray,
     images_aug = np.concatenate(images_aug, axis=0)
     masks_aug = np.concatenate(masks_aug, axis=0)
     return images_aug, masks_aug
+
+
+def extract_patches_and_spectra(hdata: np.ndarray, *args: np.ndarray,
+                                coordinates: np.ndarray = None,
+                                patch_size: int = None,
+                                avg_pool: int = 2,
+                                **kwargs: Union[int, List[int]]
+                                ) -> Tuple[np.ndarray]:
+    """
+    Extracts image patches and associated spectra
+    (corresponding to each patch center) from hyperspectral dataset
+    """
+    if len(args) > 0:
+        img = args[0]
+    else:
+        band = kwargs.get("band", 0)
+        if isinstance(band, int):
+            band = [band, band+1]
+        img = hdata[..., band[0]:band[1]].mean(-1)
+    patches, coords, _ = extract_subimages(img, coordinates, patch_size)
+    patches = patches.squeeze()
+    spectra = []
+    for c in coords:
+        spectra.append(hdata[int(c[0]), int(c[1])])
+    if avg_pool > 1:
+        spectra = torch.tensor(spectra).unsqueeze(1)
+        spectra = torch.nn.functional.avg_pool1d(spectra, avg_pool, avg_pool)
+        spectra = spectra.squeeze().numpy()
+    return patches, spectra, coords
 
 
 def FFTmask(imgsrc: np.ndarray, maskratio: int = 10) -> Tuple[np.ndarray]:
