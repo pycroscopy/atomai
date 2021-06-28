@@ -7,8 +7,9 @@ from numpy.testing import assert_, assert_equal
 
 sys.path.append("../../../")
 
-from atomai.utils.img import (cv_resize, cv_resize_stack, extract_patches,
-                              extract_random_subimages, img_pad, extract_patches_and_spectra)
+from atomai.utils.img import (cv_resize, cv_resize_stack, cv_rotate,
+                              extract_patches, extract_patches_and_spectra,
+                              extract_random_subimages, img_pad)
 
 
 def test_cv_resize():
@@ -24,6 +25,13 @@ def test_cv_resize_stack():
     img_r = cv_resize_stack(img, rs)
     assert_equal(len(img_r), len(img))
     assert_equal(img_r.shape[1:], rs)
+
+
+@pytest.mark.parametrize("shape", [(32, 32), (32, 32, 1), (32, 32, 4)])
+def test_cv_rotate(shape):
+    img = np.random.randn(*shape)
+    img_r = cv_rotate(img, 30)
+    assert_(not np.array_equal(img, img_r))
 
 
 def test_extract_patches_from_stack():

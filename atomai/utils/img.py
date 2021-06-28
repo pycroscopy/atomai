@@ -91,6 +91,24 @@ def cv_resize_stack(imgdata: np.ndarray, rs: Union[int, Tuple[int]],
     return imgdata_rs
 
 
+def cv_rotate(img: np.ndarray, a: int) -> np.ndarray:
+    """
+    Rotates a 2D image (img) by a specified angle (a)
+    The image can have single (h x w) or multiple (h x w x c) channels
+
+    Args:
+        img: Input image with dimensions h x w or h x w x channels
+        a: rotationa angle in degrees
+    
+    Returns:
+        Rotated image
+    """
+    origin = tuple(np.array(img.shape[1::-1]) / 2)
+    rotmat = cv2.getRotationMatrix2D(origin, a, 1)
+    img_r = cv2.warpAffine(img, rotmat, img.shape[1::-1], cv2.INTER_CUBIC)
+    return img_r
+
+
 def img_pad(image_data: np.ndarray, pooling: int) -> np.ndarray:
     """
     Pads the image if its size (w, h)
