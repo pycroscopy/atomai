@@ -83,13 +83,13 @@ One can also use AtomAI to train an ensemble of models instead of just a single 
 
 The ensemble of models can be then used to make a prediction with uncertainty estimates for each point (e.g. each pixel in the image):
 
->>> predictor = aoi.predictors.EnsemblePredictor(smodel, ensemble, nb_classes=3)
->>> nn_out_mean, nn_out_var = predictor.predict(expdata)
+>>> p = aoi.predictors.EnsemblePredictor(smodel, ensemble, nb_classes=3)
+>>> nn_out_mean, nn_out_var = p.predict(expdata)
 
 Variational autoencoders (VAE)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-AtomAI also has built-in `variational autoencoders (VAEs) <https://arxiv.org/abs/1906.02691>`_ for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotationally and/or translationally invariant VAE (rVAE), and class-conditined VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
+AtomAI also has built-in `variational autoencoders (VAEs) <https://arxiv.org/abs/1906.02691>`_ for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotationally and/or translationally invariant VAE (rVAE), class-conditined VAE/rVAE, and joint VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
 
 >>> # Get a stack of subimages from experimental data (e.g. a semantically segmented atomic movie)
 >>> imstack, com, frames = utils.extract_subimages(nn_output, coords, window_size=32)
