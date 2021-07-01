@@ -29,25 +29,12 @@ What is AtomAI
 --------------
 AtomAI is a Pytorch-based package for deep/machine learning analysis of microscopy data, which doesn't require any advanced knowledge of Python (or machine learning). It is the next iteration of the `AICrystallographer project <https://github.com/pycroscopy/AICrystallographer>`_. The intended audience is domain scientists with basic knowledge of how to use NumPy and Matplotlib.
 
+Why AtomAI
+^^^^^^^^^^
+The purpose of the AtomAI is to provide an environment that bridges the instrument specific libraries and general physical analysis by enabling the seamless deployment of machine learning algorithms including deep convolutional neural networks, invariant variational autoencoders, and decomposition/unmixing techniques for image and hyperspectral data analysis. Ultimately, it aims to combine the power and flexibility of the PyTorch deep learning framework and simplicity and intuitive nature of packages such as scikit-learn, with a focus on scientific data.
+
 How to use it
 -------------
-
-Quickstart: AtomAI in the Cloud
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The easiest way to start using AtomAI is via `Google Colab <https://colab.research.google.com/notebooks/intro.ipynb>`_
-
-1) `Train a Deep Fully Convolutional Neural Network for Atom Finding <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/AtomicSemanticSegmention.ipynb>`_
-
-2) `Im2Spec: Predicting 1D Spectral Data from 2D Image Data <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/ImSpec.ipynb>`_
-
-3) `Defect sniffer: Deep learning and Graph Analysis to Locate Specific Types of Defects <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/GraphAnalysis.ipynb>`_
-
-4) `Variational Autoencoders: Simple Analysis of Structural Transformations in Atomic Movies <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/rVAE_graphene.ipynb>`_
-
-5) `Implementation of Custom Image Denoiser in AtomAI <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_custom_model.ipynb>`_
-
-6) `Prepare Training Data From Experimental Image with Atomic Coordinates <https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/atomai_training_data.ipynb>`_
 
 Semantic segmentation
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -67,7 +54,7 @@ Here ```swa``` stands for `stochastic weight averaging <https://arxiv.org/abs/18
 
 ImSpec models
 ^^^^^^^^^^^^^^
-AtomAI also provides models that can be used for predicting spectra from image data and vice versa. These models can be used for predicting property from structure. An example can be predicting approximate scanning tulleling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
+AtomAI also provides models that can be used for predicting spectra from image data and vice versa. These models can be used for predicting property from a structure. An example can be predicting approximate scanning tunnelling spectroscopy or electron energy loss spectroscopy spectra from structural images of local sample regions (the assumption is of course that there is only a small variability of spectral behaviour within each  (sub)-image). The training/prediction routines are the same as for the semantic segmentation:
 
 >>> in_dim = (16, 16)  # Input dimensions (image height and width)
 >>> out_dim = (64,)  # Output dimensions (spectra length)
@@ -84,10 +71,10 @@ Make a prediction with the trained ImSpec model by running
 Deep ensembles
 ^^^^^^^^^^^^^^^
 
-One can also use AtomAI to train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get the information about the `uncertainty in our prediction <https://arxiv.org/abs/1612.01474>`_ for each pixel/point.
+One can also use AtomAI to train an ensemble of models instead of just a single model. The average ensemble prediction is usually more accurate and reliable than that of the single model. In addition, we also get information about the `uncertainty in our prediction <https://arxiv.org/abs/1612.01474>`_ for each pixel/point.
 
 >>> # Ititialize and compile ensemble trainer
->>> etrainer = aoi.trainers.EnsembleTrainer("Unet", batch_norm=True, nb_classes=3, with_dilation=False)
+>>> etrainer = aoi.trainers.EnsembleTrainer("Unet", nb_classes=3)
 >>> etrainer.compile_ensemble_trainer(training_cycles=500, compute_accuracy=True, swa=True)
 
 >>> # Train ensemble of models starting every time with new randomly initialized weights
@@ -96,24 +83,24 @@ One can also use AtomAI to train an ensemble of models instead of just a single 
 
 The ensemble of models can be then used to make a prediction with uncertainty estimates for each point (e.g. each pixel in the image):
 
->>> predictor = aoi.predictors.EnsemblePredictor(smodel, ensemble, nb_classes=3)
->>> nn_out_mean, nn_out_var = predictor.predict(expdata)
+>>> p = aoi.predictors.EnsemblePredictor(smodel, ensemble, nb_classes=3)
+>>> nn_out_mean, nn_out_var = p.predict(expdata)
 
 Variational autoencoders (VAE)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-AtomAI also has built-in `variational autoencoders (VAEs) <https://arxiv.org/abs/1906.02691>`_ for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotationally and/or translationally invariant VAE (rVAE), and class-conditined VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
+AtomAI also has built-in `variational autoencoders (VAEs) <https://arxiv.org/abs/1906.02691>`_ for finding in the unsupervised fashion the most effective reduced representation of system's local descriptors. The available VAEs are regular VAE, rotationally and/or translationally invariant VAE (rVAE), class-conditined VAE/rVAE, and joint VAE/rVAE. The VAEs can be applied to both raw data and NN output, but typically work better with the latter. Here's a simple example:
 
 >>> # Get a stack of subimages from experimental data (e.g. a semantically segmented atomic movie)
 >>> imstack, com, frames = utils.extract_subimages(nn_output, coords, window_size=32)
 
 >>> # Intitialize rVAE model
 >>> input_dim = (32, 32)
->>> rvae = aoi.models.rVAE(input_dim) 
+>>> rvae = aoi.models.rVAE(input_dim, latent_dim=2,) 
 
 >>> # Train
 >>> rvae.fit(
->>>    imstack_train, latent_dim=2,
+>>>    imstack_train,
 >>>    rotation_prior=np.pi/3, training_cycles=100,
 >>>    batch_size=100)   
 >>> # Visualize the learned manifold

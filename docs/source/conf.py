@@ -14,12 +14,12 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
 
-autodoc_mock_imports = ['torch', 'torch.nn', 'torch.nn.functional', 'torchvision']
+autodoc_mock_imports = ['torch', 'torch.nn', 'torch.nn.functional', 'torchvision', 'gpytorch']
 
 # -- Project information -----------------------------------------------------
 
 project = 'AtomAI'
-copyright = '2020, Maxim Ziatdinov'
+copyright = '2021, Maxim Ziatdinov'
 author = 'Maxim Ziatdinov'
 
 # The full version, including alpha/beta/rc tags
