@@ -10,8 +10,6 @@ ReadMe
 .. image:: https://readthedocs.org/projects/atomai/badge/?version=latest
         :target: https://atomai.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
-.. image:: https://api.codacy.com/project/badge/Grade/8fa8829627f040dda46e2dc30e48aca1
-        :target: https://app.codacy.com/manual/ziatdinovmax/atomai?utm_source=github.com&utm_medium=referral&utm_content=ziatdinovmax/atomai&utm_campaign=Badge_Grade_Dashboard
         :alt: Codacy Badge
 .. image:: https://pepy.tech/badge/atomai/month
         :target: https://pepy.tech/project/atomai/month
