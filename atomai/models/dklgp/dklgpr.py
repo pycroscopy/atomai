@@ -128,3 +128,31 @@ class dklGPR(dklGPTrainer):
         data_loader = init_dataloader(x_new, shuffle=False, **kwargs)
         embeded = torch.cat([self._embed(x.to(self.device)) for (x,) in data_loader], 0)
         return embeded.numpy()
+
+    def decode(self, z_emb: Union[torch.Tensor, np.ndarray]) -> Tuple[torch.Tensor]:
+        """
+        "Decodes" the latent space variables into the target space using
+        a trained Gaussian process model (i.e., "GP layer" of DKL-GP)
+        """
+        self.gp_model.eval()
+        m = self.gp_model
+
+        if m.prediction_strategy is None:
+            _ = self._compute_posterior(m.train_inputs[0][:1])
+        pstrategy = m.prediction_strategy.exact_prediction
+
+        z_emb_training = m.feature_extractor(m.train_inputs[0])
+        z_emb, _ = self.set_data(z_emb)
+        z_emb = torch.cat([z_emb, z_emb_training], 0)
+        z_emb = m.scale_to_bounds(z_emb)
+
+        with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
+            mean_z = m.mean_module(z_emb)
+            covar_z = m.covar_module(z_emb)
+            full_output = gpytorch.distributions.MultivariateNormal(mean_z, covar_z)
+            full_mean, full_covar = full_output.loc, full_output.lazy_covariance_matrix
+            with gpytorch.settings._use_eval_tolerance():
+                pmean, pcovar = pstrategy(full_mean, full_covar)
+            p = gpytorch.distributions.MultivariateNormal(pmean, pcovar)
+
+        return p.mean.cpu().numpy().T, p.variance.cpu().numpy().T
