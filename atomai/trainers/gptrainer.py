@@ -105,6 +105,10 @@ class dklGPTrainer:
         feature_extractor = kwargs.get("feature_extractor")
         if feature_extractor is None:
             feature_extractor = fcFeatureExtractor(input_dim, embedim)
+        freeze_weights = kwargs.get("freeze_weights", False)
+        if freeze_weights:
+            for p in feature_extractor.parameters():
+                p.requires_grad = False
         likelihood = gpytorch.likelihoods.GaussianLikelihood(
             batch_shape=torch.Size([y.shape[0]]))
         self.gp_model = GPRegressionModel(
@@ -119,7 +123,7 @@ class dklGPTrainer:
             {'params': self.gp_model.covar_module.parameters()},
             {'params': self.gp_model.mean_module.parameters()},
             {'params': self.gp_model.likelihood.parameters()}]
-        if not kwargs.get("freeze_weights", False):
+        if not freeze_weights:
             list_of_params.append(
                 {'params': self.gp_model.feature_extractor.parameters()})
         self.optimizer = torch.optim.Adam(list_of_params, lr=kwargs.get("lr", 0.01))
@@ -127,13 +131,14 @@ class dklGPTrainer:
         self.training_cycles = training_cycles
         self.compiled = True
 
-    def train_step(self, X: torch. Tensor, y: torch.Tensor) -> None:
+    def train_step(self) -> None:
         """
         Single training step with backpropagation
         to computegradients and optimizes weights.
         """
         self.optimizer.zero_grad()
-        output = self.gp_model(X)
+        X, y = self.gp_model.train_inputs, self.gp_model.train_targets
+        output = self.gp_model(*X)
         loss = -self.mll(output, y).sum()
         loss.backward()
         self.optimizer.step()
@@ -163,11 +168,10 @@ class dklGPTrainer:
             lr: learning rate (Default: 0.01)
             print_loss: print loss at every n-th training cycle (epoch)
         """
-        X, y = self.set_data(X, y)
         if not self.compiled:
             self.compile_trainer(X, y, training_cycles, **kwargs)
         for e in range(self.training_cycles):
-            self.train_step(X, y)
+            self.train_step()
             if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
                     e == self.training_cycles - 1]):
                 self.print_statistics(e)
