@@ -50,8 +50,7 @@ def test_trainer_train():
     t = dklGPTrainer(indim, precision="single")
     t.compile_trainer(X, y)
     w_init = dc(t.gp_model.feature_extractor.state_dict())
-    X_, y_ = t.set_data(X, y)
-    t.train_step(X_, y_)
+    t.train_step()
     w_final = t.gp_model.feature_extractor.state_dict()
     assert_(not weights_equal(w_init, w_final))
 
@@ -63,8 +62,7 @@ def test_trainer_train_freeze_w():
     t = dklGPTrainer(indim, precision="single")
     t.compile_trainer(X, y, freeze_weights=True)
     w_init = dc(t.gp_model.feature_extractor.state_dict())
-    X_, y_ = t.set_data(X, y)
-    t.train_step(X_, y_)
+    t.train_step()
     w_final = t.gp_model.feature_extractor.state_dict()
     assert_(weights_equal(w_init, w_final))
 
