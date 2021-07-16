@@ -33,6 +33,20 @@ def test_model_predict():
     assert_(isinstance(y_pred[1], np.ndarray))
 
 
+def test_multi_model_predict():
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(2, 50)
+    X_test = np.random.randn(50, indim)
+    t = dklGPR(indim, shared_embedding_space=False, precision="single")
+    t.fit(X, y)
+    y_pred = t.predict(X_test)
+    assert_equal(y_pred[0].shape, y_pred[1].shape)
+    assert_equal(y_pred[0].shape[1], X.shape[0])
+    assert_(isinstance(y_pred[0], np.ndarray))
+    assert_(isinstance(y_pred[1], np.ndarray))
+
+
 @pytest.mark.parametrize("reg_dim", [1, 2])
 def test_sample_from_posterior(reg_dim):
     indim = 32
@@ -49,6 +63,22 @@ def test_sample_from_posterior(reg_dim):
     assert_(isinstance(samples, np.ndarray))
 
 
+def test_sample_from_multi_model_posterior():
+    indim = 32
+    num_samples = 100
+    X = np.random.randn(50, indim)
+    y = np.random.randn(2, 50)
+    X_test = np.random.randn(50, indim)
+    t = dklGPR(indim, shared_embedding_space=False, precision="single")
+    t.fit(X, y)
+    samples = t.sample_from_posterior(X_test, num_samples)
+    print(samples.shape)
+    assert_equal(samples.shape[0], num_samples)
+    assert_equal(samples.shape[1], 2)
+    assert_equal(samples.shape[2], len(X_test))
+    assert_(isinstance(samples, np.ndarray))
+
+
 @pytest.mark.parametrize("embedim", [1, 2])
 def test_model_embed(embedim):
     indim = 32
@@ -58,8 +88,24 @@ def test_model_embed(embedim):
     t = dklGPR(indim, embedim, precision="single")
     t.fit(X, y)
     y_embedded = t.embed(X_test)
-    assert_equal(y_embedded.shape[0], X.shape[0])
+    assert_equal(y_embedded.shape[0], X_test.shape[0])
     assert_equal(y_embedded.shape[1], embedim)
+    assert_(isinstance(y_embedded, np.ndarray))
+
+
+@pytest.mark.parametrize("embedim", [1, 2])
+def test_multi_model_embed(embedim):
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(3, 50)
+    X_test = np.random.randn(50, indim)
+    t = dklGPR(indim, embedim, shared_embedding_space=False, precision="single")
+    t.fit(X, y)
+    y_embedded = t.embed(X_test)
+    print(y_embedded.shape)
+    assert_equal(y_embedded.shape[0], 3)
+    assert_equal(y_embedded.shape[1], X_test.shape[0])
+    assert_equal(y_embedded.shape[2], embedim)
     assert_(isinstance(y_embedded, np.ndarray))
 
 
