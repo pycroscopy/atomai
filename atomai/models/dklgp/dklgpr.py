@@ -77,7 +77,15 @@ class dklGPR(dklGPTrainer):
     def _compute_posterior(self, X: torch.Tensor) -> Union[mvn_, List[mvn_]]:
         """
         Computes the posterior over model outputs at the provided points (X).
+        For a model with multiple independent outputs, it returns a list of
+        posteriors computed for each independent model.
         """
+        if not self.correlated_output:
+            if X.ndim != 3 or X.shape[0] != len(self.gp_model.train_targets):
+                raise ValueError(
+                    "The input data must have q x n x d dimensionality " +
+                    "where the first dimension (q) must be equal to the " +
+                    "number of independent outputs")
         self.gp_model.eval()
         self.likelihood.eval()
         wrn = gpytorch.models.exact_gp.GPInputWarning
