@@ -6,7 +6,7 @@ Module for training deep kernel learning based Gaussian process regression.
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
-
+from copy import deepcopy as dc
 from typing import Optional, Tuple, Type, Union
 
 import gpytorch
@@ -38,6 +38,7 @@ class dklGPTrainer:
     def __init__(self,
                  indim: int,
                  embedim: int = 2,
+                 shared_embedding_space: bool = True,
                  **kwargs: Union[str, int]) -> None:
         """
         Initializes DKL-GPR.
@@ -48,6 +49,7 @@ class dklGPTrainer:
             "device", 'cuda:0' if torch.cuda.is_available() else 'cpu')
         precision = kwargs.get("precision", "double")
         self.dtype = torch.float32 if precision == "single" else torch.float64
+        self.correlated_output = shared_embedding_space
         self.gp_model = None
         self.likelihood = None
         self.compiled = False
@@ -76,6 +78,58 @@ class dklGPTrainer:
             y = self._set_data(y, device)
         return x, y
 
+    def compile_multi_model_trainer(self,
+                                    X: Union[torch.Tensor, np.ndarray],
+                                    y: Union[torch.Tensor, np.ndarray],
+                                    training_cycles: int = 1,
+                                    **kwargs: Union[Type[torch.nn.Module], int, bool, float]
+                                    ) -> None:
+
+        """
+        """
+        if self.correlated_output:
+            raise NotImplementedError(
+                "To compile a DKL-GP trainer for correlated outputs " +
+                "use compile_trainer(*args, **kwargs)")
+        X, y = self.set_data(X, y)
+        if y.shape[0] < 2:
+            raise ValueError("The training targets must be vector-valued (d >1)")
+        input_dim, embedim = self.dimdict["input_dim"], self.dimdict["embedim"]
+        feature_extractor = kwargs.get("feature_extractor")
+        if feature_extractor is None:
+            feature_extractor = fcFeatureExtractor(input_dim, embedim)
+        freeze_weights = kwargs.get("freeze_weights", False)
+        if freeze_weights:
+            for p in feature_extractor.parameters():
+                p.requires_grad = False
+        list_of_models = []
+        list_of_likelihoods = []
+        for i in range(y.shape[0]):
+            model_i = GPRegressionModel(
+                X, y[i:i+1],
+                gpytorch.likelihoods.GaussianLikelihood(batch_shape=torch.Size([1])),
+                feature_extractor, embedim, kwargs.get("grid_size", 50))
+            list_of_models.append(dc(model_i))
+            list_of_likelihoods.append(dc(model_i.likelihood))
+        self.gp_model = gpytorch.models.IndependentModelList(*list_of_models)
+        self.likelihood = gpytorch.likelihoods.LikelihoodList(*list_of_likelihoods)
+        self.gp_model.to(self.device)
+        self.likelihood.to(self.device)
+
+        list_of_parameters = []
+        for m in self.gp_model.models:
+            list_of_parameters += list(m.covar_module.parameters())
+            list_of_parameters += list(m.mean_module.parameters())
+            list_of_parameters += list(m.likelihood.parameters())
+            if not freeze_weights:
+                list_of_parameters += list(m.feature_extractor.parameters())
+
+        self.optimizer = torch.optim.Adam(list_of_parameters, lr=0.01)
+        self.mll = gpytorch.mlls.SumMarginalLogLikelihood(self.likelihood, self.gp_model)
+
+        self.training_cycles = training_cycles
+        self.compiled = True
+
     def compile_trainer(self, X: Union[torch.Tensor, np.ndarray],
                         y: Union[torch.Tensor, np.ndarray],
                         training_cycles: int = 1,
@@ -100,11 +154,19 @@ class dklGPTrainer:
                 passed to the optimizer. Used for a transfer learning.
             lr: learning rate (Default: 0.01)
         """
+        if not self.correlated_output:
+            raise NotImplementedError(
+                "To compile a DKL-GP trainer for independent outputs " +
+                "use compile_multi_model_trainer(*args, **kwargs)")
         X, y = self.set_data(X, y)
         input_dim, embedim = self.dimdict["input_dim"], self.dimdict["embedim"]
         feature_extractor = kwargs.get("feature_extractor")
         if feature_extractor is None:
             feature_extractor = fcFeatureExtractor(input_dim, embedim)
+        freeze_weights = kwargs.get("freeze_weights", False)
+        if freeze_weights:
+            for p in feature_extractor.parameters():
+                p.requires_grad = False
         likelihood = gpytorch.likelihoods.GaussianLikelihood(
             batch_shape=torch.Size([y.shape[0]]))
         self.gp_model = GPRegressionModel(
@@ -119,7 +181,7 @@ class dklGPTrainer:
             {'params': self.gp_model.covar_module.parameters()},
             {'params': self.gp_model.mean_module.parameters()},
             {'params': self.gp_model.likelihood.parameters()}]
-        if not kwargs.get("freeze_weights", False):
+        if not freeze_weights:
             list_of_params.append(
                 {'params': self.gp_model.feature_extractor.parameters()})
         self.optimizer = torch.optim.Adam(list_of_params, lr=kwargs.get("lr", 0.01))
@@ -127,13 +189,14 @@ class dklGPTrainer:
         self.training_cycles = training_cycles
         self.compiled = True
 
-    def train_step(self, X: torch. Tensor, y: torch.Tensor) -> None:
+    def train_step(self) -> None:
         """
         Single training step with backpropagation
         to computegradients and optimizes weights.
         """
         self.optimizer.zero_grad()
-        output = self.gp_model(X)
+        X, y = self.gp_model.train_inputs, self.gp_model.train_targets
+        output = self.gp_model(*X)
         loss = -self.mll(output, y).sum()
         loss.backward()
         self.optimizer.step()
@@ -163,11 +226,13 @@ class dklGPTrainer:
             lr: learning rate (Default: 0.01)
             print_loss: print loss at every n-th training cycle (epoch)
         """
-        X, y = self.set_data(X, y)
         if not self.compiled:
-            self.compile_trainer(X, y, training_cycles, **kwargs)
+            if self.correlated_output:
+                self.compile_trainer(X, y, training_cycles, **kwargs)
+            else:
+                self.compile_multi_model_trainer(X, y, training_cycles, **kwargs)
         for e in range(self.training_cycles):
-            self.train_step(X, y)
+            self.train_step()
             if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
                     e == self.training_cycles - 1]):
                 self.print_statistics(e)

@@ -43,6 +43,16 @@ def test_trainer_compiler():
     assert_(t.likelihood is not None)
 
 
+def test_multi_model_trainer_compiler():
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(2, 50)
+    t = dklGPTrainer(indim, shared_embedding_space=False, precision="single")
+    t.compile_multi_model_trainer(X, y, 2)
+    assert_(t.gp_model is not None)
+    assert_(t.likelihood is not None)
+
+
 def test_trainer_train():
     indim = 32
     X = np.random.randn(50, indim)
@@ -50,10 +60,25 @@ def test_trainer_train():
     t = dklGPTrainer(indim, precision="single")
     t.compile_trainer(X, y)
     w_init = dc(t.gp_model.feature_extractor.state_dict())
-    X_, y_ = t.set_data(X, y)
-    t.train_step(X_, y_)
+    t.train_step()
     w_final = t.gp_model.feature_extractor.state_dict()
     assert_(not weights_equal(w_init, w_final))
+
+
+def test_multi_model_trainer_train():
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(2, 50)
+    t = dklGPTrainer(indim, shared_embedding_space=False, precision="single")
+    t.compile_multi_model_trainer(X, y)
+    w_init1 = dc(t.gp_model.models[0].feature_extractor.state_dict())
+    w_init2 = dc(t.gp_model.models[1].feature_extractor.state_dict())
+    t.train_step()
+    w_final1 = t.gp_model.models[0].feature_extractor.state_dict()
+    w_final2 = t.gp_model.models[1].feature_extractor.state_dict()
+    assert_(not weights_equal(w_final1, w_final2))
+    assert_(not weights_equal(w_init1, w_final1))
+    assert_(not weights_equal(w_init2, w_final2))
 
 
 def test_trainer_train_freeze_w():
@@ -63,8 +88,7 @@ def test_trainer_train_freeze_w():
     t = dklGPTrainer(indim, precision="single")
     t.compile_trainer(X, y, freeze_weights=True)
     w_init = dc(t.gp_model.feature_extractor.state_dict())
-    X_, y_ = t.set_data(X, y)
-    t.train_step(X_, y_)
+    t.train_step()
     w_final = t.gp_model.feature_extractor.state_dict()
     assert_(weights_equal(w_init, w_final))
 

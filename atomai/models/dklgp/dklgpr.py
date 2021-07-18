@@ -8,7 +8,7 @@ Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
 
 import warnings
-from typing import Tuple, Type, Union
+from typing import Tuple, Type, Union, List
 
 import gpytorch
 import numpy as np
@@ -16,6 +16,8 @@ import torch
 
 from ...trainers import dklGPTrainer
 from ...utils import init_dataloader
+
+mvn_ = gpytorch.distributions.MultivariateNormal
 
 
 class dklGPR(dklGPTrainer):
@@ -25,6 +27,7 @@ class dklGPR(dklGPTrainer):
     Args:
         indim: input feature dimension
         embedim: embedding dimension (determines dimensionality of kernel space)
+        shared_embedding_space: use one embedding space for all target outputs
 
     Keyword Args:
         device:
@@ -39,11 +42,13 @@ class dklGPR(dklGPTrainer):
     def __init__(self,
                  indim: int,
                  embedim: int = 2,
+                 shared_embedding_space: bool = True,
                  **kwargs: Union[str, int]) -> None:
         """
         Initializes DKL-GPR model
         """
-        super(dklGPR, self).__init__(indim, embedim, **kwargs)
+        args = (indim, embedim, shared_embedding_space)
+        super(dklGPR, self).__init__(*args, **kwargs)
 
     def fit(self, X: Union[torch.Tensor, np.ndarray],
             y: Union[torch.Tensor, np.ndarray],
@@ -69,17 +74,28 @@ class dklGPR(dklGPTrainer):
         """
         _ = self.run(X, y, training_cycles, **kwargs)
 
-    def _compute_posterior(self, X: torch.Tensor) -> gpytorch.distributions.MultivariateNormal:
+    def _compute_posterior(self, X: torch.Tensor) -> Union[mvn_, List[mvn_]]:
         """
         Computes the posterior over model outputs at the provided points (X).
+        For a model with multiple independent outputs, it returns a list of
+        posteriors computed for each independent model.
         """
+        if not self.correlated_output:
+            if X.ndim != 3 or X.shape[0] != len(self.gp_model.train_targets):
+                raise ValueError(
+                    "The input data must have q x n x d dimensionality " +
+                    "where the first dimension (q) must be equal to the " +
+                    "number of independent outputs")
         self.gp_model.eval()
         self.likelihood.eval()
         wrn = gpytorch.models.exact_gp.GPInputWarning
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=wrn)
             with torch.no_grad(), gpytorch.settings.use_toeplitz(False), gpytorch.settings.fast_pred_var():
-                posterior = self.gp_model(X.to(self.device))
+                if self.correlated_output:
+                    posterior = self.gp_model(X.to(self.device))
+                else:
+                    posterior = self.gp_model(*X.to(self.device).split(1))
         return posterior
 
     def sample_from_posterior(self, X, num_samples: int = 1000) -> np.ndarray:
@@ -88,20 +104,30 @@ class dklGPR(dklGPTrainer):
         and samples from it
         """
         X, _ = self.set_data(X)
+        gp_batch_dim = len(self.gp_model.train_targets)
+        X = X.expand(gp_batch_dim, *X.shape)
         posterior = self._compute_posterior(X)
-        samples = posterior.rsample(torch.Size([num_samples, ]))
+        if self.correlated_output:
+            samples = posterior.rsample(torch.Size([num_samples, ]))
+        else:
+            samples = [p.rsample(torch.Size([num_samples, ])) for p in posterior]
+            samples = torch.cat(samples, 1)
         return samples.cpu().numpy()
 
     def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
-        y_pred = self._compute_posterior(x_new)
-        return y_pred.mean.cpu(), y_pred.variance.cpu()
+        posterior = self._compute_posterior(x_new)
+        if self.correlated_output:
+            return posterior.mean.cpu(), posterior.variance.cpu()
+        means_all = torch.cat([p.mean for p in posterior])
+        vars_all = torch.cat([p.variance for p in posterior])
+        return means_all.cpu(), vars_all.cpu()
 
     def predict(self, x_new: Union[torch.Tensor, np.ndarray],
                 **kwargs) -> Tuple[np.ndarray]:
         """
         Prediction of mean and variance using the trained model
         """
-        gp_batch_dim = self.gp_model.train_targets.size(0)
+        gp_batch_dim = len(self.gp_model.train_targets)
         x_new, _ = self.set_data(x_new, device='cpu')
         data_loader = init_dataloader(x_new, shuffle=False, **kwargs)
         predicted_mean, predicted_var = [], []
@@ -114,9 +140,15 @@ class dklGPR(dklGPTrainer):
                 torch.cat(predicted_var, 1).numpy().squeeze())
 
     def _embed(self, x_new: torch.Tensor):
-        self.gp_model.feature_extractor.eval()
+        self.gp_model.eval()
         with torch.no_grad():
-            embeded = self.gp_model.feature_extractor(x_new)
+            if self.correlated_output:
+                embeded = self.gp_model.feature_extractor(x_new)
+                embeded = self.gp_model.scale_to_bounds(embeded)
+            else:
+                embeded = [m.scale_to_bounds(m.feature_extractor(x_new))[..., None]
+                           for m in self.gp_model.models]
+                embeded = torch.cat(embeded, -1)
         return embeded.cpu()
 
     def embed(self, x_new: Union[torch.Tensor, np.ndarray],
@@ -127,6 +159,8 @@ class dklGPR(dklGPTrainer):
         x_new, _ = self.set_data(x_new, device='cpu')
         data_loader = init_dataloader(x_new, shuffle=False, **kwargs)
         embeded = torch.cat([self._embed(x.to(self.device)) for (x,) in data_loader], 0)
+        if not self.correlated_output:
+            embeded = embeded.permute(-1, 0, 1)
         return embeded.numpy()
 
     def decode(self, z_emb: Union[torch.Tensor, np.ndarray]) -> Tuple[torch.Tensor]:
@@ -134,6 +168,9 @@ class dklGPR(dklGPTrainer):
         "Decodes" the latent space variables into the target space using
         a trained Gaussian process model (i.e., "GP layer" of DKL-GP)
         """
+        if not self.correlated_output:
+            raise NotImplementedError(
+                "Currently supports only models with shared embedding space")
         self.gp_model.eval()
         m = self.gp_model
 
