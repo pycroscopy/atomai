@@ -79,6 +79,35 @@ def test_sample_from_multi_model_posterior():
     assert_(isinstance(samples, np.ndarray))
 
 
+@pytest.mark.parametrize("reg_dim", [1, 2])
+def test_thompson(reg_dim):
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(reg_dim, 50)
+    X_test = np.random.randn(50, indim)
+    m = dklGPR(indim, precision="single")
+    m.fit(X, y)
+    sample, xnext = m.thompson(X_test)
+    assert_(isinstance(xnext, np.ndarray))
+    assert_(xnext.shape, indim)
+    assert_(isinstance(sample, np.ndarray))
+    assert_equal(sample.shape, (50,))
+
+
+def test_thompson_scalarize():
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(3, 50)
+    X_test = np.random.randn(50, indim)
+    m = dklGPR(indim, precision="single")
+    m.fit(X, y)
+    sample, xnext = m.thompson(X_test, scalarize_func=lambda x: x.mean(0))
+    assert_(isinstance(xnext, np.ndarray))
+    assert_(xnext.shape, indim)
+    assert_(isinstance(sample, np.ndarray))
+    assert_equal(sample.shape, (50,))
+
+
 @pytest.mark.parametrize("embedim", [1, 2])
 def test_model_embed(embedim):
     indim = 32

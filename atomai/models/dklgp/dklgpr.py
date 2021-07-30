@@ -114,6 +114,23 @@ class dklGPR(dklGPTrainer):
             samples = torch.cat(samples, 1)
         return samples.cpu().numpy()
 
+    def thompson(self,
+                 X_cand: Union[torch.Tensor, np.ndarray],
+                 scalarize_func = None) -> np.ndarray:
+        """
+        Thompson sampling for selecting the next measurement point
+        """
+        X_cand, _ = self.set_data(X_cand)
+        posterior = self._compute_posterior(X_cand)
+        tsample = posterior.rsample().squeeze()
+        if tsample.ndim > 1:
+            if scalarize_func is not None:
+                tsample = scalarize_func(tsample)
+            else:
+                tsample = tsample.sum(0)
+        idx = tsample.argmax()
+        return tsample.cpu().numpy(), X_cand[idx].cpu().numpy()
+
     def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
         posterior = self._compute_posterior(x_new)
         if self.correlated_output:
