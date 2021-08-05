@@ -93,6 +93,16 @@ def test_trainer_train_freeze_w():
     assert_(weights_equal(w_init, w_final))
 
 
+def test_trainer_compile_and_run():
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(50)
+    t = dklGPTrainer(indim, precision="single")
+    t.compile_trainer(X, y, training_cycles=3)
+    _ = t.run()
+    assert_equal(len(t.train_loss), 3)
+
+
 def test_trainer_run():
     indim = 32
     X = np.random.randn(50, indim)

@@ -202,8 +202,8 @@ class dklGPTrainer:
         self.optimizer.step()
         self.train_loss.append(loss.item())
 
-    def run(self, X: Union[torch.Tensor, np.ndarray],
-            y: Union[torch.Tensor, np.ndarray],
+    def run(self, X: Union[torch.Tensor, np.ndarray] = None,
+            y: Union[torch.Tensor, np.ndarray] = None,
             training_cycles: int = 1,
             **kwargs: Union[Type[torch.nn.Module], int, bool, float]
             ) -> None:
