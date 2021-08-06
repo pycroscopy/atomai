@@ -38,6 +38,23 @@ class dklGPR(dklGPTrainer):
             or 'double' (torch.float64) precision
         seed:
             Seed for enforcing reproducibility
+    
+    Examples:
+
+        Train a DKL-GPR model with high-dimensional inputs X and outputs y:
+
+        >>> data_dim = X.shape[-1]  # X dimensions are n_samples x d
+        >>> dklgp = aoi.models.dklGPR(data_dim, embedim=2, precision="double")
+        >>> dklgp.fit(X, y, training_cycles=100, lr=1e-2)
+
+        Make a prediction on new data (mean and variance for each 'test' point):
+
+        >>> mean, var = dklgp.predict(X_test, batch_size=len(X_test))
+
+        Alternatively, one can obtain a prediction as follows:
+
+        >>> samples = dklgp.sample_from_posterior(X_test, num_samples=1000)
+        >>> mean, var = samples.mean(0), samples.var(0)
     """
     def __init__(self,
                  indim: int,

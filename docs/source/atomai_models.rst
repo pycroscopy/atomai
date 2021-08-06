@@ -53,6 +53,15 @@ Joint Rotational Variational Autoencoder (jrVAE)
     :member-order: bysource
     :show-inheritance:
 
+Deep Kernel Learning
+---------------------
+.. autoclass:: atomai.models.dklGPR
+    :members:
+    :inherited-members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
 Load trained models
 --------------------
 .. autofunction:: atomai.models.load_model
