@@ -86,6 +86,12 @@ class dklGPTrainer:
                                     ) -> None:
 
         """
+        Initializes deep kernel (feature extractor NNs + base kernels),
+        sets optimizer and "loss" function. For vector-valued functions
+        (multiple outputs), it assumes one latent space per output, that is,
+        the number of neural networks is equal to the number of Gaussian
+        processes. For example, if the outputs are spectra of length 128,
+        one will have 128 neural networks and 128 GPs trained in parallel.
         """
         if self.correlated_output:
             raise NotImplementedError(
@@ -137,7 +143,9 @@ class dklGPTrainer:
                         ) -> None:
         """
         Initializes deep kernel (feature extractor NN + base kernel),
-        sets optimizer and "loss" function.
+        sets optimizer and "loss" function. For vector-valued functions
+        (multiple outputs), it assumes a shared latent space, that is,
+        a single neural network is connected to multiple Gaussian processes.
 
         Args:
             X: Input training data (aka features) of N x input_dim dimensions
@@ -202,8 +210,8 @@ class dklGPTrainer:
         self.optimizer.step()
         self.train_loss.append(loss.item())
 
-    def run(self, X: Union[torch.Tensor, np.ndarray],
-            y: Union[torch.Tensor, np.ndarray],
+    def run(self, X: Union[torch.Tensor, np.ndarray] = None,
+            y: Union[torch.Tensor, np.ndarray] = None,
             training_cycles: int = 1,
             **kwargs: Union[Type[torch.nn.Module], int, bool, float]
             ) -> None:
