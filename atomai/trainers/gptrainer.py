@@ -214,7 +214,7 @@ class dklGPTrainer:
             y: Union[torch.Tensor, np.ndarray] = None,
             training_cycles: int = 1,
             **kwargs: Union[Type[torch.nn.Module], int, bool, float]
-            ) -> None:
+            ) -> Type[gpytorch.models.ExactGP]:
         """
         Initializes and trains a deep kernel GP model
 
