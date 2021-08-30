@@ -88,8 +88,7 @@ def test_thompson(reg_dim):
     m = dklGPR(indim, precision="single")
     m.fit(X, y)
     sample, xnext = m.thompson(X_test)
-    assert_(isinstance(xnext, np.ndarray))
-    assert_(xnext.shape, indim)
+    assert_(isinstance(xnext, int))
     assert_(isinstance(sample, np.ndarray))
     assert_equal(sample.shape, (50,))
 
@@ -102,8 +101,7 @@ def test_thompson_scalarize():
     m = dklGPR(indim, precision="single")
     m.fit(X, y)
     sample, xnext = m.thompson(X_test, scalarize_func=lambda x: x.mean(0))
-    assert_(isinstance(xnext, np.ndarray))
-    assert_(xnext.shape, indim)
+    assert_(isinstance(xnext, int))
     assert_(isinstance(sample, np.ndarray))
     assert_equal(sample.shape, (50,))
 
