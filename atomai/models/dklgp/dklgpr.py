@@ -133,7 +133,8 @@ class dklGPR(dklGPTrainer):
 
     def thompson(self,
                  X_cand: Union[torch.Tensor, np.ndarray],
-                 scalarize_func = None) -> np.ndarray:
+                 scalarize_func = None,
+                 maximize: bool = True) -> np.ndarray:
         """
         Thompson sampling for selecting the next measurement point
         """
@@ -145,8 +146,8 @@ class dklGPR(dklGPTrainer):
                 tsample = scalarize_func(tsample)
             else:
                 tsample = tsample.sum(0)
-        idx = tsample.argmax()
-        return tsample.cpu().numpy(), X_cand[idx].cpu().numpy()
+        idx = tsample.argmax() if maximize else tsample.argmin()
+        return tsample.cpu().numpy(), idx
 
     def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
         posterior = self._compute_posterior(x_new)
