@@ -52,6 +52,7 @@ class dklGPTrainer:
         self.correlated_output = shared_embedding_space
         self.gp_model = None
         self.likelihood = None
+        self.ensemble = False
         self.compiled = False
         self.train_loss = []
 
@@ -92,6 +93,8 @@ class dklGPTrainer:
         the number of neural networks is equal to the number of Gaussian
         processes. For example, if the outputs are spectra of length 128,
         one will have 128 neural networks and 128 GPs trained in parallel.
+        It can be also used for training an ensembles of models for the same
+        scalar output.
         """
         if self.correlated_output:
             raise NotImplementedError(
@@ -101,16 +104,21 @@ class dklGPTrainer:
         if y.shape[0] < 2:
             raise ValueError("The training targets must be vector-valued (d >1)")
         input_dim, embedim = self.dimdict["input_dim"], self.dimdict["embedim"]
-        feature_extractor = kwargs.get("feature_extractor")
-        if feature_extractor is None:
-            feature_extractor = fcFeatureExtractor(input_dim, embedim)
+        feature_net = kwargs.get("feature_extractor", fcFeatureExtractor)
         freeze_weights = kwargs.get("freeze_weights", False)
-        if freeze_weights:
-            for p in feature_extractor.parameters():
-                p.requires_grad = False
+        if not self.ensemble:
+            feature_extractor = feature_net(input_dim, embedim)
+            if freeze_weights:
+                for p in feature_extractor.parameters():
+                    p.requires_grad = False
         list_of_models = []
         list_of_likelihoods = []
         for i in range(y.shape[0]):
+            if self.ensemble:  # different initilization for each model
+                feature_extractor = feature_net(input_dim, embedim)
+                if freeze_weights:
+                    for p in feature_extractor.parameters():
+                        p.requires_grad = False
             model_i = GPRegressionModel(
                 X, y[i:i+1],
                 gpytorch.likelihoods.GaussianLikelihood(batch_shape=torch.Size([1])),
@@ -154,7 +162,8 @@ class dklGPTrainer:
 
         Keyword Args:
             feature_extractor:
-                (Optional) Custom neural network for feature extractor
+                (Optional) Custom neural network for feature extractor.
+                Must take input/feature dims and embedding dims as its arguments.
             grid_size:
                 Grid size for structured kernel interpolation (Default: 50)
             freeze_weights:
@@ -168,9 +177,8 @@ class dklGPTrainer:
                 "use compile_multi_model_trainer(*args, **kwargs)")
         X, y = self.set_data(X, y)
         input_dim, embedim = self.dimdict["input_dim"], self.dimdict["embedim"]
-        feature_extractor = kwargs.get("feature_extractor")
-        if feature_extractor is None:
-            feature_extractor = fcFeatureExtractor(input_dim, embedim)
+        feature_net = kwargs.get("feature_extractor", fcFeatureExtractor)
+        feature_extractor = feature_net(input_dim, embedim)
         freeze_weights = kwargs.get("freeze_weights", False)
         if freeze_weights:
             for p in feature_extractor.parameters():

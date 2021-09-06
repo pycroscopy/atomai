@@ -82,13 +82,53 @@ class dklGPR(dklGPTrainer):
 
         Keyword Args:
             feature_extractor:
-                (Optional) Custom neural network for feature extractor
+                (Optional) Custom neural network for feature extractor.
+                Must take input/feature dims and embedding dims as its arguments.
             freeze_weights:
                 Freezes weights of feature extractor, that is, they are not
                 passed to the optimizer. Used for a transfer learning.
             lr: learning rate (Default: 0.01)
             print_loss: print loss at every n-th training cycle (epoch)
         """
+        _ = self.run(X, y, training_cycles, **kwargs)
+
+    def fit_ensemble(self, X: Union[torch.Tensor, np.ndarray],
+                     y: Union[torch.Tensor, np.ndarray],
+                     training_cycles: int = 1,
+                     n_models: int = 5,
+                     **kwargs: Union[Type[torch.nn.Module], bool, float]
+                     ) -> None:
+        """
+        Initializes and trains an ensemble of deep kernel GP model
+
+        Args:
+            X: Input training data (aka features) of N x input_dim dimensions
+            y: Output targets of batch_size x N or N (if batch_size=1) dimensions
+            training_cycles: Number of training epochs
+            n_models: Number of models in ensemble
+
+        Keyword Args:
+            feature_extractor:
+                (Optional) Custom neural network for feature extractor.
+                Must take input/feature dims and embedding dims as its arguments.
+            freeze_weights:
+                Freezes weights of feature extractor, that is, they are not
+                passed to the optimizer. Used for a transfer learning.
+            lr: learning rate (Default: 0.01)
+            print_loss: print loss at every n-th training cycle (epoch)
+        """
+        if y.ndim == 1:
+            y = y[None]
+        if y.shape[0] > 1:
+            raise NotImplementedError(
+                "The ensemble training is currently supported only for scalar targets")
+        y = y.repeat(n_models, 0) if isinstance(y, np.ndarray) else y.repeat(n_models, 1)
+        if self.correlated_output:
+            msg = ("Replacing shared independent embedding space with" +
+                   " {} independent ones").format(n_models)
+            warnings.warn(msg)
+            self.correlated_output = False
+        self.ensemble = True
         _ = self.run(X, y, training_cycles, **kwargs)
 
     def _compute_posterior(self, X: torch.Tensor) -> Union[mvn_, List[mvn_]]:
@@ -194,7 +234,7 @@ class dklGPR(dklGPTrainer):
         x_new, _ = self.set_data(x_new, device='cpu')
         data_loader = init_dataloader(x_new, shuffle=False, **kwargs)
         embeded = torch.cat([self._embed(x.to(self.device)) for (x,) in data_loader], 0)
-        if not self.correlated_output:
+        if not self.correlated_output and not self.ensemble:
             embeded = embeded.permute(-1, 0, 1)
         return embeded.numpy()
 
