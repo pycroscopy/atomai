@@ -82,7 +82,8 @@ class dklGPR(dklGPTrainer):
 
         Keyword Args:
             feature_extractor:
-                (Optional) Custom neural network for feature extractor
+                (Optional) Custom neural network for feature extractor.
+                Must take input/feature dims and embedding dims as its arguments.
             freeze_weights:
                 Freezes weights of feature extractor, that is, they are not
                 passed to the optimizer. Used for a transfer learning.
@@ -98,7 +99,7 @@ class dklGPR(dklGPTrainer):
                      **kwargs: Union[Type[torch.nn.Module], bool, float]
                      ) -> None:
         """
-        Initializes and trains a deep kernel GP model
+        Initializes and trains an ensemble of deep kernel GP model
 
         Args:
             X: Input training data (aka features) of N x input_dim dimensions
@@ -108,7 +109,8 @@ class dklGPR(dklGPTrainer):
 
         Keyword Args:
             feature_extractor:
-                (Optional) Custom neural network for feature extractor
+                (Optional) Custom neural network for feature extractor.
+                Must take input/feature dims and embedding dims as its arguments.
             freeze_weights:
                 Freezes weights of feature extractor, that is, they are not
                 passed to the optimizer. Used for a transfer learning.
