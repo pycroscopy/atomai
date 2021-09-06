@@ -19,6 +19,16 @@ def test_model_fit():
     assert_equal(len(t.train_loss), 2)
 
 
+@pytest.mark.parametrize("shared_emb", [0, 1])
+def test_model_fit_ensemble(shared_emb):
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(50)
+    t = dklGPR(indim, precision="single", shared_embedding_space=shared_emb)
+    assert_equal(len(t.train_loss), 0)
+    t.fit_ensemble(X, y, 2, n_models=3)
+    assert_equal(len(t.train_loss), 2)
+
 def test_model_predict():
     indim = 32
     X = np.random.randn(50, indim)
@@ -43,6 +53,24 @@ def test_multi_model_predict():
     y_pred = t.predict(X_test)
     assert_equal(y_pred[0].shape, y_pred[1].shape)
     assert_equal(y_pred[0].shape[1], X.shape[0])
+    assert_(isinstance(y_pred[0], np.ndarray))
+    assert_(isinstance(y_pred[1], np.ndarray))
+
+
+@pytest.mark.parametrize("shared_emb", [0, 1])
+@pytest.mark.parametrize("ydim", [(50,), (1, 50)])
+def test_ensemble_predict(shared_emb, ydim):
+    indim = 32
+    n_models = 3
+    X = np.random.randn(50, indim)
+    y = np.random.randn(*ydim)
+    X_test = np.random.randn(50, indim)
+    t = dklGPR(indim, shared_embedding_space=shared_emb, precision="single")
+    t.fit_ensemble(X, y, 1, n_models=n_models)
+    y_pred = t.predict(X_test)
+    assert_equal(y_pred[0].shape, y_pred[1].shape)
+    assert_equal(y_pred[0].shape[1], X.shape[0])
+    assert_equal(y_pred[0].shape[0], n_models)
     assert_(isinstance(y_pred[0], np.ndarray))
     assert_(isinstance(y_pred[1], np.ndarray))
 

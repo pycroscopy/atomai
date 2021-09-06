@@ -103,6 +103,18 @@ def test_trainer_compile_and_run():
     assert_equal(len(t.train_loss), 3)
 
 
+def test_ensemble_trainer_compile_and_run():
+    indim = 32
+    X = np.random.randn(50, indim)
+    y = np.random.randn(1, 50).repeat(3, axis=0)
+    t = dklGPTrainer(indim, precision="single", shared_embedding_space=False)
+    t.ensemble = True
+    t.compile_multi_model_trainer(X, y)
+    w1 = t.gp_model.models[0].state_dict()
+    w2 = t.gp_model.models[2].state_dict()
+    assert_(not weights_equal(w1, w2))
+
+
 def test_trainer_run():
     indim = 32
     X = np.random.randn(50, indim)
