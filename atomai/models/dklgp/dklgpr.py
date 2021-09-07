@@ -124,7 +124,7 @@ class dklGPR(dklGPTrainer):
                 "The ensemble training is currently supported only for scalar targets")
         y = y.repeat(n_models, 0) if isinstance(y, np.ndarray) else y.repeat(n_models, 1)
         if self.correlated_output:
-            msg = ("Replacing shared independent embedding space with" +
+            msg = ("Replacing a single shared embedding space with" +
                    " {} independent ones").format(n_models)
             warnings.warn(msg)
             self.correlated_output = False
