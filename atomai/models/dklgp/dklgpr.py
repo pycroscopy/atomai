@@ -124,7 +124,7 @@ class dklGPR(dklGPTrainer):
                 "The ensemble training is currently supported only for scalar targets")
         y = y.repeat(n_models, 0) if isinstance(y, np.ndarray) else y.repeat(n_models, 1)
         if self.correlated_output:
-            msg = ("Replacing shared independent embedding space with" +
+            msg = ("Replacing a single shared embedding space with" +
                    " {} independent ones").format(n_models)
             warnings.warn(msg)
             self.correlated_output = False
@@ -179,15 +179,17 @@ class dklGPR(dklGPTrainer):
         Thompson sampling for selecting the next measurement point
         """
         X_cand, _ = self.set_data(X_cand)
+        gp_batch_dim = len(self.gp_model.train_targets)
+        X_cand = X_cand.expand(gp_batch_dim, *X_cand.shape).squeeze()
         posterior = self._compute_posterior(X_cand)
-        tsample = posterior.rsample().squeeze()
-        if tsample.ndim > 1:
-            if scalarize_func is not None:
-                tsample = scalarize_func(tsample)
-            else:
-                tsample = tsample.sum(0)
-        idx = tsample.argmax() if maximize else tsample.argmin()
-        return tsample.cpu().numpy(), idx.item()
+        if self.correlated_output:
+            tsample = posterior.rsample()
+        else:
+            tsample = torch.cat([p.rsample() for p in posterior])
+        if tsample.ndim > 1 and scalarize_func is not None:
+            tsample = scalarize_func(tsample).unsqueeze(0)
+        idx = tsample.argmax(1) if maximize else tsample.argmin(1)
+        return tsample.cpu().numpy(), idx.cpu().numpy()
 
     def _predict(self, x_new: torch.Tensor) -> Tuple[torch.Tensor]:
         posterior = self._compute_posterior(x_new)
