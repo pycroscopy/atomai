@@ -100,7 +100,6 @@ def test_sample_from_multi_model_posterior():
     t = dklGPR(indim, shared_embedding_space=False, precision="single")
     t.fit(X, y)
     samples = t.sample_from_posterior(X_test, num_samples)
-    print(samples.shape)
     assert_equal(samples.shape[0], num_samples)
     assert_equal(samples.shape[1], 2)
     assert_equal(samples.shape[2], len(X_test))
@@ -116,9 +115,9 @@ def test_thompson(reg_dim):
     m = dklGPR(indim, precision="single")
     m.fit(X, y)
     sample, xnext = m.thompson(X_test)
-    assert_(isinstance(xnext, int))
+    assert_(isinstance(xnext, np.ndarray))
     assert_(isinstance(sample, np.ndarray))
-    assert_equal(sample.shape, (50,))
+    assert_equal(sample.shape, (reg_dim, 50))
 
 
 def test_thompson_scalarize():
@@ -129,9 +128,9 @@ def test_thompson_scalarize():
     m = dklGPR(indim, precision="single")
     m.fit(X, y)
     sample, xnext = m.thompson(X_test, scalarize_func=lambda x: x.mean(0))
-    assert_(isinstance(xnext, int))
+    assert_(isinstance(xnext, np.ndarray))
     assert_(isinstance(sample, np.ndarray))
-    assert_equal(sample.shape, (50,))
+    assert_equal(sample.shape, (1, 50))
 
 
 @pytest.mark.parametrize("embedim", [1, 2])
