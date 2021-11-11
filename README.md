@@ -135,6 +135,23 @@ encoded_mean, encoded_sd = rvae.encode(imstack)
 z1, z2, z3 = encoded_mean[:,0], encoded_mean[:, 1:3], encoded_mean[:, 3:]
 ```
 
+### Deep kernel learning
+AtomAI has an easy-to-use deep kernel learning module for performing automated experiments. The DKL, originally [introduced](https://arxiv.org/abs/1511.02222) by Andrew Gordon Wilson, can be understood as a hybrid of classical deep neural network (DNN) and Gaussian process (GP). The DNN serves as a feature extractor that allows reducing the complex high-dimensional features to low-dimensional descriptors on which a standard GP kernel operates. The parameters of DNN and of GP kernel are optimized jointly by performing a gradient ascent on marginal log-likelihood. Practically, the DKL training inputs are a small number of patches from an easy-to-acquire structural image (e.g., topography in STM), and training targets are usually a physical property (e.g. size of superconducting gap) derived from the spectra measured in those patches. The DKL output on the new inputs (image patches for which there are no measured spectra) is the expected property value and associated uncertainty, which are used to derive the next measurement point.
+```python
+exploration_steps = 50
+data_dim = X_measured.shape[-1]  # here the image height and width are 'flattened'
+for e in range(exploration_steps):
+    # obtain/update DKL posterior
+    dklgp = aoi.models.dklGPR(data_dim, embedim=2, precision="single")
+    dklgp.fit(X_measured, y_measured, training_cycles=200)
+    # Thompson sampling for getting the next measurement point
+    obj, next_point_idx = dklgp.thompson(X_unmeasured)
+    # Select the next point to measure (assumes a discrete grid of points)
+    next_point = indices_unmeasured[next_point_idx]
+    # Do measurement and update sets measured/unmeasured points
+    ...
+```
+
 ### Custom models
 
 Finally, it is possible to use AtomAI trainers and predictors for easy work with custom PyTorch models. Suppose we define a custom denoising autoencoder in Pytorch as
