@@ -161,7 +161,11 @@ class dklGPR(dklGPTrainer):
         and samples from it
         """
         X, _ = self.set_data(X)
-        if conv_is_present((self.gp_model.feature_extractor)):
+        if hasattr(self.gp_model, "models"):
+            fnet = self.gp_model.models[0].feature_extractor
+        else:
+            fnet = self.gp_model.feature_extractor
+        if conv_is_present((fnet)):
             return self._sample_from_posterior_with_conv(X)
         gp_batch_dim = len(self.gp_model.train_targets)
         X = X.expand(gp_batch_dim, *X.shape)
@@ -206,7 +210,11 @@ class dklGPR(dklGPTrainer):
         """
         Prediction of mean and variance using the trained model
         """
-        if conv_is_present((self.gp_model.feature_extractor)):
+        if hasattr(self.gp_model, "models"):
+            fnet = self.gp_model.models[0].feature_extractor
+        else:
+            fnet = self.gp_model.feature_extractor
+        if conv_is_present((fnet)):
             return self._predict_with_conv(x_new)
         gp_batch_dim = len(self.gp_model.train_targets)
         x_new, _ = self.set_data(x_new, device='cpu')
