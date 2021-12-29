@@ -329,3 +329,13 @@ def channels2indices(mask: np.ndarray):
     for c in range(mask.shape[-1]):
         mask_sq += mask[..., c] * c
     return mask_sq
+
+
+def conv_is_present(model: Type[torch.nn.Module]) -> int:
+    """Checks if there is a convolutional module in NN model"""
+    conv = 0
+    for layer in model.modules():
+        if isinstance(layer, (torch.nn.Conv2d, torch.nn.Conv1d)):
+            conv += 1
+            break
+    return conv
