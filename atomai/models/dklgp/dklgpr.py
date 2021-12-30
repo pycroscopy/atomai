@@ -235,17 +235,39 @@ class dklGPR(dklGPTrainer):
         s feature extractor in DKL is a convolutional NN
         """
         x_new, _ = self.set_data(x_new)
-        p = self._decode(self._embed(x_new))
-        return p.mean.cpu().numpy().T, p.variance.cpu().numpy().T
+        if hasattr(self.gp_model, "models"):
+            embeded = self._embed(x_new)
+            embeded = embeded.permute(-1, 0, 1)
+            mean, var = [], []
+            for i, emb in enumerate(embeded):
+                p = self._decode(emb, model=i)
+                mean.append(p.mean.cpu())
+                var.append(p.variance.cpu())
+            mean = torch.cat(mean, 0).numpy()
+            var = torch.cat(var, 0).numpy()
+        else:
+            p = self._decode(self._embed(x_new))
+            mean = p.mean.cpu().numpy().squeeze()
+            var = p.variance.cpu().numpy().squeeze()
+        return mean, var
 
     def _sample_from_posterior_with_conv(self, X, num_samples: int = 1000) -> np.ndarray:
         """
         Computes the posterior over model outputs at the provided points (X)
         and samples from it when s feature extractor in DKL is a convolutional NN
         """
-        posterior = self._decode(self._embed(X))
-        samples = posterior.rsample(torch.Size([num_samples, ]))
-        return samples.detach().cpu().numpy()
+        if hasattr(self.gp_model, "models"):
+            embeded = self._embed(X)
+            embeded = embeded.permute(-1, 0, 1)
+            samples = []
+            for i, emb in enumerate(embeded):
+                p = self._decode(emb, model=i)
+                samples.append(p.rsample(torch.Size([num_samples, ])).cpu())
+            samples = torch.cat(samples, 1).permute(1, 0, -1)
+        else:
+            posterior = self._decode(self._embed(X))
+            samples = posterior.rsample(torch.Size([num_samples, ])).cpu()
+        return samples.detach().numpy()
 
     def _embed(self, x_new: torch.Tensor):
         self.gp_model.eval()
@@ -268,16 +290,16 @@ class dklGPR(dklGPTrainer):
         data_loader = init_dataloader(x_new, shuffle=False, **kwargs)
         embeded = torch.cat(
             [self._embed(x.to(self.device)).cpu() for (x,) in data_loader], 0)
-        if not self.correlated_output and not self.ensemble:
+        if not self.correlated_output or self.ensemble:
             embeded = embeded.permute(-1, 0, 1)
         return embeded.numpy()
 
-    def _decode(self, z_emb: Union[torch.Tensor, np.ndarray]) -> mvn_:
+    def _decode(self, z_emb: Union[torch.Tensor, np.ndarray], **kwargs) -> mvn_:
         self.gp_model.eval()
-        m = self.gp_model
+        m = self.gp_model.models[kwargs.get("model", 0)] if self.ensemble else self.gp_model
 
         if m.prediction_strategy is None:
-            _ = self._compute_posterior(m.train_inputs[0][:1])
+            _ = m(m.train_inputs[0][:1])
         pstrategy = m.prediction_strategy.exact_prediction
 
         z_emb_training = m.feature_extractor(m.train_inputs[0])
@@ -300,9 +322,9 @@ class dklGPR(dklGPTrainer):
         "Decodes" the latent space variables into the target space using
         a trained Gaussian process model (i.e., "GP layer" of DKL-GP)
         """
-        if not self.correlated_output:
+        if not self.correlated_output or self.ensemble:
             raise NotImplementedError(
-                "Currently supports only models with shared embedding space")
+                "Currently supports only models with a shared embedding space")
         z_emb, _ = self.set_data(z_emb)
         p = self._decode(z_emb)
         return p.mean.cpu().numpy().T, p.variance.cpu().numpy().T
