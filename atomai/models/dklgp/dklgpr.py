@@ -263,7 +263,8 @@ class dklGPR(dklGPTrainer):
             for i, emb in enumerate(embeded):
                 p = self._decode(emb, model=i)
                 samples.append(p.rsample(torch.Size([num_samples, ])).cpu())
-            samples = torch.cat(samples, 1).permute(1, 0, -1)
+            samples = torch.cat(samples, 1)
+            samples = samples.permute(1, 0, -1) if self.ensemble else samples
         else:
             posterior = self._decode(self._embed(X))
             samples = posterior.rsample(torch.Size([num_samples, ])).cpu()
@@ -296,7 +297,8 @@ class dklGPR(dklGPTrainer):
 
     def _decode(self, z_emb: Union[torch.Tensor, np.ndarray], **kwargs) -> mvn_:
         self.gp_model.eval()
-        m = self.gp_model.models[kwargs.get("model", 0)] if self.ensemble else self.gp_model
+        multi_ = any([self.ensemble, not self.correlated_output])
+        m = self.gp_model.models[kwargs.get("model", 0)] if multi_ else self.gp_model
 
         if m.prediction_strategy is None:
             with torch.no_grad():
