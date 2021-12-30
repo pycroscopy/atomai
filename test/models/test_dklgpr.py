@@ -7,6 +7,10 @@ from numpy.testing import assert_equal, assert_
 sys.path.append("../../../")
 
 from atomai.models import dklGPR
+from atomai.nets import SignalEncoder, fcFeatureExtractor
+
+convnet = lambda indim, embedim: SignalEncoder(indim, embedim, 2, 8, batch_norm=0)
+mlp = lambda indim, embedim: fcFeatureExtractor(indim, embedim, hidden_dim=[256, 128])
 
 
 def test_model_fit():
@@ -19,6 +23,17 @@ def test_model_fit():
     assert_equal(len(t.train_loss), 2)
 
 
+@pytest.mark.parametrize("feature_net, indim", [(mlp, (32,)), (convnet, (1, 8, 8))])
+def test_model_fit2(feature_net, indim):  # two 'custom' NNs
+    X = np.random.randn(50, *indim)
+    y = np.random.randn(50)
+    feature_shape = indim[0] if len(indim) == 1 else indim[1:]
+    t = dklGPR(feature_shape, precision="single")
+    assert_equal(len(t.train_loss), 0)
+    t.fit(X, y, 2, feature_extractor=feature_net)
+    assert_equal(len(t.train_loss), 2)
+
+
 @pytest.mark.parametrize("shared_emb", [0, 1])
 def test_model_fit_ensemble(shared_emb):
     indim = 32
@@ -28,6 +43,19 @@ def test_model_fit_ensemble(shared_emb):
     assert_equal(len(t.train_loss), 0)
     t.fit_ensemble(X, y, 2, n_models=3)
     assert_equal(len(t.train_loss), 2)
+
+
+@pytest.mark.parametrize("feature_net, indim", [(mlp, (32,)), (convnet, (1, 8, 8))])
+@pytest.mark.parametrize("shared_emb", [0, 1])
+def test_model_fit_ensemble2(feature_net, indim, shared_emb):  # two 'custom' NNs
+    X = np.random.randn(50, *indim)
+    y = np.random.randn(50)
+    feature_shape = indim[0] if len(indim) == 1 else indim[1:]
+    t = dklGPR(feature_shape, precision="single", shared_embedding_space=shared_emb)
+    assert_equal(len(t.train_loss), 0)
+    t.fit_ensemble(X, y, 2, feature_extractor=feature_net, n_models=3)
+    assert_equal(len(t.train_loss), 2)
+
 
 def test_model_predict():
     indim = 32
@@ -43,6 +71,21 @@ def test_model_predict():
     assert_(isinstance(y_pred[1], np.ndarray))
 
 
+@pytest.mark.parametrize("feature_net, indim", [(mlp, (32,)), (convnet, (1, 8, 8))])
+def test_model_predict2(feature_net, indim):   # two 'custom' NNs
+    X = np.random.randn(50, *indim)
+    y = np.random.randn(50)
+    feature_shape = indim[0] if len(indim) == 1 else indim[1:]
+    X_test = np.random.randn(50, *indim)
+    t = dklGPR(feature_shape, precision="single")
+    t.fit(X, y, feature_extractor=feature_net)
+    y_pred = t.predict(X_test)
+    assert_equal(len(y_pred[0]), len(y_pred[1]))
+    assert_equal(y_pred[0].shape[0], X.shape[0])
+    assert_(isinstance(y_pred[0], np.ndarray))
+    assert_(isinstance(y_pred[1], np.ndarray))
+
+
 def test_multi_model_predict():
     indim = 32
     X = np.random.randn(50, indim)
@@ -50,6 +93,22 @@ def test_multi_model_predict():
     X_test = np.random.randn(50, indim)
     t = dklGPR(indim, shared_embedding_space=False, precision="single")
     t.fit(X, y)
+    y_pred = t.predict(X_test)
+    assert_equal(y_pred[0].shape, y_pred[1].shape)
+    assert_equal(y_pred[0].shape[1], X.shape[0])
+    assert_(isinstance(y_pred[0], np.ndarray))
+    assert_(isinstance(y_pred[1], np.ndarray))
+
+
+
+@pytest.mark.parametrize("feature_net, indim", [(mlp, (32,)), (convnet, (1, 8, 8))])
+def test_multi_model_predict2(feature_net, indim):  # two 'custom' NNs
+    X = np.random.randn(50, *indim)
+    y = np.random.randn(2, 50)
+    feature_shape = indim[0] if len(indim) == 1 else indim[1:]
+    X_test = np.random.randn(50, *indim)
+    t = dklGPR(feature_shape, shared_embedding_space=False, precision="single")
+    t.fit(X, y, feature_extractor=feature_net)
     y_pred = t.predict(X_test)
     assert_equal(y_pred[0].shape, y_pred[1].shape)
     assert_equal(y_pred[0].shape[1], X.shape[0])
@@ -75,6 +134,25 @@ def test_ensemble_predict(shared_emb, ydim):
     assert_(isinstance(y_pred[1], np.ndarray))
 
 
+@pytest.mark.parametrize("feature_net, indim", [(mlp, (32,)), (convnet, (1, 8, 8))])
+@pytest.mark.parametrize("shared_emb", [0, 1])
+@pytest.mark.parametrize("ydim", [(50,), (1, 50)])
+def test_ensemble_predict2(feature_net, indim, shared_emb, ydim):  # two 'custom' NNs
+    n_models = 3
+    X = np.random.randn(50, *indim)
+    y = np.random.randn(*ydim)
+    X_test = np.random.randn(50, *indim)
+    feature_shape = indim[0] if len(indim) == 1 else indim[1:]
+    t = dklGPR(feature_shape, shared_embedding_space=shared_emb, precision="single")
+    t.fit_ensemble(X, y, 1, feature_extractor=feature_net, n_models=n_models)
+    y_pred = t.predict(X_test)
+    assert_equal(y_pred[0].shape, y_pred[1].shape)
+    assert_equal(y_pred[0].shape[1], X.shape[0])
+    assert_equal(y_pred[0].shape[0], n_models)
+    assert_(isinstance(y_pred[0], np.ndarray))
+    assert_(isinstance(y_pred[1], np.ndarray))
+
+
 @pytest.mark.parametrize("reg_dim", [1, 2])
 def test_sample_from_posterior(reg_dim):
     indim = 32
@@ -91,6 +169,23 @@ def test_sample_from_posterior(reg_dim):
     assert_(isinstance(samples, np.ndarray))
 
 
+@pytest.mark.parametrize("feature_net, indim", [(mlp, (32,)), (convnet, (1, 8, 8))])
+@pytest.mark.parametrize("reg_dim", [1, 2])
+def test_sample_from_posterior2(feature_net, indim, reg_dim):  # two 'custom' NNs
+    num_samples = 100
+    X = np.random.randn(50, *indim)
+    y = np.random.randn(reg_dim, 50)
+    X_test = np.random.randn(50, *indim)
+    feature_shape = indim[0] if len(indim) == 1 else indim[1:]
+    t = dklGPR(feature_shape, precision="single")
+    t.fit(X, y, feature_extractor=feature_net)
+    samples = t.sample_from_posterior(X_test, num_samples)
+    assert_equal(samples.shape[0], num_samples)
+    assert_equal(samples.shape[1], reg_dim)
+    assert_equal(samples.shape[2], len(X))
+    assert_(isinstance(samples, np.ndarray))
+
+
 def test_sample_from_multi_model_posterior():
     indim = 32
     num_samples = 100
@@ -99,6 +194,22 @@ def test_sample_from_multi_model_posterior():
     X_test = np.random.randn(50, indim)
     t = dklGPR(indim, shared_embedding_space=False, precision="single")
     t.fit(X, y)
+    samples = t.sample_from_posterior(X_test, num_samples)
+    assert_equal(samples.shape[0], num_samples)
+    assert_equal(samples.shape[1], 2)
+    assert_equal(samples.shape[2], len(X_test))
+    assert_(isinstance(samples, np.ndarray))
+
+
+@pytest.mark.parametrize("feature_net, indim", [(mlp, (32,)), (convnet, (1, 8, 8))])
+def test_sample_from_multi_model_posterior2(feature_net, indim):  # two 'custom' NNs
+    num_samples = 100
+    X = np.random.randn(50, *indim)
+    y = np.random.randn(2, 50)
+    X_test = np.random.randn(50, *indim)
+    feature_shape = indim[0] if len(indim) == 1 else indim[1:]
+    t = dklGPR(feature_shape, shared_embedding_space=False, precision="single")
+    t.fit(X, y, feature_extractor=feature_net)
     samples = t.sample_from_posterior(X_test, num_samples)
     assert_equal(samples.shape[0], num_samples)
     assert_equal(samples.shape[1], 2)
