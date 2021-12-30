@@ -166,7 +166,7 @@ class dklGPR(dklGPTrainer):
         else:
             fnet = self.gp_model.feature_extractor
         if conv_is_present(fnet):
-            return self._sample_from_posterior_with_conv(X)
+            return self._sample_from_posterior_with_conv(X, num_samples)
         gp_batch_dim = len(self.gp_model.train_targets)
         X = X.expand(gp_batch_dim, *X.shape)
         posterior = self._compute_posterior(X)
