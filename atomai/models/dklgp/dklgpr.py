@@ -165,7 +165,7 @@ class dklGPR(dklGPTrainer):
             fnet = self.gp_model.models[0].feature_extractor
         else:
             fnet = self.gp_model.feature_extractor
-        if conv_is_present((fnet)):
+        if conv_is_present(fnet):
             return self._sample_from_posterior_with_conv(X)
         gp_batch_dim = len(self.gp_model.train_targets)
         X = X.expand(gp_batch_dim, *X.shape)
@@ -214,7 +214,7 @@ class dklGPR(dklGPTrainer):
             fnet = self.gp_model.models[0].feature_extractor
         else:
             fnet = self.gp_model.feature_extractor
-        if conv_is_present((fnet)):
+        if conv_is_present(fnet):
             return self._predict_with_conv(x_new)
         gp_batch_dim = len(self.gp_model.train_targets)
         x_new, _ = self.set_data(x_new, device='cpu')
@@ -299,7 +299,8 @@ class dklGPR(dklGPTrainer):
         m = self.gp_model.models[kwargs.get("model", 0)] if self.ensemble else self.gp_model
 
         if m.prediction_strategy is None:
-            _ = m(m.train_inputs[0][:1])
+            with torch.no_grad():
+                _ = m(m.train_inputs[0][:1])
         pstrategy = m.prediction_strategy.exact_prediction
 
         z_emb_training = m.feature_extractor(m.train_inputs[0])
