@@ -851,7 +851,7 @@ def update_classes(coordinates: Union[Dict[int, np.ndarray], np.ndarray],
     coordinates_ = copy.deepcopy(coordinates)
     if method == 'threshold':
         r = kwargs.get("window_size", 3)
-        intensities = get_intensities(coordinates_, nn_input, 3)
+        intensities = get_intensities(coordinates_, nn_input, r)
         intensities_ = np.concatenate(intensities)
         thresh = kwargs.get('thresh')
         if thresh is None:
