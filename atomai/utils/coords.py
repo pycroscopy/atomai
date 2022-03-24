@@ -259,7 +259,7 @@ def get_intensities(coordinates_all, nn_input, r=3):
     """
     intensities_all = []
     for k, coord in coordinates_all.items():
-        intensities_all.append(get_intensities_(coord, nn_input[k]))
+        intensities_all.append(get_intensities_(coord, nn_input[k], r))
     return intensities_all
 
 
