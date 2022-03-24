@@ -24,9 +24,9 @@ The purpose of the AtomAI is to provide an environment that bridges the instrume
 
 #### Scientific papers that used AtomAI:
 
-- Exploring order parameters and dynamic processes in disordered systems via variational autoencoders. *Science Advances* 7, eabd5084 (2021). doi:10.1126/sciadv.abd5084
-- Disentangling Rotational Dynamics and Ordering Transitions in a System of Self-Organizing Protein Nanorods via Rotationally Invariant Latent Representations. *ACS Nano* (2021). doi:10.1021/acsnano.0c08914
-- Tracking atomic structure evolution during directed electron beam induced Si-atom motion in graphene via deep machine learning. *Nanotechnology* 32, 035703 (2020). doi:10.1088/1361-6528/abb8a6
+- Exploring causal physical mechanisms via non-Gaussian linear models and deep kernel learning: applications for ferroelectric domain structures. *ACS Nano* 16, 1250-1259 (2022). DOI: 10.1021/acsnano.1c09059
+- Exploring order parameters and dynamic processes in disordered systems via variational autoencoders. *Science Advances* 7, eabd5084 (2021). DOI: 10.1126/sciadv.abd5084
+- Tracking atomic structure evolution during directed electron beam induced Si-atom motion in graphene via deep machine learning. *Nanotechnology* 32, 035703 (2020). DOI: 10.1088/1361-6528/abb8a6
 
   [**Show full list**](https://atomai.readthedocs.io/en/latest/papers.html)
 
