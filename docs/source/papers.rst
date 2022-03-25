@@ -5,7 +5,7 @@ Scientific papers that used AtomAI or its predecessor, `AICrystallographer <http
 
 1. Exploring causal physical mechanisms via non-Gaussian linear models and deep kernel learning: applications for ferroelectric domain structures. *ACS Nano* 16, 1250-1259 (2022). DOI: 10.1021/acsnano.1c09059
 
-2. Disentangling Ferroelectric Wall Dynamics and Identification of Pinning Mechanisms via Deep Learning. Advanced Materials 33, 2103680 (2021). DOI: 10.1002/adma.202103680
+2. Disentangling Ferroelectric Wall Dynamics and Identification of Pinning Mechanisms via Deep Learning. *Advanced Materials* 33, 2103680 (2021). DOI: 10.1002/adma.202103680
 
 3. Ensemble learning-iterative training machine learning for uncertainty quantification and automated experiment in atom-resolved microscopy. *npj Comput Mater* 7, 100 (2021). DOI: 10.1038/s41524-021-00569-7
 
