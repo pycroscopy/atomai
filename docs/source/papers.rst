@@ -1,7 +1,7 @@
 Scientific output
 =================
 
-Scientific papers that used AtomAI or its predecessor, `AICrystallographer <https://github.com/pycroscopy/AICrystallographer>`_:
+Scientific papers that used AtomAI or its predecessor, `AICrystallographer <https://github.com/pycroscopy/AICrystallographer>`_. Note that there are also multiple arXiv preprints that use the package which are not on this list.
 
 1. Exploring causal physical mechanisms via non-Gaussian linear models and deep kernel learning: applications for ferroelectric domain structures. *ACS Nano* 16, 1250-1259 (2022). DOI: 10.1021/acsnano.1c09059
 
