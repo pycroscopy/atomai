@@ -7,7 +7,7 @@ Welcome to AtomAI's documentation!
 ==================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Notes
 
    README.rst
