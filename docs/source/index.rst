@@ -7,8 +7,7 @@ Welcome to AtomAI's documentation!
 ==================================
 
 .. toctree::
-   :glob:
-   :maxdepth: 1
+   :maxdepth: 3
    :caption: Notes
 
    README
@@ -16,8 +15,7 @@ Welcome to AtomAI's documentation!
    papers
 
 .. toctree::
-   :glob:
-   :maxdepth: 1
+   :maxdepth: 3
    :caption: Package Content
 
    atomai_models
@@ -27,8 +25,7 @@ Welcome to AtomAI's documentation!
    other_utilities
    
 .. toctree::
-   :glob:
-   :maxdepth: 1
+   :maxdepth: 3
    :caption: Examples
 
    examples
