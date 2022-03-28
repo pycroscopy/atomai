@@ -1,7 +1,7 @@
 [![PyPI version](https://badge.fury.io/py/atomai.svg)](https://badge.fury.io/py/atomai)
 [![build](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml/badge.svg)](https://github.com/pycroscopy/atomai/actions/workflows/actions.yml)
 [![codecov](https://codecov.io/gh/pycroscopy/atomai/branch/master/graph/badge.svg?token=SZVMH250OC)](https://codecov.io/gh/pycroscopy/atomai)
-[![Documentation Status](https://readthedocs.org/projects/atomai/badge/?version=latest)](https://atomai.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/atomai/badge/?version=latest)](https://atomai.readthedocs.io/en/stable/?badge=stable)
 
 [![Downloads](https://pepy.tech/badge/atomai/month)](https://pepy.tech/project/atomai)
 [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/pycroscopy/atomai/blob/master/examples/notebooks/Quickstart_AtomAI_in_the_Cloud.ipynb)
