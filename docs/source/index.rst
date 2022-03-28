@@ -7,15 +7,17 @@ Welcome to AtomAI's documentation!
 ==================================
 
 .. toctree::
-   :maxdepth: 3
+   :glob:
+   :maxdepth: 1
    :caption: Notes
 
-   README.rst
-   LICENSE.rst
-   papers.rst
+   README
+   LICENSE
+   papers
 
 .. toctree::
-   :maxdepth: 3
+   :glob:
+   :maxdepth: 1
    :caption: Package Content
 
    atomai_models
@@ -25,7 +27,8 @@ Welcome to AtomAI's documentation!
    other_utilities
    
 .. toctree::
-   :maxdepth: 3
+   :glob:
+   :maxdepth: 1
    :caption: Examples
 
    examples
