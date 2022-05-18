@@ -49,9 +49,9 @@ def test_ica(imstack_):
     assert_allclose(Xt, Xt_desired)
 
 
-def test_nmf(imstack_):
-    test_nmf = np.load(test_nmf_, allow_pickle=True)
-    components_desired, Xt_desired = test_nmf[0:2]
-    components, Xt, _ = imstack_.nmf(4)
-    assert_allclose(components, components_desired)
-    assert_allclose(Xt, Xt_desired)
+#def test_nmf(imstack_):
+#    test_nmf = np.load(test_nmf_, allow_pickle=True)
+#    components_desired, Xt_desired = test_nmf[0:2]
+#    components, Xt, _ = imstack_.nmf(4)
+#    assert_allclose(components, components_desired)
+#    assert_allclose(Xt, Xt_desired)
