@@ -228,7 +228,7 @@ class dilnet(nn.Module):
 
 class ResHedNet(nn.Module):
     """
-    Holistic edge detector with residual connections in each block
+    Holistically nested edge detector with residual connections in each block
 
     Args:
         nb_classes:
@@ -298,8 +298,8 @@ class ResHedNet(nn.Module):
 
 class SegResNet(nn.Module):
     '''
-    Builds a fully convolutional neural network based on residual blocks
-    for semantic segmentation
+    Builds a fully convolutional neural network based on SegNet architecture 
+    with residual blocks for semantic segmentation
 
     Args:
         nb_classes:
