@@ -157,6 +157,7 @@ class jrVAE(BaseVAE):
             X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
             y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
             loss: str = "mse",
+            verbose: str = "True",
             **kwargs) -> None:
         """
         Trains joint rVAE model
@@ -195,6 +196,8 @@ class jrVAE(BaseVAE):
                 Based on https://arxiv.org/pdf/1804.03599.pdf & https://arxiv.org/abs/1804.00104
             **filename (str):
                 file path for saving model after each training cycle ("epoch")
+            verbose:
+                display training output, "True" or "False" (Default: "True")
         """
         self._check_inputs(X_train, y_train, X_test, y_test)
         self.dx_prior = kwargs.get("translation_prior", 0.1)
@@ -205,6 +208,7 @@ class jrVAE(BaseVAE):
         self.compile_trainer(
             (X_train, y_train), (X_test, y_test), **kwargs)
         self.loss = loss  # this part needs to be handled better
+      
         if self.loss == "ce":
             self.sigmoid_out = True  # Use sigmoid layer for "prediction" stage
             self.metadict["sigmoid_out"] = True
@@ -217,7 +221,10 @@ class jrVAE(BaseVAE):
             if self.test_iterator is not None:
                 elbo_epoch_test = self.evaluate_model()
                 self.loss_history["test_loss"].append(elbo_epoch_test)
-            self.print_statistics(e)
+            
+            if verbose == "True":
+                self.print_statistics(e)
+            
             self.update_metadict()
             self.save_model(self.filename)
 
