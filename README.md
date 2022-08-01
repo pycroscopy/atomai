@@ -237,7 +237,7 @@ First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, instal
 pip install atomai
 ```
 
-### Cite us
+## Cite us
 
 If you used AtomAI for your research, consider citing our paper
 
