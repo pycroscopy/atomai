@@ -11,7 +11,7 @@
 
 ## What is AtomAI
 
-AtomAI is a Pytorch-based package for deep and machine learning analysis of microscopy data, developed by Maxim Ziatdinov at Oak Ridge National Lab, that doesn't require any advanced knowledge of Python or machine learning. The intended audience is domain scientists with a basic understanding of how to use NumPy and Matplotlib.
+AtomAI is a Pytorch-based package for deep and machine learning analysis of microscopy data that doesn't require any advanced knowledge of Python or machine learning. The intended audience is domain scientists with a basic understanding of how to use NumPy and Matplotlib. It was developed by Maxim Ziatdinov at Oak Ridge National Lab.
 
 
 <p align="center">
