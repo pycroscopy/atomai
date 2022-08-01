@@ -37,7 +37,7 @@ if __name__ == "__main__":
             'mendeleev<=0.6.1',
             'torchvision>=0.8.0',
             'progressbar2>=3.38.0',
-            'gpytorch>=1.4.0,<1.7.0'
+            'gpytorch>=1.4.0,<1.6.0'
         ],
         classifiers=['Programming Language :: Python',
                      'Development Status :: 3 - Alpha',
