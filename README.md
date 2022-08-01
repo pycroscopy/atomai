@@ -236,3 +236,16 @@ First, install [PyTorch](https://pytorch.org/get-started/locally/). Then, instal
 ```bash
 pip install atomai
 ```
+
+### Cite us
+
+If you used AtomAI for your research, consider citing our paper
+
+```
+@article{ziatdinov2021atomai,
+  title={AtomAI: A Deep Learning Framework for Analysis of Image and Spectroscopy Data in (Scanning) Transmission Electron Microscopy and Beyond},
+  author={Ziatdinov, Maxim and Ghosh, Ayana and Wong, Tommy and Kalinin, Sergei V.},
+  journal={arXiv preprint arXiv:2105.07485},
+  year={2021}
+}
+```
