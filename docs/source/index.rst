@@ -15,7 +15,7 @@ Welcome to AtomAI's documentation!
    papers
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
    :caption: Package Content
 
    atomai_models
