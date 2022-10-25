@@ -127,7 +127,7 @@ class Graph:
                 if max_neighbors == -1:
                     nn = tree.query_ball_point(coords[:3], r=rmax)
                 else:
-                    _, nn = tree.query(self.coordinates[:, :3], k=max_neighbors+1, distance_upper_bound = rmax)
+                    _, nn = tree.query(coords[:3], k=max_neighbors+1, distance_upper_bound = rmax)
                 for n, coords2 in zip(nn, self.coordinates[nn]):
                     if self.vertices[n] != v:
                         atom2 = self.map_dict[coords2[-1]]
