@@ -138,7 +138,20 @@ class Graph:
                             if eucldist <= rij[(atom1, atom2)]:
                                 v.neighbors.append(self.vertices[n])
                                 v.neighborscopy.append(self.vertices[n])
-
+        
+        #Making the graph symmetric when max_neighbors is used
+        for v in self.vertices:
+            id = v.id
+            rem_ids = []
+            for nn in v.neighbors:
+                nn_neighbors_list = [nn.neighbors[l].id for l in range(len(nn.neighbors))]
+                if id not in nn_neighbors_list:
+                    rem_ids.append(nn)
+    
+            for rem_id in rem_ids:
+                v.neighbors.remove(rem_id)
+            
+            
     def find_rings(self,
                    v: Type[Node],
                    rings: List[List[Type[Node]]] = [],
