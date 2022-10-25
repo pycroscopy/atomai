@@ -112,9 +112,10 @@ class Graph:
                 _, neighbors = tree.query(self.coordinates[:, :3], k=max_neighbors+1, distance_upper_bound = rmax)
             for v, nn in zip(self.vertices, neighbors):
                 for n in nn:
-                    if self.vertices[n] != v:
-                        v.neighbors.append(self.vertices[n])
-                        v.neighborscopy.append(self.vertices[n])
+                    if not n >= len(self.vertices):
+                        if self.vertices[n] != v:
+                            v.neighbors.append(self.vertices[n])
+                            v.neighborscopy.append(self.vertices[n])
                 
         else:
             uval = [self.map_dict[u] for u in uval]
@@ -129,12 +130,12 @@ class Graph:
                 else:
                     _, nn = tree.query(coords[:3], k=max_neighbors+1, distance_upper_bound = rmax)
                 for n, coords2 in zip(nn, self.coordinates[nn]):
-                    if self.vertices[n] != v:
-                        atom2 = self.map_dict[coords2[-1]]
-                        eucldist = np.linalg.norm(
-                            coords[:3] - coords2[:3])
-                        if eucldist <= rij[(atom1, atom2)]:
-                            if max_neighbors==-1 or len(v.neighbors)<max_neighbors:
+                    if not n >= len(self.vertices):
+                        if self.vertices[n] != v:
+                            atom2 = self.map_dict[coords2[-1]]
+                            eucldist = np.linalg.norm(
+                                coords[:3] - coords2[:3])
+                            if eucldist <= rij[(atom1, atom2)]:
                                 v.neighbors.append(self.vertices[n])
                                 v.neighborscopy.append(self.vertices[n])
 
