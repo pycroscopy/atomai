@@ -87,6 +87,10 @@ class Graph:
         Identifies neighbors of each graph node
 
         Args:
+            **max_neighbors(int):
+                This is the maximum number of neighbors each node can have, 
+                ususally used to form the graph with only nearest neighbors
+                Default is -1 which means it will find all the neighbors
             **expand (float):
                 coefficient determining the maximum allowable expansion of
                 atomic bonds when constructing a graph. For example, the two
@@ -97,6 +101,7 @@ class Graph:
             del v.neighbors[:]
         Rij = get_interatomic_r
         e = kwargs.get("expand", 1.2)
+        max_neighbors = kwargs.get("max_neighbors", -1)
         tree = spatial.cKDTree(self.coordinates[:, :3])
         uval = np.unique(self.coordinates[:, -1])
         if len(uval) == 1:
@@ -105,8 +110,9 @@ class Graph:
             for v, nn in zip(self.vertices, neighbors):
                 for n in nn:
                     if self.vertices[n] != v:
-                        v.neighbors.append(self.vertices[n])
-                        v.neighborscopy.append(self.vertices[n])
+                        if max_neighbors==-1 or len(v.neighbors)<max_neighbors:
+                            v.neighbors.append(self.vertices[n])
+                            v.neighborscopy.append(self.vertices[n])
         else:
             uval = [self.map_dict[u] for u in uval]
             apairs = [(p[0], p[1]) for p in itertools.product(uval, repeat=2)]
@@ -122,8 +128,9 @@ class Graph:
                         eucldist = np.linalg.norm(
                             coords[:3] - coords2[:3])
                         if eucldist <= rij[(atom1, atom2)]:
-                            v.neighbors.append(self.vertices[n])
-                            v.neighborscopy.append(self.vertices[n])
+                            if max_neighbors==-1 or len(v.neighbors)<max_neighbors:
+                                v.neighbors.append(self.vertices[n])
+                                v.neighborscopy.append(self.vertices[n])
 
     def find_rings(self,
                    v: Type[Node],
