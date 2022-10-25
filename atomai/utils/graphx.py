@@ -106,7 +106,7 @@ class Graph:
         uval = np.unique(self.coordinates[:, -1])
         if len(uval) == 1:
             rmax = Rij([self.map_dict[uval[0]], self.map_dict[uval[0]]], e)
-            neighbors = tree.query_ball_point(self.coordinates[:, :3], r=rmax)
+            neighbors = tree.query_ball_point(self.coordinates[:, :3], r=rmax, return_sorted = True)
             for v, nn in zip(self.vertices, neighbors):
                 for n in nn:
                     if self.vertices[n] != v:
@@ -121,7 +121,7 @@ class Graph:
             rij = dict(zip(apairs, rij))
             for v, coords in zip(self.vertices, self.coordinates):
                 atom1 = self.map_dict[coords[-1]]
-                nn = tree.query_ball_point(coords[:3], r=rmax)
+                nn = tree.query_ball_point(coords[:3], r=rmax, return_sorted = True)
                 for n, coords2 in zip(nn, self.coordinates[nn]):
                     if self.vertices[n] != v:
                         atom2 = self.map_dict[coords2[-1]]
