@@ -106,13 +106,16 @@ class Graph:
         uval = np.unique(self.coordinates[:, -1])
         if len(uval) == 1:
             rmax = Rij([self.map_dict[uval[0]], self.map_dict[uval[0]]], e)
-            neighbors = tree.query_ball_point(self.coordinates[:, :3], r=rmax, return_sorted = True)
+            if max_neighbors == -1:
+                neighbors = tree.query_ball_point(self.coordinates[:, :3], r=rmax)
+            else:
+                _, neighbors = tree.query(self.coordinates[:, :3], k=max_neighbors+1, distance_upper_bound = rmax)
             for v, nn in zip(self.vertices, neighbors):
                 for n in nn:
                     if self.vertices[n] != v:
-                        if max_neighbors==-1 or len(v.neighbors)<max_neighbors:
-                            v.neighbors.append(self.vertices[n])
-                            v.neighborscopy.append(self.vertices[n])
+                        v.neighbors.append(self.vertices[n])
+                        v.neighborscopy.append(self.vertices[n])
+                
         else:
             uval = [self.map_dict[u] for u in uval]
             apairs = [(p[0], p[1]) for p in itertools.product(uval, repeat=2)]
@@ -121,7 +124,10 @@ class Graph:
             rij = dict(zip(apairs, rij))
             for v, coords in zip(self.vertices, self.coordinates):
                 atom1 = self.map_dict[coords[-1]]
-                nn = tree.query_ball_point(coords[:3], r=rmax, return_sorted = True)
+                if max_neighbors == -1:
+                    nn = tree.query_ball_point(coords[:3], r=rmax)
+                else:
+                    _, nn = tree.query(self.coordinates[:, :3], k=max_neighbors+1, distance_upper_bound = rmax)
                 for n, coords2 in zip(nn, self.coordinates[nn]):
                     if self.vertices[n] != v:
                         atom2 = self.map_dict[coords2[-1]]
