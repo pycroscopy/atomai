@@ -129,8 +129,10 @@ class Graph:
                     nn = tree.query_ball_point(coords[:3], r=rmax)
                 else:
                     _, nn = tree.query(coords[:3], k=max_neighbors+1, distance_upper_bound = rmax)
-                if not n >= len(self.vertices):
-                    for n, coords2 in zip(nn, self.coordinates[nn]):
+                
+                for n in nn:
+                    if not n >= len(self.vertices):
+                        coords2 = self.coordinates[nn]
                         if self.vertices[n] != v:
                             atom2 = self.map_dict[coords2[-1]]
                             eucldist = np.linalg.norm(
