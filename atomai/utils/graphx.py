@@ -132,7 +132,7 @@ class Graph:
                 
                 for n in nn:
                     if not n >= len(self.vertices):
-                        coords2 = self.coordinates[nn]
+                        coords2 = self.coordinates[n]
                         if self.vertices[n] != v:
                             atom2 = self.map_dict[coords2[-1]]
                             eucldist = np.linalg.norm(
