@@ -61,7 +61,8 @@ class Graph:
     """
 
     def __init__(self, coordinates: np.ndarray,
-                 map_dict: Dict) -> None:
+                 map_dict: Dict,
+                 px2ang: float = 1) -> None:
         """
         Initializes a graph object
         """
@@ -76,6 +77,8 @@ class Graph:
             v = Node(i, coords[:-1].tolist(), map_dict[coords[-1]])
             self.vertices.append(v)
         self.coordinates = coordinates
+        self.coordinates_ang = deepcopy(coordinates)
+        self.coordinates_ang[:, :-1] = self.coordinates[:, :-1] * px2ang
         self.map_dict = map_dict
         self.size = len(coordinates)
         self.rings = []
@@ -102,14 +105,14 @@ class Graph:
         Rij = get_interatomic_r
         e = kwargs.get("expand", 1.2)
         max_neighbors = kwargs.get("max_neighbors", -1)
-        tree = spatial.cKDTree(self.coordinates[:, :3])
-        uval = np.unique(self.coordinates[:, -1])
+        tree = spatial.cKDTree(self.coordinates_ang[:, :3])
+        uval = np.unique(self.coordinates_ang[:, -1])
         if len(uval) == 1:
             rmax = Rij([self.map_dict[uval[0]], self.map_dict[uval[0]]], e)
             if max_neighbors == -1:
-                neighbors = tree.query_ball_point(self.coordinates[:, :3], r=rmax)
+                neighbors = tree.query_ball_point(self.coordinates_ang[:, :3], r=rmax)
             else:
-                _, neighbors = tree.query(self.coordinates[:, :3], k=max_neighbors+1, distance_upper_bound = rmax)
+                _, neighbors = tree.query(self.coordinates_ang[:, :3], k=max_neighbors+1, distance_upper_bound = rmax)
             for v, nn in zip(self.vertices, neighbors):
                 for n in nn:
                     if not n >= len(self.vertices):
@@ -123,7 +126,7 @@ class Graph:
             rij = [Rij([a[0], a[1]], e) for a in apairs]
             rmax = np.max(rij)
             rij = dict(zip(apairs, rij))
-            for v, coords in zip(self.vertices, self.coordinates):
+            for v, coords in zip(self.vertices, self.coordinates_ang):
                 atom1 = self.map_dict[coords[-1]]
                 if max_neighbors == -1:
                     nn = tree.query_ball_point(coords[:3], r=rmax)
@@ -132,7 +135,7 @@ class Graph:
                 
                 for n in nn:
                     if not n >= len(self.vertices):
-                        coords2 = self.coordinates[n]
+                        coords2 = self.coordinates_ang[n]
                         if self.vertices[n] != v:
                             atom2 = self.map_dict[coords2[-1]]
                             eucldist = np.linalg.norm(
