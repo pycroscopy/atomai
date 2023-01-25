@@ -20,6 +20,8 @@ class Unet(nn.Module):
     Builds a fully convolutional Unet-like neural network model
 
     Args:
+        n_channels:
+            Number of channels in the input image
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -48,6 +50,7 @@ class Unet(nn.Module):
             (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 16,
                  dropout: bool = False,
@@ -64,7 +67,7 @@ class Unet(nn.Module):
         padding_values = dilation_values.copy()
         dropout_vals = [.1, .2, .1] if dropout else [0, 0, 0]
         self.c1 = ConvBlock(
-            2, nbl[0], 1, nb_filters,
+            2, nbl[0], n_channels, nb_filters,
             batch_norm=batch_norm
         )
         self.c2 = ConvBlock(
@@ -148,6 +151,8 @@ class dilnet(nn.Module):
     by utilizing a combination of regular and dilated convolutions
 
     Args:
+        n_channels:
+            Number of channels in the input image
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -167,6 +172,7 @@ class dilnet(nn.Module):
     """
 
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 25,
                  dropout: bool = False,
@@ -184,7 +190,7 @@ class dilnet(nn.Module):
         padding_values_2 = dilation_values_2.copy()
         dropout_vals = [.3, .3] if dropout else [0, 0]
         self.c1 = ConvBlock(
-                    2, nbl[0], 1, nb_filters,
+                    2, nbl[0], n_channels, nb_filters,
                     batch_norm=batch_norm
         )
         self.at1 = DilatedBlock(
@@ -305,6 +311,8 @@ class SegResNet(nn.Module):
     with residual blocks for semantic segmentation
 
     Args:
+        n_channels:
+            Number of channels in the input image
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -324,6 +332,7 @@ class SegResNet(nn.Module):
 
     '''
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 32,
                  batch_norm: bool = True,
@@ -336,7 +345,7 @@ class SegResNet(nn.Module):
         super(SegResNet, self).__init__()
         nbl = kwargs.get("layers", [2, 2, 2])
         self.c1 = ConvBlock(
-            2, 1, 1, nb_filters, batch_norm=batch_norm
+            2, 1, n_channels, nb_filters, batch_norm=batch_norm
         )
         self.c2 = ResModule(
             2, nbl[0], nb_filters, nb_filters*2, batch_norm=batch_norm
