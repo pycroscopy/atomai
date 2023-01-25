@@ -398,12 +398,14 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         meta_state_dict = {
             'model_type': 'Seg', model: 'custom', 'nb_classes': nb_classes}
         return model, meta_state_dict
+    n_channels = kwargs.get('n_channels', 1)
     batch_norm = kwargs.get('batch_norm', True)
     dropout = kwargs.get('dropout', False)
     upsampling = kwargs.get('upsampling', "bilinear")
     meta_state_dict = {
                 'model_type': 'seg',
                 'model': model,
+                'n_channels': n_channels,
                 'nb_classes': nb_classes,
                 'batch_norm': batch_norm,
                 'dropout': dropout,
@@ -414,7 +416,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 16)
         layers = kwargs.get("layers", [1, 2, 2, 3])
         net = Unet(
-            nb_classes, nb_filters, dropout,
+            n_channels, nb_classes, nb_filters, dropout,
             batch_norm, upsampling, with_dilation,
             layers=layers
         )
@@ -423,7 +425,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 25)
         layers = kwargs.get("layers", [1, 3, 3, 1])
         net = dilnet(
-            nb_classes, nb_filters,
+            n_channels, nb_classes, nb_filters,
             dropout, batch_norm, upsampling,
             layers=layers
         )
@@ -431,14 +433,14 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 32)
         layers = kwargs.get("layers", [2, 2, 2])
         net = SegResNet(
-            nb_classes, nb_filters,
+            n_channels, nb_classes, nb_filters,
             batch_norm, upsampling, layers=layers
         )
     elif isinstance(model, str) and model == 'ResHedNet':
         nb_filters = kwargs.get('nb_filters', 64)
         layers = kwargs.get("layers", [3, 4, 5])
         net = ResHedNet(
-            nb_classes, nb_filters,
+            n_channels, nb_classes, nb_filters,
             upsampling, layers=layers
         )
     else:
