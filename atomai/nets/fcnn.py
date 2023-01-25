@@ -231,6 +231,8 @@ class ResHedNet(nn.Module):
     Holistically nested edge detector with residual connections in each block
 
     Args:
+        n_channels:
+            Number of channels in the input layer
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -247,6 +249,7 @@ class ResHedNet(nn.Module):
 
     """
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 64,
                  upsampling_mode: str = "bilinear",
@@ -257,7 +260,7 @@ class ResHedNet(nn.Module):
         super(ResHedNet, self).__init__()
         nbl = kwargs.get("layers", [3, 4, 5])
         self.upsample = upsampling_mode
-        self.net1 = ResModule(2, nbl[0], 1, nb_filters, True)
+        self.net1 = ResModule(2, nbl[0], n_channels, nb_filters, True)
         self.net2 = nn.Sequential(
             nn.MaxPool2d(2, 2),
             ResModule(2, nbl[1], nb_filters, 2*nb_filters, True)
