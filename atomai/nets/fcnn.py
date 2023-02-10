@@ -381,7 +381,7 @@ class SegResNet(nn.Module):
 
 
 def init_fcnn_model(model: Union[Type[nn.Module], str],
-                    nb_classes: int, **kwargs: [bool, int, List]
+                    nb_classes: int, **kwargs: List[bool, int, List]
                     ) -> Type[nn.Module]:
     """
     Initializes a fully convolutional neural network
