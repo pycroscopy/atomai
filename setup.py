@@ -14,7 +14,7 @@ with open(os.path.join(module_dir, 'atomai/__version__.py')) as f:
 if __name__ == "__main__":
     setup(
         name='atomai',
-        python_requires='>=3.6',
+        python_requires='>=3.7',
         version=__version__,
         description='Deep and machine learning for atom-resolved data',
         long_description=open(os.path.join(module_dir, 'README.md')).read(),
