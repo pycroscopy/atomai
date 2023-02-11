@@ -84,7 +84,7 @@ class imlocal:
         self.network_output = network_output
         self.nb_classes = network_output.shape[-1]
         self.coord_all = coord_class_dict_all
-        self.coord_class = np.float(coord_class)
+        self.coord_class = float(coord_class)
         self.r = window_size
         (self.imgstack,
          self.imgstack_com,

@@ -46,7 +46,7 @@ def test_ase_lattice_unit():
             line_split = line.split()
 
             if cnt == 1:
-                val = np.int(np.float(line_split[0]))
+                val = int(float(line_split[0]))
                 assert_equal(val, 1, 'Mismatch of lattice unit')
 
             line = fp.readline()
@@ -62,7 +62,7 @@ def test_ase_coodinate_system():
             line_split = line.split()
 
             if cnt == 7:
-                matchVal = np.int(line_split[0] == 'Cartesian')
+                matchVal = int(line_split[0] == 'Cartesian')
                 assert_equal(matchVal, 1, 'Should be Cartesian System')
 
             line = fp.readline()
@@ -78,8 +78,8 @@ def test_ase_atom_names():
             line_split = line.split()
 
             if cnt == 5:
-                matchVal_C = np.int(line_split[0] == 'C')
-                matchVal_Si = np.int(line_split[1] == 'Si')
+                matchVal_C = int(line_split[0] == 'C')
+                matchVal_Si = int(line_split[1] == 'Si')
                 assert_equal(matchVal_C, 1, 'Should be C')
                 assert_equal(matchVal_Si, 1, 'Should be Si')
 

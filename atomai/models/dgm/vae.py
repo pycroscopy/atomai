@@ -315,7 +315,7 @@ class BaseVAE(viBaseTrainer):
         """
 
         num_batches = kwargs.get("num_batches", 10)
-        inf = np.int(1e5)
+        inf = int(1e5)
         img_to_encode = img.copy()
         coordinates = get_coord_grid(img_to_encode, 1, return_dict=False)
         batch_size = coordinates.shape[0] // num_batches
