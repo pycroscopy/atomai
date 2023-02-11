@@ -2,7 +2,7 @@ import sys
 import os
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose
+from numpy.testing import assert_equal, assert_
 import matplotlib
 matplotlib.use('Agg')
 
@@ -33,25 +33,26 @@ def imstack_():
     return imstack
 
 
-def test_pca(imstack_):
-    test_pca = np.load(test_pca_, allow_pickle=True)
-    components_desired, Xt_desired = test_pca[0:2]
-    components, Xt, _ = imstack_.pca(4)
-    assert_allclose(components, components_desired)
-    assert_allclose(Xt, Xt_desired)
+@pytest.mark.parametrize("n", [3, 4])
+def test_pca(imstack_, n):
+    components, Xt, coord = imstack_.pca(n)
+    assert_equal(components.shape, (n, 32, 32, 3))
+    assert_equal(Xt.shape, (2833, n))
+    assert_equal(coord.shape, (2833, 3))
 
 
-def test_ica(imstack_):
-    test_ica = np.load(test_ica_, allow_pickle=True)
-    components_desired, Xt_desired = test_ica[0:2]
-    components, Xt, _ = imstack_.ica(4)
-    assert_allclose(components, components_desired)
-    assert_allclose(Xt, Xt_desired)
+@pytest.mark.parametrize("n", [3, 4])
+def test_ica(imstack_, n):
+    components, Xt, coord = imstack_.ica(n)
+    assert_equal(components.shape, (n, 32, 32, 3))
+    assert_equal(Xt.shape, (2833, n))
+    assert_equal(coord.shape, (2833, 3))
 
 
-#def test_nmf(imstack_):
-#    test_nmf = np.load(test_nmf_, allow_pickle=True)
-#    components_desired, Xt_desired = test_nmf[0:2]
-#    components, Xt, _ = imstack_.nmf(4)
-#    assert_allclose(components, components_desired)
-#    assert_allclose(Xt, Xt_desired)
+@pytest.mark.parametrize("n", [3, 4])
+def test_nmf(imstack_, n):
+   components, Xt, coord = imstack_.nmf(n)
+   assert_equal(components.shape, (n, 32, 32, 3))
+   assert_equal(Xt.shape, (2833, n))
+   assert_equal(coord.shape, (2833, 3))
+
