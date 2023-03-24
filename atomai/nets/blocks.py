@@ -6,11 +6,12 @@ Customized NN blocks
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
-from typing import List, Union, Tuple
+from typing import List, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision.models import mobilenet_v2, resnet50, vgg16
 
 
 class ConvBlock(nn.Module):
@@ -326,3 +327,73 @@ class DilatedBlock(nn.Module):
             x = conv_layer(x)
             atrous_layers.append(x.unsqueeze(-1))
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
+    
+
+class CustomBackbone(nn.Module):
+    """
+    Custom backbone class to support ResNet50, VGG16, and MobileNetV2 architectures.
+
+    Args:
+        input_channels (int): The number of input channels.
+        backbone_type (str, optional): The type of backbone architecture. Choose from "resnet", "vgg", or "mobilenet". Default is "mobilenet".
+    """
+    def __init__(self, input_channels: int, backbone_type: str = "mobilenet"):
+        super(CustomBackbone, self).__init__()
+
+        if backbone_type == "resnet":
+            # Load the pre-trained ResNet50 model
+            backbone = resnet50(weights=None)
+
+            # Modify the first convolutional layer to accept the given number of input channels
+            backbone.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+
+            # Remove the last fully connected layer (classification layer)
+            self.backbone_layers = nn.Sequential(*list(backbone.children())[:-2])
+
+            # Set the number of in_features for the fully connected layer
+            self.in_features = backbone.fc.in_features
+
+        elif backbone_type == "vgg":
+            # Load the pre-trained VGG16 model
+            backbone = vgg16(weights=None)
+
+            # Modify the first convolutional layer to accept the given number of input channels
+            backbone.features[0] = nn.Conv2d(input_channels, 64, kernel_size=3, padding=1)
+
+            # Set the number of in_features for the fully connected layer
+            self.in_features = backbone.classifier[0].in_features
+
+            # Set the backbone layers
+            self.backbone_layers = nn.Sequential(*list(backbone.features.children()))
+
+        elif backbone_type == "mobilenet":
+            # Load the pre-trained MobileNetV2 model
+            backbone = mobilenet_v2(weights=None)
+
+            # Modify the first convolutional layer to accept the given number of input channels
+            backbone.features[0][0] = nn.Conv2d(input_channels, 32, kernel_size=3, stride=2, padding=1, bias=False)
+
+            # Set the number of in_features for the fully connected layer
+            self.in_features = backbone.classifier[1].in_features
+
+            # Set the backbone layers
+            self.backbone_layers = nn.Sequential(*list(backbone.features.children()))
+        
+        else:
+            raise ValueError("Unsupported backbone_type. Choose either 'resnet' or 'vgg'.")
+
+        # Add adaptive average pooling
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1))
+
+    def forward(self, x: torch.Tensor):
+        """
+        Forward pass
+
+        Args:
+            x (torch.Tensor): Input tensor with shape (batch_size, input_channels, height, width).
+
+        Returns:
+            torch.Tensor: Output tensor with shape (batch_size, in_features, 1, 1).
+        """
+        x = self.adaptive_pool(self.backbone_layers(x))
+        return x

@@ -1,4 +1,4 @@
-from .blocks import ConvBlock, DilatedBlock, ResBlock, ResModule, UpsampleBlock
+from .blocks import ConvBlock, DilatedBlock, ResBlock, ResModule, UpsampleBlock, CustomBackbone
 from .ed import (SignalDecoder, SignalED, SignalEncoder, convDecoderNet,
                  convEncoderNet, coord_latent, fcDecoderNet, fcEncoderNet,
                  rDecoderNet, init_imspec_model, init_VAE_nets)
@@ -9,4 +9,4 @@ __all__ = ['ConvBlock', 'ResBlock', 'ResModule', 'UpsampleBlock', 'DilatedBlock'
            'fcDecoderNet',  'convEncoderNet', 'convDecoderNet', 'rDecoderNet',
            'coord_latent', 'load_model', 'load_ensemble', 'init_imspec_model',
            'init_VAE_nets', 'SignalEncoder', 'SignalDecoder', 'SignalED',
-           'fcFeatureExtractor', 'GPRegressionModel']
+           'fcFeatureExtractor', 'GPRegressionModel', 'CustomBackbone']
