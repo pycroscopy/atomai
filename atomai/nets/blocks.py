@@ -327,7 +327,7 @@ class DilatedBlock(nn.Module):
             x = conv_layer(x)
             atrous_layers.append(x.unsqueeze(-1))
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
-    
+
 
 class CustomBackbone(nn.Module):
     """
@@ -347,11 +347,11 @@ class CustomBackbone(nn.Module):
             # Modify the first convolutional layer to accept the given number of input channels
             backbone.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
-            # Remove the last fully connected layer (classification layer)
-            self.backbone_layers = nn.Sequential(*list(backbone.children())[:-2])
-
             # Set the number of in_features for the fully connected layer
             self.in_features = backbone.fc.in_features
+
+            # Remove the last fully connected layer (classification layer)
+            self.backbone_layers = nn.Sequential(*list(backbone.children())[:-2])
 
         elif backbone_type == "vgg":
             # Load the pre-trained VGG16 model
@@ -361,10 +361,10 @@ class CustomBackbone(nn.Module):
             backbone.features[0] = nn.Conv2d(input_channels, 64, kernel_size=3, padding=1)
 
             # Set the number of in_features for the fully connected layer
-            self.in_features = backbone.classifier[0].in_features
+            self.in_features = backbone.features[-3].out_channels
 
             # Set the backbone layers
-            self.backbone_layers = nn.Sequential(*list(backbone.features.children()))
+            self.backbone_layers = nn.Sequential(*list(backbone.features.children())[:-1])
 
         elif backbone_type == "mobilenet":
             # Load the pre-trained MobileNetV2 model
@@ -378,7 +378,7 @@ class CustomBackbone(nn.Module):
 
             # Set the backbone layers
             self.backbone_layers = nn.Sequential(*list(backbone.features.children()))
-        
+
         else:
             raise ValueError("Unsupported backbone_type. Choose either 'resnet' or 'vgg'.")
 
