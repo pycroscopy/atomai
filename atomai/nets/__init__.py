@@ -4,7 +4,7 @@ from .ed import (SignalDecoder, SignalED, SignalEncoder, convDecoderNet,
                  rDecoderNet, init_imspec_model, init_VAE_nets)
 from .fcnn import Unet, dilnet, SegResNet, ResHedNet, init_fcnn_model
 from .gp import fcFeatureExtractor, GPRegressionModel
-from .reg_cls import RegressorNet, ClassifierNet
+from .reg_cls import RegressorNet, ClassifierNet, init_reg_model
 
 __all__ = ['ConvBlock', 'ResBlock', 'ResModule', 'UpsampleBlock', 'DilatedBlock',
            'init_fcnn_model', 'SegResNet', 'Unet', 'ResHedNet', 'dilnet', 'fcEncoderNet',

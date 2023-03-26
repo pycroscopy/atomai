@@ -83,3 +83,15 @@ class ClassifierNet(nn.Module):
         x = self.flatten(x)
         x = self.output_layer(x)
         return x
+
+
+def init_reg_model(out_dim, backbone_type, input_channels=1, **kwargs):
+    """Initializes a regression model with a specified backbone type"""
+    net = RegressorNet(input_channels, out_dim, backbone_type)
+    meta_state_dict = {
+        "model_type": "reg",
+        "backbone": backbone_type,
+        "in_channels": input_channels,
+        "out_dim": out_dim
+    }
+    return net, meta_state_dict
