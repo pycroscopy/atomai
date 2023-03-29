@@ -15,6 +15,7 @@ import urllib.request
 import torch
 from .segmentor import Segmentor
 from .imspec import ImSpec
+from .regressor import Regressor
 from .dgm import BaseVAE, VAE, rVAE, jrVAE, jVAE
 from ..utils import average_weights
 
@@ -41,6 +42,8 @@ def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE],
                 model = load_seg_model(loaded_dict)
             elif model_type == "imspec":
                 model = load_imspec_model(loaded_dict)
+            elif model_type == "reg":
+                model = load_reg_model(loaded_dict)
             elif model_type == "vae":
                 model = load_vae_model(loaded_dict)
             else:
@@ -99,6 +102,30 @@ def load_imspec_model(meta_dict: Dict[str, torch.Tensor]) -> Type[ImSpec]:
     model = ImSpec(in_dim, out_dim, z_dim, **meta_dict)
     model.net.load_state_dict(weights)
     model.optimizer = optimizer
+    model.net.eval()
+    return model
+
+
+def load_reg_model(meta_dict: Dict[str, torch.Tensor]) -> Type[Regressor]:
+    """
+    Loads trained AtomAI regression models
+
+    Args:
+        meta_dict (str):
+            dictionary with trained weights and key information
+            about model's structure
+
+    Returns:
+        Regressor object with NN in evaluation state
+    """
+    backbone = meta_dict.pop("backbone")
+    out_dim = meta_dict.pop("out_dim")
+    weights = meta_dict.pop("weights")
+    model = Regressor(backbone, out_dim, **meta_dict)
+    model.net.load_state_dict(weights)
+    if "optimizer" in meta_dict.keys():
+        optimizer = meta_dict.pop("optimizer")
+        model.optimizer = optimizer
     model.net.eval()
     return model
 

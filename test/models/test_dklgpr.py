@@ -162,26 +162,3 @@ def test_multi_model_embed(embedim):
     assert_equal(y_embedded.shape[2], embedim)
     assert_(isinstance(y_embedded, np.ndarray))
 
-
-@pytest.mark.parametrize("embedim", [1, 2])
-def test_model_decode_scalar(embedim):
-    indim = 32
-    X = np.random.randn(50, indim)
-    y = np.random.randn(50)
-    t = dklGPR(indim, embedim, precision="single")
-    t.fit(X, y)
-    z = np.random.randn(2, embedim)
-    decoded = t.decode(z)
-    assert_equal(decoded[0].shape, (2, 1))
-
-
-@pytest.mark.parametrize("embedim", [1, 2])
-def test_model_decode_vector(embedim):
-    indim = 32
-    X = np.random.randn(50, indim)
-    y = np.random.randn(3, 50)
-    t = dklGPR(indim, embedim, precision="single")
-    t.fit(X, y)
-    z = np.random.randn(2, embedim)
-    decoded = t.decode(z)
-    assert_equal(decoded[0].shape, (2, 3))

@@ -154,10 +154,10 @@ class imlocal:
             if plot_results:
                 ax = fig.add_subplot(gs[i])
                 if self.nb_classes == 3:
-                    ax.imshow(cla[i], Interpolation='Gaussian')
+                    ax.imshow(cla[i], interpolation='Gaussian')
                 elif self.nb_classes == 1:
                     ax.imshow(cla[i, :, :, 0], cmap='seismic',
-                              Interpolation='Gaussian')
+                              interpolation='Gaussian')
                 else:
                     raise NotImplementedError(
                         "Can plot only images with 3 and 1 channles")
@@ -568,7 +568,7 @@ class imlocal:
             ax1 = fig1.add_subplot(gs1[i])
             ax1.imshow(
                 np.sum(comp_[i], axis=-1),
-                cmap='seismic', Interpolation='Gaussian')
+                cmap='seismic', interpolation='Gaussian')
             ax1.set_aspect('equal')
             ax1.axis('off')
             ax1.set_title('Component '+str(i + 1)+'\nComponent')

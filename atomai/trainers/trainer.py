@@ -19,12 +19,13 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 import numpy as np
 import torch
 from atomai import losses_metrics
-from atomai.nets import init_fcnn_model, init_imspec_model
+from atomai.nets import init_fcnn_model, init_imspec_model, init_reg_model
 from atomai.utils import (array2list, average_weights, gpu_usage_map,
                           init_dataloaders, init_fcnn_dataloaders,
                           init_imspec_dataloaders, plot_losses, reset_bnorm,
                           preprocess_training_image_data, weights_init,
-                          preprocess_training_imspec_data, set_train_rng)
+                          preprocess_training_imspec_data, preprocess_training_reg_data,
+                          init_reg_dataloaders, set_train_rng)
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 
@@ -526,7 +527,8 @@ class BaseTrainer:
                 self.optimizer = torch.optim.Adam(params, lr=1e-3)
             else:
                 self.optimizer = optimizer(params)
-        self.criterion = self.get_loss_fn(loss, self.nb_classes)
+        if self.criterion is None:
+            self.criterion = self.get_loss_fn(loss, self.nb_classes)
 
         if not self.full_epoch:
             r = self.training_cycles // len(self.X_train)
@@ -577,13 +579,13 @@ class BaseTrainer:
             if any([e == 0, (e+1) % self.print_loss == 0,
                     e == self.training_cycles-1]):
                 self.print_statistics(e)
-        self.save_model(self.filename + "_metadict_final")
         if not self.full_epoch:
             self.eval_model()
         if self.swa:
             print("Performing stochastic weight averaging...")
             self.net.load_state_dict(average_weights(self.running_weights))
             self.eval_model()
+        self.save_model(self.filename + "_metadict_final")
         if self.plot_training_history:
             plot_losses(self.loss_acc["train_loss"],
                         self.loss_acc["test_loss"])
@@ -841,3 +843,97 @@ class ImSpecTrainer(BaseTrainer):
             raise AssertionError(
                 "The input/output dimensions of the model must match" +
                 " the height, width and length (for spectra) of training")
+
+
+class RegTrainer(BaseTrainer):
+    """
+    Trainer for image-vector regression tasks
+
+    Args:
+        out_dim:
+            Output size. Equals to 1 for single-output regression tasks
+        backbone:
+            Type of backbone NN: choose between 'mobilenet', 'vgg', and 'resnet'
+        **input_channels:
+            Number of input channels. Assumes 1 as we mostly work with grayscale images
+        **seed:
+            random number generator seed
+    """
+    def __init__(self,
+                 out_dim: int = 1,
+                 backbone: str = "mobilenet",
+                 **kwargs) -> None:
+        super(RegTrainer, self).__init__()
+        """
+        Initialize trainer's parameters
+        """
+        seed = kwargs.get("seed", 1)
+        kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
+        set_train_rng(seed)
+
+        self.output_size = out_dim
+        self.criterion = self.get_loss_fn('mse')
+
+        (self.net,
+         self.meta_state_dict) = init_reg_model(out_dim, backbone, **kwargs)
+
+        self.net.to(self.device)
+        self.meta_state_dict["weights"] = self.net.state_dict()
+
+    def set_data(self,
+                 X_train: Union[np.ndarray, torch.Tensor],
+                 y_train: Union[np.ndarray, torch.Tensor],
+                 X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
+                 y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
+                 **kwargs: Union[float, int]) -> None:
+        """
+        Sets training and test data(loaders)
+
+        Args:
+            X_train (numpy array):
+                4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 3D by ignoring the channel dim,
+                which will be added automatically.
+            y_train (numpy array):
+                2D numpy array with target values (n_samples x out_dim).
+                For single-outut regression tasks, one can simply pass an (n_samples,) array
+            X_test (numpy array):
+                4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 3D by ignoring the channel dim,
+                which will be added automatically.
+            y_test (numpy array):
+                2D numpy array with target values (n_samples x out_dim).
+                For single-outut regression tasks, one can simply pass an (n_samples,) array
+            kwargs:
+                Parameters for train_test_split ('test_size' and 'seed') when
+                separate test set is not provided and 'memory_alloc', which
+                sets a threshold (in GBs) for holding entire training data on GPU
+        """
+        if X_test is None or y_test is None:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=kwargs.get("test_size", .15),
+                shuffle=True, random_state=kwargs.get("seed", 1))
+
+        if self.full_epoch:
+            self.train_loader, self.test_loader = init_reg_dataloaders(
+                X_train, y_train, X_test, y_test,
+                self.batch_size, kwargs.get("memory_alloc", 4))
+
+            train_out_dim = self.train_loader.dataset.tensors[1].shape[-1]
+            test_out_dim = self.test_loader.dataset.tensors[1].shape[-1]
+            if not train_out_dim == test_out_dim == self.output_size:
+                raise AssertionError(
+                    "The output dimensions for the training and test data must be" +
+                    " equal to the declared output dimensions")
+
+        else:
+            (self.X_train, self.y_train,
+             self.X_test, self.y_test) = preprocess_training_reg_data(
+                X_train, y_train, X_test, y_test,
+                self.batch_size, kwargs.get("memory_alloc", 4))
+
+            if not self.y_train[0].shape[-1] == self.y_test[0].shape[-1] == self.output_size:
+                raise AssertionError(
+                    "The output dimensions for the training and test data must be" +
+                    " equal to the declared output dimensions")
+

@@ -14,7 +14,7 @@ with open(os.path.join(module_dir, 'atomai/__version__.py')) as f:
 if __name__ == "__main__":
     setup(
         name='atomai',
-        python_requires='>=3.7',
+        python_requires='>=3.8',
         version=__version__,
         description='Deep and machine learning for atom-resolved data',
         long_description=open(os.path.join(module_dir, 'README.md')).read(),
@@ -28,16 +28,16 @@ if __name__ == "__main__":
         install_requires=[
             'torch>=1.0.0',
             'numpy>=1.18.5',
-            'matplotlib>=3.2,<3.4',
+            'matplotlib>=3.4',
             'scipy>=1.3.0',
             'scikit-learn>=0.22.1',
             'scikit-image>=0.16.2',
             'opencv-python>=4.1.0',
             'networkx>=2.5',
             'mendeleev<=0.6.1',
-            'torchvision>=0.8.0',
+            'torchvision>=0.13.0',
             'progressbar2>=3.38.0',
-            'gpytorch>=1.4.0,<1.6.0'
+            'gpytorch>=1.9.1'
         ],
         classifiers=['Programming Language :: Python',
                      'Development Status :: 3 - Alpha',

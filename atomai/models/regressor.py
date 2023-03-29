@@ -1,64 +1,35 @@
-from typing import Type, Union, Tuple, Optional
+from typing import Type, Union, Optional
 import torch
 import numpy as np
-from ..trainers import ImSpecTrainer
-from ..predictors import ImSpecPredictor
-from ..transforms import imspec_augmentor
+from ..trainers import RegTrainer
+from ..predictors import RegPredictor
+from ..transforms import reg_augmentor
 
 
-class ImSpec(ImSpecTrainer):
+class Regressor(RegTrainer):
     """
-    Model for predicting spectra from images and vice versa
+    Model for image->vector regression tasks
 
     Args:
-        in_dim:
-            Input data dimensions.
-            (height, width) for images or (length,) for spectra
+        model:
+            The ackbone regressor model (defaults to 'mobilenet')
         out_dim:
-            Output dimensions.
-            (length,) for spectra or (height, width) for images
-        latent_dim:
-            Dimensionality of the latent space
-            (number of neurons in a fully connected "bottleneck" layer)
-        **seed (int):
-            Seed used when initializng model weights (Default: 1)
-        **nblayers_encoder (int):
-            Number of convolutional layers in the encoder
-        **nblayers_decoder (int):
-            Number of convolutional layers in the decoder
-        **nbfilters_encoder (int):
-            number of convolutional filters in each layer of the encoder
-        **nbfilters_decoder (int):
-            Number of convolutional filters in each layer of the decoder
-        **batch_norm (bool):
-            Apply batch normalization after each convolutional layer
-            (Default: True)
-        **encoder_downsampling (int):
-            Downsamples input data by this factor before passing
-            to convolutional layers (Default: no downsampling)
-        **decoder_upsampling (bool):
-            Performs upsampling+convolution operation twice on the reshaped latent
-            vector (starting from image/spectra dims 4x smaller than the target dims)
-            before passing  to the decoder
-
+            Output dimensions (Defaults to 1)
+       
     Example:
 
-    >>> in_dim = (16, 16)  # Input dimensions (images)
-    >>> out_dim = (64,)  # Output dimensions (spectra)
-    >>> # Initialize and train model
-    >>> model = aoi.models.ImSpec(in_dim, out_dim, latent_dim=10)
-    >>> model.fit(imgs_train, spectra_train, imgs_test, spectra_test,
-    >>>           full_epoch=True, training_cycles=120, swa=True)
+    >>> # Initialize and train a regression model
+    >>> model = aoi.models.Regressor(out_dim=1)  # single-output regression
+    >>> model.fit(train_images, train_targets, test_images, test_targets,
+    >>>           full_epoch=True, training_cycles=30, swa=True)
     >>> # Make a prediction with the trained model
-    >>> prediction = model.predict(imgs_test, norm=False)
+    >>> prediction = model.predict(imgs_new, norm=True)
     """
     def __init__(self,
-                 in_dim: Tuple[int],
-                 out_dim: Tuple[int],
-                 latent_dim: int = 2,
+                 model: str = 'mobilenet',
+                 out_dim: int = 1,
                  **kwargs) -> None:
-        super(ImSpec, self).__init__(in_dim, out_dim, latent_dim, **kwargs)
-        self.latent_dim = latent_dim
+        super(Regressor, self).__init__(out_dim, model, **kwargs)
 
     def fit(self,
             X_train: Union[np.ndarray, torch.Tensor],
@@ -79,27 +50,19 @@ class ImSpec(ImSpecTrainer):
 
         Args:
             X_train:
-                4D numpy array or torch tensor with image data
-                (n_samples x 1 x height x width) or 3D array/tensor
-                with spectral data (n_samples x 1 x signal_length).
-                It is also possible to pass 3D and 2D arrays by ignoring
-                the channel dim of 1, which will be added automatically.
-                The X_train is typically referred to as 'features'
+                4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 3D by ignoring the channel dim,
+                which will be added automatically.
             y_train:
-                3D numpy array or torch tensor with spectral data
-                (n_samples x 1 x signal_length) or 4D array/tensor with
-                image data (n_samples x 1 x height x width).
-                It is also possible to pass 2D and 3D arrays by ignoring
-                the channel dim of 1, which will be added automatically.
-                Note that if your X_train data are images,
-                then your y_train must be spectra and vice versa.
-                The y_train is typicaly referred to as "targets"
+                2D numpy array with target values (n_samples x out_dim).
+                For single-outut regression tasks, one can simply pass an (n_samples,) array
             X_test:
-                Test data (features) of the same dimesnionality
-                (except for the number of samples) as X_train
+                4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 3D by ignoring the channel dim,
+                which will be added automatically.
             y_test:
-                Test data (targets) of the same dimesnionality
-                (except for the number of samples) as y_train
+                2D numpy array with target values (n_samples x out_dim).
+                For single-outut regression tasks, one can simply pass an (n_samples,) array
             loss:
                 Loss function (currently works only with 'mse')
             optimizer:
@@ -141,7 +104,7 @@ class ImSpec(ImSpecTrainer):
             compute_accuracy, full_epoch, swa, perturb_weights,
             **kwargs)
 
-        self.augment_fn = imspec_augmentor(self.in_dim, self.out_dim, **kwargs)
+        self.augment_fn = reg_augmentor(**kwargs)
         _ = self.run()
 
     def predict(self,
@@ -151,14 +114,14 @@ class ImSpec(ImSpecTrainer):
         Apply (trained model) to new data
 
         Args:
-            data: Input image/spectrum or batch of images/spectra
+            data: Input image or batch of images
             **num_batches (int): number of batches (Default: 10)
             **norm (bool): Normalize data to (0, 1) during pre-processing
             **verbose (bool): verbosity (Default: True)
         """
         use_gpu = self.device == 'cuda'
-        nn_output = ImSpecPredictor(
-            self.net, self.out_dim, use_gpu,
+        nn_output = RegPredictor(
+            self.net, self.output_size, use_gpu,
             **kwargs).run(data, **kwargs)
         return nn_output
 

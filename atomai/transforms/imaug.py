@@ -456,3 +456,23 @@ def imspec_augmentor(in_dim: Tuple[int],
         return features, targets
 
     return augmentor
+
+
+def reg_augmentor(**kwargs) -> Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
+    auglist = ["custom_transform", "gauss_noise", "jitter",
+               "poisson_noise", "contrast", "salt_and_pepper", "blur",
+               "background"]
+    augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
+    if len(augdict) == 0:
+        return
+
+    def augmentor(features, targets, seed):
+        features = features.cpu().numpy().astype(np.float64)
+        targets = targets.cpu().numpy().astype(np.float64)
+        dt = datatransform(seed, **augdict)
+        features, targets = dt.run(features[:, 0, ...], targets)
+        features = torch.from_numpy(features).float()
+        targets = torch.from_numpy(targets).float()
+        return features, targets
+
+    return augmentor
