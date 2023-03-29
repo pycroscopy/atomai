@@ -527,7 +527,8 @@ class BaseTrainer:
                 self.optimizer = torch.optim.Adam(params, lr=1e-3)
             else:
                 self.optimizer = optimizer(params)
-        self.criterion = self.get_loss_fn(loss, self.nb_classes)
+        if self.criterion is None:
+            self.criterion = self.get_loss_fn(loss, self.nb_classes)
 
         if not self.full_epoch:
             r = self.training_cycles // len(self.X_train)
@@ -861,6 +862,7 @@ class RegTrainer(BaseTrainer):
         set_train_rng(seed)
 
         self.output_size = out_dim
+        self.criterion = self.get_loss_fn('mse')
 
         (self.net,
          self.meta_state_dict) = init_reg_model(out_dim, backbone, **kwargs)
