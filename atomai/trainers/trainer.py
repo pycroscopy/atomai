@@ -848,6 +848,16 @@ class ImSpecTrainer(BaseTrainer):
 class RegTrainer(BaseTrainer):
     """
     Trainer for image-vector regression tasks
+
+    Args:
+        out_dim:
+            Output size. Equals to 1 for single-output regression tasks
+        backbone:
+            Type of backbone NN: choose between 'mobilenet', 'vgg', and 'resnet'
+        **input_channels:
+            Number of input channels. Assumes 1 as we mostly work with grayscale images
+        **seed:
+            random number generator seed
     """
     def __init__(self,
                  out_dim: int = 1,
