@@ -7,7 +7,7 @@ from numpy.testing import assert_equal, assert_, assert_allclose
 
 sys.path.append("../../../")
 
-from atomai.trainers import SegTrainer, ImSpecTrainer
+from atomai.trainers import SegTrainer, ImSpecTrainer, RegTrainer
 
 
 def gen_image_data():
@@ -29,6 +29,15 @@ def gen_image_labels(binary=False):
     else:
         y = np.random.randint(0, 3, size=(5, 8, 8))
         y_ = np.random.randint(0, 3, size=(5, 8, 8))
+    return y, y_
+
+
+def generate_reg_targets(output_size=1):
+    """
+    Dummy target vector for regression tasks
+    """
+    y = np.random.randn(5, output_size)
+    y_ = np.random.randn(5, output_size)
     return y, y_
 
 
@@ -70,6 +79,27 @@ def test_segtrainer_determinism(model_type):
     _ = t1.run()
     loss1 = t1.loss_acc["train_loss"][-1]
     t2 = SegTrainer(model_type, upsampling="nearest", seed=1)
+    t2.compile_trainer(
+        (X_train, y_train, X_test, y_test),
+        training_cycles=5, batch_size=4)
+    _ = t2.run()
+    loss2 = t2.loss_acc["train_loss"][-1]
+    assert_allclose(loss1, loss2)
+    for p1, p2 in zip(t1.net.parameters(), t2.net.parameters()):
+        assert_allclose(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
+
+
+@pytest.mark.parametrize("backbone", ['mobilenet', 'resnet'])
+def test_regtrainer_determinism(backbone):
+    X_train, X_test = gen_image_data()
+    y_train, y_test = generate_reg_targets()
+    t1 = RegTrainer(backbone=backbone, seed=1)
+    t1.compile_trainer(
+        (X_train, y_train, X_test, y_test),
+        training_cycles=5, batch_size=4)
+    _ = t1.run()
+    loss1 = t1.loss_acc["train_loss"][-1]
+    t2 = RegTrainer(backbone=backbone, seed=1)
     t2.compile_trainer(
         (X_train, y_train, X_test, y_test),
         training_cycles=5, batch_size=4)

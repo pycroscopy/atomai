@@ -7,8 +7,8 @@ from numpy.testing import assert_
 
 sys.path.append("../../../")
 
-from atomai.predictors import BasePredictor, SegPredictor, ImSpecPredictor
-from atomai.nets import ConvBlock, Unet, ResHedNet, SegResNet, dilnet, SignalED
+from atomai.predictors import BasePredictor, SegPredictor, ImSpecPredictor, RegPredictor
+from atomai.nets import ConvBlock, Unet, ResHedNet, SegResNet, dilnet, SignalED, RegressorNet
 
 
 def init_model():
@@ -134,3 +134,13 @@ def test_ImSpecPredictor_run(shape):
     out = p.run(x_np)
     assert_(isinstance(out, np.ndarray))
     assert_(out.shape, (16,))
+
+
+@pytest.mark.parametrize("backbone", ["mobilenet", "vgg", "resnet"])
+@pytest.mark.parametrize("shape", [(2, 224, 224), (224, 224)])
+def test_RegPredictor_predict(backbone, shape):
+    x_np = np.random.randn(*shape)
+    p = RegPredictor(RegressorNet(1, 1, backbone), 1)
+    out = p.predict(x_np)
+    assert_(isinstance(out, np.ndarray))
+    assert_(not np.array_equal(x_np, out))

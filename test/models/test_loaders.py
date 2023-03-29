@@ -6,7 +6,7 @@ from numpy.testing import assert_, assert_array_equal, assert_equal
 
 sys.path.append("../../../")
 
-from atomai.models import (VAE, ImSpec, Segmentor, jrVAE, jVAE, load_ensemble,
+from atomai.models import (VAE, ImSpec, Segmentor, Regressor, jrVAE, jVAE, load_ensemble,
                            load_model, load_pretrained_model, rVAE)
 from atomai.trainers import EnsembleTrainer
 
@@ -37,6 +37,16 @@ def gen_spectra():
     X_ = np.random.random(size=(5, 1, 16))
     return X, X_
 
+
+def generate_reg_targets(output_size=1):
+    """
+    Dummy target vector for regression tasks
+    """
+    y = np.random.randn(5, output_size)
+    y_ = np.random.randn(5, output_size)
+    return y, y_
+
+
 def compare_optimizers(opt1, opt2):
     for group_param1, group_param2 in zip(opt1.param_groups, opt2.param_groups):
         for param1, param2 in zip(group_param1["params"], group_param1["params"]):
@@ -48,8 +58,10 @@ def test_io_segmentor(model):
     X, X_test = gen_image_data()
     y, y_test = gen_image_labels()
     segmodel = Segmentor(model, nb_classes=3)
-    segmodel.fit(X, y, X_test, y_test, training_cycles=4, batch_size=2)
-    loaded_model = load_model("model_metadict_final.tar")
+    segmodel.fit(X, y, X_test, y_test,
+                 training_cycles=4, batch_size=2,
+                 filename=model)
+    loaded_model = load_model("{}_metadict_final.tar".format(model))
     for p1, p2 in zip(loaded_model.net.parameters(), segmodel.net.parameters()):
         assert_array_equal(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
 
@@ -60,11 +72,23 @@ def test_saved_optimizer_segmentor(model):
     y, y_test = gen_image_labels()
     segmodel = Segmentor(model, nb_classes=3)
     segmodel.fit(X, y, X_test, y_test, training_cycles=4, batch_size=2,
-                 filename="segmodel")
+                 filename=model)
     opt1 = segmodel.optimizer
-    loaded_model = load_model("segmodel_metadict_final.tar")
+    loaded_model = load_model("{}_metadict_final.tar".format(model))
     opt2 = loaded_model.optimizer
     compare_optimizers(opt1, opt2)
+
+
+@pytest.mark.parametrize("model", ["mobilenet", "resnet"])
+def test_io_regressor(model):
+    X, X_test = gen_image_data()
+    y, y_test = generate_reg_targets()
+    regmodel = Regressor(model)
+    regmodel.fit(X, y, X_test, y_test,
+                 training_cycles=4, batch_size=2, filename=model)
+    loaded_model = load_model("{}_metadict_final.tar".format(model))
+    for p1, p2 in zip(loaded_model.net.parameters(), regmodel.net.parameters()):
+        assert_array_equal(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
 
 
 def test_io_imspec():
