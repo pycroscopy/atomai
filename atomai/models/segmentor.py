@@ -137,7 +137,7 @@ class Segmentor(SegTrainer):
             **kwargs:
                 One can also pass kwargs for utils.datatransform class
                 to perform the augmentation "on-the-fly" (e.g. rotation=True,
-                gauss_nois=[20, 60], etc.)
+                gauss_noise=[20, 60], etc.)
         """
         self.compile_trainer(
             (X_train, y_train, X_test, y_test),
