@@ -579,13 +579,13 @@ class BaseTrainer:
             if any([e == 0, (e+1) % self.print_loss == 0,
                     e == self.training_cycles-1]):
                 self.print_statistics(e)
-        self.save_model(self.filename + "_metadict_final")
         if not self.full_epoch:
             self.eval_model()
         if self.swa:
             print("Performing stochastic weight averaging...")
             self.net.load_state_dict(average_weights(self.running_weights))
             self.eval_model()
+        self.save_model(self.filename + "_metadict_final")
         if self.plot_training_history:
             plot_losses(self.loss_acc["train_loss"],
                         self.loss_acc["test_loss"])
