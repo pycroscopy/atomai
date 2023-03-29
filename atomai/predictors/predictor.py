@@ -394,6 +394,90 @@ class ImSpecPredictor(BasePredictor):
         return prediction
 
 
+class RegPredictor(BasePredictor):
+    """
+    Prediction with a trained regression model
+
+    Args:
+        trained_model:
+            Pre-trained neural network
+        output_dim:
+            Output dimensions (e.g., for single-output regression, output_dim=1)
+        use_gpu:
+            Use GPU accelration for prediction
+        verbose:
+            Verbosity
+
+    Example:
+
+        >>> # Make predictions with trained regression model
+        >>> out_dim = 1  # single-output regression
+        >>> prediction = RegPredictor(trained_model, out_dim).run(data)
+    """
+    def __init__(self,
+                 trained_model: Type[torch.nn.Module],
+                 output_dim: int,
+                 use_gpu: bool = False,
+                 **kwargs: str) -> None:
+        """
+        Initialize predictor
+        """
+        super(RegPredictor, self).__init__(trained_model, use_gpu)
+        set_train_rng(1)
+        self.output_dim = output_dim
+        self.verbose = kwargs.get("verbose", True)
+
+    def preprocess(self,
+                   image_data: np.ndarray,
+                   norm: bool = True) -> torch.Tensor:
+        """
+        Preprocess input image(s)
+        """
+        if image_data.ndim == 2:
+            image_data = image_data[np.newaxis, ...]
+        image_data = torch_format_image(image_data, norm)
+        return image_data
+
+    def predict(self,
+                image_data: np.ndarray,
+                **kwargs: int) -> np.ndarray:
+        """
+        Predict target value(s) from image(s)
+
+        Args:
+            image_data: Input image or batch of images
+            **num_batches (int): number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
+        """
+        num_batches = kwargs.get("num_batches", 10)
+        image_data = self.preprocess(image_data, kwargs.get("norm", True))
+        output = self.batch_predict(
+            image_data, (len(image_data), self.output_dim), num_batches)
+        return output.squeeze().numpy()
+
+    def run(self,
+            image_data: np.ndarray,
+            **kwargs: int) -> np.ndarray:
+        """
+        Make prediction with a trained regression model
+
+        Args:
+            image_data: Input image or batch of images
+            **num_batches (int): number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
+        """
+        start_time = time.time()
+        prediction = self.predict(image_data, **kwargs)
+        if self.verbose:
+            n_images = 1 if prediction.ndim == 0 else prediction.shape[0]
+            n_images_str = " image was " if n_images == 1 else " images were "
+            print("\n" + str(n_images)
+                  + n_images_str + "decoded in approximately "
+                  + str(np.around(time.time() - start_time, decimals=4))
+                  + ' seconds')
+        return prediction
+
+
 class Locator:
     """
     Transforms pixel data from NN output into coordinate data
