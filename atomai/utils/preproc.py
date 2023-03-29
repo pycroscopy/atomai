@@ -628,9 +628,10 @@ def torch_format_image(image_data: np.ndarray,
             "Provide image(s) as 3D (n, h, w) or 4D (n, 1, h, w) tensor")
     if np.ndim(image_data) == 3:
         image_data = np.expand_dims(image_data, axis=1)
-    elif np.ndim(image_data) == 4 and image_data.shape[1] != 1:
-        raise AssertionError(
-            "4D image tensor must have (n, 1, h, w) dimensions")
+    # This is only needed if we always work with grayscale data
+    # elif np.ndim(image_data) == 4 and image_data.shape[1] != 1:
+    #     raise AssertionError(
+    #         "4D image tensor must have (n, 1, h, w) dimensions")
     else:
         pass
     if norm:
