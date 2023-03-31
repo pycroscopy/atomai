@@ -21,7 +21,7 @@ class ConvBlock(nn.Module):
 
     Args:
         ndim:
-            Data dimensionality (1D or 2D)
+            Data dimensionality (1D, 2D, or 3D)
         nb_layers:
             Number of layers in the block
         input_channels:
@@ -54,9 +54,14 @@ class ConvBlock(nn.Module):
         Initializes module parameters
         """
         super(ConvBlock, self).__init__()
-        if not 0 < ndim < 3:
-            raise AssertionError("ndim must be equal to 1 or 2")
-        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
+        if not 0 < ndim < 4:
+            raise AssertionError("ndim must be equal to 1, 2, or 3")
+        if ndim == 1:
+            conv = nn.Conv1d
+        elif ndim == 2:
+            conv = nn.Conv2d
+        elif ndim == 3:
+            conv = nn.Conv3d
         block = []
         for idx in range(nb_layers):
             input_channels = output_channels if idx > 0 else input_channels
@@ -69,10 +74,12 @@ class ConvBlock(nn.Module):
                 block.append(nn.Dropout(dropout_))
             block.append(nn.LeakyReLU(negative_slope=lrelu_a))
             if batch_norm:
-                if ndim == 2:
-                    block.append(nn.BatchNorm2d(output_channels))
-                else:
+                if ndim == 1:
                     block.append(nn.BatchNorm1d(output_channels))
+                elif ndim == 2:
+                    block.append(nn.BatchNorm2d(output_channels))
+                elif ndim == 3:
+                    block.append(nn.BatchNorm3d(output_channels))
         self.block = nn.Sequential(*block)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -91,7 +98,7 @@ class UpsampleBlock(nn.Module):
 
     Args:
         ndim:
-            Data dimensionality (1D or 2D)
+            Data dimensionality (1D, 2D, or 3D)
         input_channels:
             Number of input channels for the block
         output_channels:
@@ -99,7 +106,7 @@ class UpsampleBlock(nn.Module):
         scale_factor:
             Scale factor for upsampling
         mode:
-            Upsampling mode. Select between "bilinear" and "nearest"
+            Upsampling mode. Select between "bilinear", "nearest", and "trilinear" for 3D
     """
     def __init__(self,
                  ndim: int,
@@ -111,14 +118,24 @@ class UpsampleBlock(nn.Module):
         Initializes module parameters
         """
         super(UpsampleBlock, self).__init__()
-        if not any([mode == 'bilinear', mode == 'nearest']):
+        if not any([mode == 'bilinear', mode == 'nearest', mode == 'trilinear']):
             raise NotImplementedError(
-                "use 'bilinear' or 'nearest' for upsampling mode")
-        if not 0 < ndim < 3:
-            raise AssertionError("ndim must be equal to 1 or 2")
-        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
+                "use 'trilinear', 'bilinear', or 'nearest' for upsampling mode")
+        if not 0 < ndim < 4:
+            raise AssertionError("ndim must be equal to 1, 2, or 3")
+        if ndim == 1:
+            conv = nn.Conv1d
+        elif ndim == 2:
+            conv = nn.Conv2d
+        elif ndim == 3:
+            conv = nn.Conv3d
         self.scale_factor = scale_factor
-        self.mode = mode if ndim == 2 else "nearest"
+        if ndim == 1:
+            self.mode = 'nearest'
+        elif ndim == 2:
+            self.mode = 'bilinear'
+        elif ndim == 3:
+            self.mode = 'trilinear'
         self.conv = conv(
             input_channels, output_channels,
             kernel_size=1, stride=1, padding=0)
@@ -138,7 +155,7 @@ class ResBlock(nn.Module):
 
     Args:
         ndim:
-            Data dimensionality (1D or 2D)
+            Data dimensionality (1D, 2D, or 3D)
         nb_layers:
             Number of layers in the block
         input_channels:
@@ -171,9 +188,14 @@ class ResBlock(nn.Module):
         Initializes block's parameters
         """
         super(ResBlock, self).__init__()
-        if not 0 < ndim < 3:
-            raise AssertionError("ndim must be equal to 1 or 2")
-        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
+        if not 0 < ndim < 4:
+            raise AssertionError("ndim must be equal to 1, 2, or 3")
+        if ndim == 1:
+            conv = nn.Conv1d
+        elif ndim == 2:
+            conv = nn.Conv2d
+        elif ndim == 3:
+            conv = nn.Conv3d
         self.lrelu_a = lrelu_a
         self.batch_norm = batch_norm
         self.c0 = conv(input_channels,
@@ -192,7 +214,12 @@ class ResBlock(nn.Module):
                        stride=1,
                        padding=1)
         if batch_norm:
-            bn = nn.BatchNorm2d if ndim == 2 else nn.BatchNorm1d
+            if ndim == 1:
+                bn = nn.BatchNorm1d
+            elif ndim == 2:
+                bn = nn.BatchNorm2d
+            elif ndim == 3:
+                bn = nn.BatchNorm3d
             self.bn1 = bn(output_channels)
             self.bn2 = bn(output_channels)
 
@@ -219,7 +246,7 @@ class ResModule(nn.Module):
     Stitches multiple convolutional blocks with residual connections together
 
     Args:
-            ndim: Data dimensionality (1D or 2D)
+            ndim: Data dimensionality (1D, 2D, or 3D)
             res_depth: Number of residual blocks in a residual module
             input_channels: Number of filters in the input layer
             output_channels: Number of channels in the output layer
@@ -261,7 +288,7 @@ class DilatedBlock(nn.Module):
 
     Args:
         ndim:
-            Data dimensionality (1D or 2D)
+            Data dimensionality (1D, 2D, or 3D)
         input_channels:
             Number of input channels for the block
         output_channels:
@@ -269,7 +296,7 @@ class DilatedBlock(nn.Module):
         dilation_values:
             List of dilation rates for each convolution layer in the block
             (for example, dilation_values = [2, 4, 6] means that the dilated
-            block will 3 layers with dilation values of 2, 4, and 6).
+            block will have 3 layers with dilation values of 2, 4, and 6).
         padding_values:
             Edge padding for each dilated layer. The number of elements in this
             list should be equal to that in the dilated_values list and
@@ -295,9 +322,14 @@ class DilatedBlock(nn.Module):
         Initializes module parameters
         """
         super(DilatedBlock, self).__init__()
-        if not 0 < ndim < 3:
-            raise AssertionError("ndim must be equal to 1 or 2")
-        conv = nn.Conv2d if ndim == 2 else nn.Conv1d
+        if not 0 < ndim < 4:
+            raise AssertionError("ndim must be equal to 1, 2, or 3")
+        if ndim == 1:
+            conv = nn.Conv1d
+        elif ndim == 2:
+            conv = nn.Conv2d
+        elif ndim == 3:
+            conv = nn.Conv3d
         atrous_module = []
         for idx, (dil, pad) in enumerate(zip(dilation_values, padding_values)):
             input_channels = output_channels if idx > 0 else input_channels
@@ -312,10 +344,12 @@ class DilatedBlock(nn.Module):
                 atrous_module.append(nn.Dropout(dropout_))
             atrous_module.append(nn.LeakyReLU(negative_slope=lrelu_a))
             if batch_norm:
-                if ndim == 2:
-                    atrous_module.append(nn.BatchNorm2d(output_channels))
-                else:
+                if ndim == 1:
                     atrous_module.append(nn.BatchNorm1d(output_channels))
+                elif ndim == 2:
+                    atrous_module.append(nn.BatchNorm2d(output_channels))
+                elif ndim == 3:
+                    atrous_module.append(nn.BatchNorm3d(output_channels))
         self.atrous_module = nn.Sequential(*atrous_module)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

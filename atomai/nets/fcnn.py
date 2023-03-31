@@ -32,10 +32,11 @@ class Unet(nn.Module):
             Use batch normalization after each convolutional layer
             (Default: True)
         upsampling_mode:
-            Select between "bilinear" or "nearest" upsampling method.
-            Bilinear is usually more accurate,but adds additional (small)
-            randomness. For full reproducibility, consider using 'nearest'
-            (this assumes that all other sources of randomness are fixed)
+            Select between "bilinear", "nearest", or "trilinear" upsampling 
+            method. Bilinear is usually more accurate, but adds additional 
+            (small) randomness. Trilinear is used for 3D data.For full 
+            reproducibility, consider using 'nearest' (this assumes that all 
+            other sources of randomness are fixed)
         with_dilation:
             Use dilated convolutions instead of regular ones in the
             bottleneck layers (Default: False)
@@ -158,10 +159,11 @@ class dilnet(nn.Module):
         batch_norm:
             Add batch normalization for each convolutional layer (Default: True)
         upsampling_mode:
-            Select between "bilinear" or "nearest" upsampling method.
-            Bilinear is usually more accurate,but adds additional (small)
-            randomness. For full reproducibility, consider using 'nearest'
-            (this assumes that all other sources of randomness are fixed)
+            Select between "bilinear", "nearest", or "trilinear" upsampling 
+            method. Bilinear is usually more accurate, but adds additional 
+            (small) randomness. Trilinear is used for 3D data.For full 
+            reproducibility, consider using 'nearest' (this assumes that all 
+            other sources of randomness are fixed)
         **layers (list):
             List with a number of layers for each block (Default: [3, 3, 3, 3])
     """
@@ -237,10 +239,11 @@ class ResHedNet(nn.Module):
             Number of filters in 1st residual block
             (gets multiplied by 2 in each next block)
         upsampling_mode:
-            Select between "bilinear" or "nearest" upsampling method.
-            Bilinear is usually more accurate,but adds additional (small)
-            randomness. For full reproducibility, consider using 'nearest'
-            (this assumes that all other sources of randomness are fixed)
+            Select between "bilinear", "nearest", or "trilinear" upsampling 
+            method. Bilinear is usually more accurate, but adds additional 
+            (small) randomness. Trilinear is used for 3D data.For full 
+            reproducibility, consider using 'nearest' (this assumes that all 
+            other sources of randomness are fixed)
         **layers (list):
             3-element list with a number of residual blocks
             in each segment (Default: [3, 4, 5])
@@ -311,10 +314,11 @@ class SegResNet(nn.Module):
             Use batch normalization after each convolutional layer
             (Default: True)
         upsampling_mode:
-            Select between "bilinear" or "nearest" upsampling method.
-            Bilinear is usually more accurate,but adds additional (small)
-            randomness. For full reproducibility, consider using 'nearest'
-            (this assumes that all other sources of randomness are fixed)
+            Select between "bilinear", "nearest", or "trilinear" upsampling 
+            method. Bilinear is usually more accurate, but adds additional 
+            (small) randomness. Trilinear is used for 3D data.For full 
+            reproducibility, consider using 'nearest' (this assumes that all 
+            other sources of randomness are fixed)
         **layers (list):
             3-element list with a number of residual blocks
             in each residual segment (Default: [2, 2])
@@ -377,7 +381,7 @@ class SegResNet(nn.Module):
 
 
 def init_fcnn_model(model: Union[Type[nn.Module], str],
-                    nb_classes: int, **kwargs: [bool, int, List]
+                    nb_classes: int, **kwargs: List[bool, int, List]
                     ) -> Type[nn.Module]:
     """
     Initializes a fully convolutional neural network
