@@ -55,12 +55,7 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
         if not 0 < ndim < 4:
             raise AssertionError("ndim must be equal to 1, 2, or 3")
-        if ndim == 1:
-            conv = nn.Conv1d
-        elif ndim == 2:
-            conv = nn.Conv2d
-        elif ndim == 3:
-            conv = nn.Conv3d
+        conv = self.get_conv(ndim)
         block = []
         for idx in range(nb_layers):
             input_channels = output_channels if idx > 0 else input_channels
@@ -73,12 +68,7 @@ class ConvBlock(nn.Module):
                 block.append(nn.Dropout(dropout_))
             block.append(nn.LeakyReLU(negative_slope=lrelu_a))
             if batch_norm:
-                if ndim == 1:
-                    block.append(nn.BatchNorm1d(output_channels))
-                elif ndim == 2:
-                    block.append(nn.BatchNorm2d(output_channels))
-                elif ndim == 3:
-                    block.append(nn.BatchNorm3d(output_channels))
+                block.append(self.get_BatchNorm(ndim, output_channels))
         self.block = nn.Sequential(*block)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -87,6 +77,16 @@ class ConvBlock(nn.Module):
         """
         output = self.block(x)
         return output
+    
+    def get_conv(ndim: int):
+        conv_dict = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}
+        return conv_dict[ndim]
+    
+    def get_BatchNorm(ndim: int, output_channels: int):
+        BatchNorm_dict = {1: nn.BatchNorm3d(output_channels), 
+                          2: nn.BatchNorm3d(output_channels), 
+                          3: nn.BatchNorm3d(output_channels)}
+        return BatchNorm_dict[ndim]
 
 
 class UpsampleBlock(nn.Module):
@@ -122,19 +122,9 @@ class UpsampleBlock(nn.Module):
                 "use 'trilinear', 'bilinear', or 'nearest' for upsampling mode")
         if not 0 < ndim < 4:
             raise AssertionError("ndim must be equal to 1, 2, or 3")
-        if ndim == 1:
-            conv = nn.Conv1d
-        elif ndim == 2:
-            conv = nn.Conv2d
-        elif ndim == 3:
-            conv = nn.Conv3d
+        conv = self.get_conv(ndim)
         self.scale_factor = scale_factor
-        if ndim == 1:
-            self.mode = 'nearest'
-        elif ndim == 2:
-            self.mode = 'bilinear'
-        elif ndim == 3:
-            self.mode = 'trilinear'
+        self.mode = self.get_interpolate_mode(ndim)
         self.conv = conv(
             input_channels, output_channels,
             kernel_size=1, stride=1, padding=0)
@@ -146,6 +136,14 @@ class UpsampleBlock(nn.Module):
         x = F.interpolate(
             x, scale_factor=self.scale_factor, mode=self.mode)
         return self.conv(x)
+    
+    def get_conv(ndim: int):
+        conv_dict = {1: 'nearest', 2: 'bilinear', 3: 'bilinear'}
+        return conv_dict[ndim]
+    
+    def get_interpolate_mode(ndim: int):
+        interpolate_mode_dict = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}
+        return interpolate_mode_dict[ndim]
 
 
 class ResBlock(nn.Module):
@@ -189,12 +187,7 @@ class ResBlock(nn.Module):
         super(ResBlock, self).__init__()
         if not 0 < ndim < 4:
             raise AssertionError("ndim must be equal to 1, 2, or 3")
-        if ndim == 1:
-            conv = nn.Conv1d
-        elif ndim == 2:
-            conv = nn.Conv2d
-        elif ndim == 3:
-            conv = nn.Conv3d
+        conv = self.get_conv(ndim)
         self.lrelu_a = lrelu_a
         self.batch_norm = batch_norm
         self.c0 = conv(input_channels,
@@ -213,12 +206,7 @@ class ResBlock(nn.Module):
                        stride=1,
                        padding=1)
         if batch_norm:
-            if ndim == 1:
-                bn = nn.BatchNorm1d
-            elif ndim == 2:
-                bn = nn.BatchNorm2d
-            elif ndim == 3:
-                bn = nn.BatchNorm3d
+            bn = self.get_BatchNorm(ndim)
             self.bn1 = bn(output_channels)
             self.bn2 = bn(output_channels)
 
@@ -238,6 +226,14 @@ class ResBlock(nn.Module):
         out += residual
         out = F.leaky_relu(out, negative_slope=self.lrelu_a)
         return out
+    
+    def get_conv(ndim: int):
+        conv_dict = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}
+        return conv_dict[ndim]
+    
+    def get_BatchNorm(ndim: int):
+        BatchNorm_dict = {1: nn.BatchNorm3d, 2: nn.BatchNorm3d, 3: nn.BatchNorm3d}
+        return BatchNorm_dict[ndim]
 
 
 class ResModule(nn.Module):
@@ -323,12 +319,7 @@ class DilatedBlock(nn.Module):
         super(DilatedBlock, self).__init__()
         if not 0 < ndim < 4:
             raise AssertionError("ndim must be equal to 1, 2, or 3")
-        if ndim == 1:
-            conv = nn.Conv1d
-        elif ndim == 2:
-            conv = nn.Conv2d
-        elif ndim == 3:
-            conv = nn.Conv3d
+        conv = self.get_conv(ndim)
         atrous_module = []
         for idx, (dil, pad) in enumerate(zip(dilation_values, padding_values)):
             input_channels = output_channels if idx > 0 else input_channels
@@ -343,12 +334,7 @@ class DilatedBlock(nn.Module):
                 atrous_module.append(nn.Dropout(dropout_))
             atrous_module.append(nn.LeakyReLU(negative_slope=lrelu_a))
             if batch_norm:
-                if ndim == 1:
-                    atrous_module.append(nn.BatchNorm1d(output_channels))
-                elif ndim == 2:
-                    atrous_module.append(nn.BatchNorm2d(output_channels))
-                elif ndim == 3:
-                    atrous_module.append(nn.BatchNorm3d(output_channels))
+                atrous_module.append(self.get_BatchNorm(ndim, output_channels))
         self.atrous_module = nn.Sequential(*atrous_module)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -360,3 +346,13 @@ class DilatedBlock(nn.Module):
             x = conv_layer(x)
             atrous_layers.append(x.unsqueeze(-1))
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
+    
+    def get_conv(ndim: int):
+        conv_dict = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}
+        return conv_dict[ndim]
+    
+    def get_BatchNorm(ndim: int, output_channels: int):
+        BatchNorm_dict = {1: nn.BatchNorm3d(output_channels), 
+                          2: nn.BatchNorm3d(output_channels), 
+                          3: nn.BatchNorm3d(output_channels)}
+        return BatchNorm_dict[ndim]
