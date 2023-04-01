@@ -1018,19 +1018,13 @@ class clsTrainer(BaseTrainer):
             loaders = init_cls_dataloaders(
                 X_train, y_train, X_test, y_test,
                 self.batch_size, memory_alloc=kwargs.get("memory_alloc", 4))
-            self.train_loader, self.test_loader, nb_classes = loaders
+            self.train_loader, self.test_loader = loaders
         else:
             (self.X_train, self.y_train,
-             self.X_test, self.y_test,
-             nb_classes) = preprocess_training_cls_data(
+             self.X_test, self.y_test) = preprocess_training_cls_data(
                                     X_train, y_train, X_test, y_test,
                                     self.batch_size,
                                     kwargs.get("memory_alloc", 4))
-
-        if self.nb_classes != nb_classes:
-            raise AssertionError("Number of classes in initialized model" +
-                                 " is different from the number of classes" +
-                                 " contained in training data")
 
     def accuracy_fn(self,
                     y: torch.Tensor,
