@@ -610,6 +610,128 @@ def init_reg_dataloaders(X_train: Union[np.ndarray, torch.Tensor],
     return train_loader, test_loader
 
 
+def preprocess_training_cls_data_(X_train: Union[np.ndarray, torch.Tensor],
+                                  y_train: Union[np.ndarray, torch.Tensor],
+                                  X_test: Union[np.ndarray, torch.Tensor],
+                                  y_test: Union[np.ndarray, torch.Tensor]
+                                  ) -> Tuple[torch.Tensor]:
+    """
+    Preprocesses training and test data for classification models
+    """
+    all_data = (X_train, y_train, X_test, y_test)
+    all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
+    all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
+    if not all_numpy and not all_torch:
+        raise TypeError(
+            "Provide training and test data in the form" +
+            " of numpy arrays or torch tensors")
+    # check dimensionaity for input image and add a pseudo-dimension of one for grayscale images
+    if X_train.ndim == 3:
+        warnings.warn(
+            'Adding a channel dimension of 1 to training images',
+            UserWarning)
+        X_train = X_train[:, np.newaxis]
+    if X_test.ndim == 3:
+        warnings.warn(
+            'Adding a channel dimension of 1 to test images',
+            UserWarning)
+        X_test = X_test[:, np.newaxis]
+    # check dimensionaity for targets and add a pseudo-dimension of one for single-output targets
+    if y_train.dtype not in (torch.int64, np.int64):
+        raise TypeError(
+            "Provide training labels as 1D array of integers (numpy.int64 or torch.int64)")
+    if y_test.dtype not in (torch.int64, np.int64):
+        raise TypeError(
+            "Provide test labels as 1D array of integers (numpy.int64 or torch.int64)")
+
+    if all_numpy:
+        X_train = torch.from_numpy(X_train).float()
+        y_train = torch.from_numpy(y_train)
+        X_test = torch.from_numpy(X_test).float()
+        y_test = torch.from_numpy(y_test)
+    else:
+        X_train = X_train.float()
+        X_test = X_test.float()
+
+    return X_train, y_train, X_test, y_test
+
+
+def preprocess_training_cls_data(X_train: Union[np.ndarray, torch.Tensor],
+                                 y_train: Union[np.ndarray, torch.Tensor],
+                                 X_test: Union[np.ndarray, torch.Tensor],
+                                 y_test: Union[np.ndarray, torch.Tensor],
+                                 batch_size: int, memory_alloc: float = 4
+                                 ) -> Tuple[Union[List[np.ndarray], List[torch.Tensor]], Tuple[Tuple[int]]]:
+    """
+    Preprocesses training and test data for classification models
+    
+    Args:
+        X_train (numpy array):
+            4D numpy array with image data (n_samples x 1 x height x width).
+            It is also possible to pass 3D by ignoring the channel dim,
+            which will be added automatically.
+        y_train (numpy array):
+            1D numpy array with target classes
+        X_test (numpy array):
+            4D numpy array with image data (n_samples x 1 x height x width).
+            It is also possible to pass 3D by ignoring the channel dim,
+            which will be added automatically.
+        y_test (numpy array):
+            1D numpy array with target classes
+        batch_size (int):
+            Batch size
+        memory_alloc (int or float):
+            Threshold (in GB) for holding all training data on GPU
+
+    Returns:
+        4-element tuple containing lists of torch tensors with training and test data
+    """
+    data_all = preprocess_training_cls_data_(
+        X_train, y_train, X_test, y_test)
+
+    X_train, y_train, X_test, y_test = array2list(
+            *data_all, batch_size, memory_alloc)
+
+    return X_train, y_train, X_test, y_test
+
+
+def init_cls_dataloaders(X_train: Union[np.ndarray, torch.Tensor],
+                         y_train: Union[np.ndarray, torch.Tensor],
+                         X_test: Union[np.ndarray, torch.Tensor],
+                         y_test: Union[np.ndarray, torch.Tensor],
+                         batch_size: int, memory_alloc: float
+                         ) -> Tuple[Type[torch.utils.data.DataLoader]]:
+    """
+    Initializes pytorch's loaders with training and test data for classification tasks
+
+    Args:
+        X_train (numpy array):
+            4D numpy array with image data (n_samples x 1 x height x width).
+            It is also possible to pass 3D by ignoring the channel dim,
+            which will be added automatically.
+        y_train (numpy array):
+            1D numpy array with target classes
+        X_test (numpy array):
+            4D numpy array with image data (n_samples x 1 x height x width).
+            It is also possible to pass 3D by ignoring the channel dim,
+            which will be added automatically.
+        y_test (numpy array):
+            1D numpy array with target classes
+        batch_size (int):
+            Batch size
+        memory_alloc (int or float):
+            Threshold (in GB) for holding all training data on GPU
+
+    Returns:
+        Train and test loaders
+    """
+    X_train, y_train, X_test, y_test = preprocess_training_cls_data_(
+        X_train, y_train, X_test, y_test)
+    train_loader, test_loader = init_dataloaders(
+        X_train, y_train, X_test, y_test, batch_size, memory_alloc)
+    return train_loader, test_loader
+
+
 def torch_format_image(image_data: np.ndarray,
                        norm: bool = True) -> torch.Tensor:
     """

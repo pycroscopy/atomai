@@ -95,3 +95,15 @@ def init_reg_model(out_dim, backbone_type, input_channels=1, **kwargs):
         "out_dim": out_dim
     }
     return net, meta_state_dict
+
+
+def init_cls_model(num_classes, backbone_type, input_channels=1, **kwargs):
+    """Initializes a regression model with a specified backbone type"""
+    net = ClassifierNet(input_channels, num_classes, backbone_type)
+    meta_state_dict = {
+        "model_type": "cls",
+        "backbone": backbone_type,
+        "in_channels": input_channels,
+        "num_classes": num_classes
+    }
+    return net, meta_state_dict
