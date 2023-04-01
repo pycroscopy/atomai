@@ -302,7 +302,7 @@ class BaseTrainer:
             print('Model (final state) evaluation loss:',
                   np.around(running_loss_test / c, 4))
             if self.compute_accuracy:
-                print('Model (final state) IoU:',
+                print('Model (final state) accuracy:',
                       np.around(running_acc_test / c, 4))
         else:
             running_loss_test, running_acc_test = 0, 0
@@ -315,7 +315,7 @@ class BaseTrainer:
             print('Model (final state) evaluation loss:',
                   np.around(running_loss_test / len(self.X_test), 4))
             if self.compute_accuracy:
-                print('Model (final state) IoU:',
+                print('Model (final state) accuracy:',
                       np.around(running_acc_test / len(self.X_test), 4))
 
     def dataloader(self,
@@ -354,7 +354,7 @@ class BaseTrainer:
 
     def print_statistics(self, e: int, **kwargs) -> None:
         """
-        Print loss and (optionally) IoU score on train
+        Print loss and (optionally) accuracy score on train
         and test data, as well as GPU memory usage.
         """
         accuracy_metrics = self.accuracy_metrics
