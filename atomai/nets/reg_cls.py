@@ -104,6 +104,6 @@ def init_cls_model(num_classes, backbone_type, input_channels=1, **kwargs):
         "model_type": "cls",
         "backbone": backbone_type,
         "in_channels": input_channels,
-        "num_classes": num_classes
+        "nb_classes": num_classes
     }
     return net, meta_state_dict
