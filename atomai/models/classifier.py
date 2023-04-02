@@ -39,7 +39,7 @@ class Classifier(clsTrainer):
             y_train: Union[np.ndarray, torch.Tensor],
             X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
             y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
-            loss: str = 'mse',
+            loss: str = 'ce',
             optimizer: Optional[Type[torch.optim.Optimizer]] = None,
             training_cycles: int = 1000,
             batch_size: int = 64,
