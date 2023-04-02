@@ -12,7 +12,7 @@ class Regressor(RegTrainer):
 
     Args:
         model:
-            The ackbone regressor model (defaults to 'mobilenet')
+            The backbone regressor model (defaults to 'mobilenet')
         out_dim:
             Output dimensions (Defaults to 1)
        
