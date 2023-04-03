@@ -45,6 +45,8 @@ def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE],
                 model = load_imspec_model(loaded_dict)
             elif model_type == "reg":
                 model = load_reg_model(loaded_dict)
+            elif model_type == "cls":
+                model = load_cls_model(loaded_dict)
             elif model_type == "vae":
                 model = load_vae_model(loaded_dict)
             else:
