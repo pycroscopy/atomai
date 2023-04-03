@@ -6,26 +6,27 @@ from numpy.testing import assert_, assert_array_equal, assert_equal
 
 sys.path.append("../../../")
 
-from atomai.models import (VAE, ImSpec, Segmentor, Regressor, jrVAE, jVAE, load_ensemble,
-                           load_model, load_pretrained_model, rVAE)
+from atomai.models import (VAE, Classifier, ImSpec, Regressor, Segmentor,
+                           jrVAE, jVAE, load_ensemble, load_model,
+                           load_pretrained_model, rVAE)
 from atomai.trainers import EnsembleTrainer
 
 
-def gen_image_data():
+def gen_image_data(num_images=5):
     """
     Dummy images with random pixels
     """
-    X = np.random.random(size=(5, 1, 8, 8))
-    X_ = np.random.random(size=(5, 1, 8, 8))
+    X = np.random.random(size=(num_images, 1, 8, 8))
+    X_ = np.random.random(size=(num_images, 1, 8, 8))
     return X, X_
 
 
-def gen_image_labels():
+def gen_image_labels(num_images=5):
     """
     Dummy labels for dummy images
     """
-    y = np.random.randint(0, 3, size=(5, 8, 8))
-    y_ = np.random.randint(0, 3, size=(5, 8, 8))
+    y = np.random.randint(0, 3, size=(num_images, 8, 8))
+    y_ = np.random.randint(0, 3, size=(num_images, 8, 8))
     return y, y_
 
 
@@ -47,11 +48,18 @@ def generate_reg_targets(output_size=1):
     return y, y_
 
 
+def generate_cls_targets(nb_classes=3, num_targets=5):
+    y = np.random.randint(0, nb_classes, size=num_targets)
+    y_ = np.random.randint(0, nb_classes, size=num_targets)
+    return y, y_
+
+
 def compare_optimizers(opt1, opt2):
     for group_param1, group_param2 in zip(opt1.param_groups, opt2.param_groups):
         for param1, param2 in zip(group_param1["params"], group_param1["params"]):
             for p1, p2 in zip(param1, param2):
                 assert_array_equal(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
+
 
 @pytest.mark.parametrize("model", ["Unet", "dilnet", "SegResNet", "ResHedNet"])
 def test_io_segmentor(model):
@@ -88,6 +96,18 @@ def test_io_regressor(model):
                  training_cycles=4, batch_size=2, filename=model)
     loaded_model = load_model("{}_metadict_final.tar".format(model))
     for p1, p2 in zip(loaded_model.net.parameters(), regmodel.net.parameters()):
+        assert_array_equal(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
+
+
+@pytest.mark.parametrize("model", ["mobilenet", "resnet"])
+def test_io_classifier(model):
+    X, X_test = gen_image_data(num_images=20)
+    y, y_test = generate_cls_targets(num_targets=20)
+    clsmodel = Classifier(model, nb_classes=3)
+    clsmodel.fit(X, y, X_test, y_test,
+                 training_cycles=4, batch_size=2, filename=model)
+    loaded_model = load_model("{}_metadict_final.tar".format(model))
+    for p1, p2 in zip(loaded_model.net.parameters(), clsmodel.net.parameters()):
         assert_array_equal(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
 
 

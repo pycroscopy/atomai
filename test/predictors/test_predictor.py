@@ -7,8 +7,8 @@ from numpy.testing import assert_
 
 sys.path.append("../../../")
 
-from atomai.predictors import BasePredictor, SegPredictor, ImSpecPredictor, RegPredictor
-from atomai.nets import ConvBlock, Unet, ResHedNet, SegResNet, dilnet, SignalED, RegressorNet
+from atomai.predictors import BasePredictor, SegPredictor, ImSpecPredictor, RegPredictor, clsPredictor
+from atomai.nets import ConvBlock, Unet, ResHedNet, SegResNet, dilnet, SignalED, RegressorNet, ClassifierNet
 
 
 def init_model():
@@ -137,10 +137,34 @@ def test_ImSpecPredictor_run(shape):
 
 
 @pytest.mark.parametrize("backbone", ["mobilenet", "vgg", "resnet"])
-@pytest.mark.parametrize("shape", [(2, 224, 224), (224, 224)])
-def test_RegPredictor_predict(backbone, shape):
+@pytest.mark.parametrize("shape", [(2, 1, 224, 224), (3, 1, 224, 224)])
+def test_RegPredictor_single_output_predict(backbone, shape):
     x_np = np.random.randn(*shape)
     p = RegPredictor(RegressorNet(1, 1, backbone), 1)
+    out = p.predict(x_np)
+    assert_(isinstance(out, np.ndarray))
+    assert_(not np.array_equal(x_np, out))
+    assert_(out.ndim == 1)
+
+
+@pytest.mark.parametrize("output_size", [2, 3])
+@pytest.mark.parametrize("backbone", ["mobilenet", "vgg", "resnet"])
+@pytest.mark.parametrize("shape", [(2, 1, 224, 224), (3, 1, 224, 224)])
+def test_RegPredictor_multioutput_predict(backbone, shape, output_size):
+    x_np = np.random.randn(*shape)
+    p = RegPredictor(RegressorNet(1, output_size, backbone), output_size)
+    out = p.predict(x_np)
+    assert_(isinstance(out, np.ndarray))
+    assert_(not np.array_equal(x_np, out))
+    print(out.shape[-1])
+    assert_(out.shape[-1] == output_size)
+
+
+@pytest.mark.parametrize("backbone", ["mobilenet", "vgg", "resnet"])
+@pytest.mark.parametrize("shape", [(2, 224, 224), (224, 224)])
+def test_clsPredictor_predict(backbone, shape):
+    x_np = np.random.randn(*shape)
+    p = clsPredictor(ClassifierNet(1, 3, backbone),  3)
     out = p.predict(x_np)
     assert_(isinstance(out, np.ndarray))
     assert_(not np.array_equal(x_np, out))
