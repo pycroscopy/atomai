@@ -7,47 +7,53 @@ from numpy.testing import assert_equal, assert_, assert_allclose
 
 sys.path.append("../../../")
 
-from atomai.trainers import SegTrainer, ImSpecTrainer, RegTrainer
+from atomai.trainers import SegTrainer, ImSpecTrainer, RegTrainer, clsTrainer
 
 
-def gen_image_data():
+def gen_image_data(num_iamges=5):
     """
     Dummy images with random pixels
     """
-    X = np.random.random(size=(5, 1, 8, 8))
-    X_ = np.random.random(size=(5, 1, 8, 8))
+    X = np.random.random(size=(num_iamges, 1, 8, 8))
+    X_ = np.random.random(size=(num_iamges, 1, 8, 8))
     return X, X_
 
 
-def gen_image_labels(binary=False):
+def gen_image_labels(binary=False, num_images=5):
     """
     Dummy labels for dummy images
     """
     if binary:
-        y = np.random.randint(0, 2, size=(5, 1, 8, 8))
-        y_ = np.random.randint(0, 2, size=(5, 1, 8, 8))
+        y = np.random.randint(0, 2, size=(num_images, 1, 8, 8))
+        y_ = np.random.randint(0, 2, size=(num_images, 1, 8, 8))
     else:
-        y = np.random.randint(0, 3, size=(5, 8, 8))
-        y_ = np.random.randint(0, 3, size=(5, 8, 8))
+        y = np.random.randint(0, 3, size=(num_images, 8, 8))
+        y_ = np.random.randint(0, 3, size=(num_images, 8, 8))
     return y, y_
 
 
-def generate_reg_targets(output_size=1):
+def generate_reg_targets(output_size=1, num_images=5):
     """
     Dummy target vector for regression tasks
     """
-    y = np.random.randn(5, output_size)
-    y_ = np.random.randn(5, output_size)
+    y = np.random.randn(num_images, output_size)
+    y_ = np.random.randn(num_images, output_size)
     return y, y_
 
 
-def gen_spectra():
+def gen_spectra(num_spectra=5):
     """
     Dummy 1D signal with random points
     """
-    X = np.random.random(size=(5, 1, 16))
-    X_ = np.random.random(size=(5, 1, 16))
+    X = np.random.random(size=(num_spectra, 1, 16))
+    X_ = np.random.random(size=(num_spectra, 1, 16))
     return X, X_
+
+
+def generate_cls_targets(nb_classes=3, num_targets=5):
+    y = np.random.randint(0, nb_classes, size=num_targets)
+    y_ = np.random.randint(0, nb_classes, size=num_targets)
+    return y, y_
 
 
 @pytest.mark.parametrize(
@@ -100,6 +106,27 @@ def test_regtrainer_determinism(backbone):
     _ = t1.run()
     loss1 = t1.loss_acc["train_loss"][-1]
     t2 = RegTrainer(backbone=backbone, seed=1)
+    t2.compile_trainer(
+        (X_train, y_train, X_test, y_test),
+        training_cycles=5, batch_size=4)
+    _ = t2.run()
+    loss2 = t2.loss_acc["train_loss"][-1]
+    assert_allclose(loss1, loss2)
+    for p1, p2 in zip(t1.net.parameters(), t2.net.parameters()):
+        assert_allclose(p1.detach().cpu().numpy(), p2.detach().cpu().numpy())
+
+
+@pytest.mark.parametrize("backbone", ['mobilenet', 'resnet'])
+def test_clstrainer_determinism(backbone):
+    X_train, X_test = gen_image_data()
+    y_train, y_test = generate_cls_targets(nb_classes=3, num_targets=20)
+    t1 = clsTrainer(backbone=backbone, nb_classes=3, seed=1)
+    t1.compile_trainer(
+        (X_train, y_train, X_test, y_test),
+        training_cycles=5, batch_size=4)
+    _ = t1.run()
+    loss1 = t1.loss_acc["train_loss"][-1]
+    t2 = clsTrainer(backbone=backbone, nb_classes=3, seed=1)
     t2.compile_trainer(
         (X_train, y_train, X_test, y_test),
         training_cycles=5, batch_size=4)

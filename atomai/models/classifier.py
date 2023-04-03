@@ -1,25 +1,25 @@
 from typing import Type, Union, Optional
 import torch
 import numpy as np
-from ..trainers import RegTrainer
-from ..predictors import RegPredictor
+from ..trainers import clsTrainer
+from ..predictors import clsPredictor
 from ..transforms import reg_augmentor
 
 
-class Regressor(RegTrainer):
+class Classifier(clsTrainer):
     """
-    Model for image->vector regression tasks
+    Model for classification tasks
 
     Args:
         model:
             The backbone regressor model (defaults to 'mobilenet')
-        out_dim:
-            Output dimensions (Defaults to 1)
-       
+        nb_classes:
+            Number of classes
+
     Example:
 
-    >>> # Initialize and train a regression model
-    >>> model = aoi.models.Regressor(out_dim=1)  # single-output regression
+    >>> # Initialize and train a classification model
+    >>> model = aoi.models.Classifier(nb_classes=4)
     >>> model.fit(train_images, train_targets, test_images, test_targets,
     >>>           full_epoch=True, training_cycles=30, swa=True)
     >>> # Make a prediction with the trained model
@@ -27,16 +27,19 @@ class Regressor(RegTrainer):
     """
     def __init__(self,
                  model: str = 'mobilenet',
-                 out_dim: int = 1,
+                 nb_classes: int = None,
                  **kwargs) -> None:
-        super(Regressor, self).__init__(out_dim, model, **kwargs)
+        if nb_classes is None:
+            raise AssertionError(
+                "You must specify a number of classes (nb_classes) for your classification model")
+        super(Classifier, self).__init__(nb_classes, model, **kwargs)
 
     def fit(self,
             X_train: Union[np.ndarray, torch.Tensor],
             y_train: Union[np.ndarray, torch.Tensor],
             X_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
             y_test: Optional[Union[np.ndarray, torch.Tensor]] = None,
-            loss: str = 'mse',
+            loss: str = 'ce',
             optimizer: Optional[Type[torch.optim.Optimizer]] = None,
             training_cycles: int = 1000,
             batch_size: int = 64,
@@ -54,17 +57,15 @@ class Regressor(RegTrainer):
                 It is also possible to pass 3D by ignoring the channel dim,
                 which will be added automatically.
             y_train:
-                2D numpy array with target values (n_samples x out_dim).
-                For single-outut regression tasks, one can simply pass an (n_samples,) array
+                1D numpy array of integers with target classes
             X_test:
                 4D numpy array with image data (n_samples x 1 x height x width).
                 It is also possible to pass 3D by ignoring the channel dim,
                 which will be added automatically.
             y_test:
-                2D numpy array with target values (n_samples x out_dim).
-                For single-outut regression tasks, one can simply pass an (n_samples,) array
+                1D numpy array of integers with target classes.
             loss:
-                Loss function (currently works only with 'mse')
+                Loss function (defaults to 'ce')
             optimizer:
                 weights optimizer (defaults to Adam optimizer with lr=1e-3)
             training_cycles: Number of training 'epochs'.
@@ -104,7 +105,7 @@ class Regressor(RegTrainer):
             compute_accuracy, full_epoch, swa, perturb_weights,
             **kwargs)
 
-        self.augment_fn = reg_augmentor(**kwargs)
+        self.augment_fn = reg_augmentor(**kwargs) # use the regression model's augmentor
         _ = self.run()
 
     def predict(self,
@@ -120,8 +121,8 @@ class Regressor(RegTrainer):
             **verbose (bool): verbosity (Default: True)
         """
         use_gpu = self.device == 'cuda'
-        nn_output = RegPredictor(
-            self.net, self.output_size, use_gpu,
+        nn_output = clsPredictor(
+            self.net, self.nb_classes, use_gpu,
             **kwargs).run(data, **kwargs)
         return nn_output
 

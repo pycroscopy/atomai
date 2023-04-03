@@ -1,5 +1,6 @@
-from .predictor import BasePredictor, SegPredictor, ImSpecPredictor, RegPredictor, Locator
 from .epredictor import EnsemblePredictor, ensemble_locate
+from .predictor import (BasePredictor, ImSpecPredictor, Locator, RegPredictor,
+                        SegPredictor, clsPredictor)
 
 __all__ = ["BasePredictor", "SegPredictor", "ImSpecPredictor", "RegPredictor",
-           "EnsemblePredictor", "ensemble_locate", "Locator"]
+           "clsPredictor", "EnsemblePredictor", "ensemble_locate", "Locator"]

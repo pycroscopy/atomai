@@ -18,16 +18,21 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
-from atomai import losses_metrics
-from atomai.nets import init_fcnn_model, init_imspec_model, init_reg_model
-from atomai.utils import (array2list, average_weights, gpu_usage_map,
-                          init_dataloaders, init_fcnn_dataloaders,
-                          init_imspec_dataloaders, plot_losses, reset_bnorm,
-                          preprocess_training_image_data, weights_init,
-                          preprocess_training_imspec_data, preprocess_training_reg_data,
-                          init_reg_dataloaders, set_train_rng)
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
+
+from atomai import losses_metrics
+from atomai.nets import (init_cls_model, init_fcnn_model, init_imspec_model,
+                         init_reg_model)
+from atomai.utils import (array2list, average_weights, gpu_usage_map,
+                          init_cls_dataloaders, init_dataloaders,
+                          init_fcnn_dataloaders, init_imspec_dataloaders,
+                          init_reg_dataloaders, plot_losses,
+                          preprocess_training_cls_data,
+                          preprocess_training_image_data,
+                          preprocess_training_imspec_data,
+                          preprocess_training_reg_data, reset_bnorm,
+                          set_train_rng, weights_init)
 
 warnings.filterwarnings("ignore", module="torch.nn.functional")
 
@@ -297,7 +302,7 @@ class BaseTrainer:
             print('Model (final state) evaluation loss:',
                   np.around(running_loss_test / c, 4))
             if self.compute_accuracy:
-                print('Model (final state) IoU:',
+                print('Model (final state) accuracy:',
                       np.around(running_acc_test / c, 4))
         else:
             running_loss_test, running_acc_test = 0, 0
@@ -310,7 +315,7 @@ class BaseTrainer:
             print('Model (final state) evaluation loss:',
                   np.around(running_loss_test / len(self.X_test), 4))
             if self.compute_accuracy:
-                print('Model (final state) IoU:',
+                print('Model (final state) accuracy:',
                       np.around(running_acc_test / len(self.X_test), 4))
 
     def dataloader(self,
@@ -349,7 +354,7 @@ class BaseTrainer:
 
     def print_statistics(self, e: int, **kwargs) -> None:
         """
-        Print loss and (optionally) IoU score on train
+        Print loss and (optionally) accuracy score on train
         and test data, as well as GPU memory usage.
         """
         accuracy_metrics = self.accuracy_metrics
@@ -937,3 +942,96 @@ class RegTrainer(BaseTrainer):
                     "The output dimensions for the training and test data must be" +
                     " equal to the declared output dimensions")
 
+
+class clsTrainer(BaseTrainer):
+    """
+    Class for training a classification models
+
+    Args:
+        nb_classes:
+            Number of classes in the classification scheme adopted
+            (must match the number of classes in training data)
+        backbone:
+            Type of backbone NN: choose between 'mobilenet', 'vgg', and 'resnet'
+        **seed (int):
+            Deterministic mode for model training (Default: 1)
+        **batch_seed (int):
+            Separate seed for generating a sequence of batches
+            for training/testing. Equal to 'seed' if set to None (default)
+    """
+    def __init__(self,
+                 nb_classes,
+                 backbone: str = "mobilenet",
+                 **kwargs) -> None:
+        """
+        Initialize a trainer for classification tasks
+        """
+        super(clsTrainer, self).__init__()
+        seed = kwargs.get("seed", 1)
+        kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
+        set_train_rng(seed)
+        self.nb_classes = nb_classes
+        self.net, self.meta_state_dict = init_cls_model(
+                                nb_classes, backbone, **kwargs)
+        self.net.to(self.device)
+        if self.device == 'cpu':
+            warnings.warn(
+                "No GPU found. The training can be EXTREMELY slow",
+                UserWarning)
+        self.meta_state_dict["weights"] = self.net.state_dict()
+        #self.meta_state_dict["optimizer"] = self.optimizer
+
+    def set_data(self,
+                 X_train: Tuple[np.ndarray, torch.Tensor],
+                 y_train: Tuple[np.ndarray, torch.Tensor],
+                 X_test: Optional[Tuple[np.ndarray, torch.Tensor]] = None,
+                 y_test: Optional[Tuple[np.ndarray, torch.Tensor]] = None,
+                 **kwargs: Union[float, int]) -> None:
+        """
+        Sets training and test data.
+
+       Args:
+            X_train (numpy array):
+                4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 3D by ignoring the channel dim,
+                which will be added automatically.
+            y_train (numpy array):
+                 1D numpy array with target classes.
+            X_test (numpy array):
+                4D numpy array with image data (n_samples x 1 x height x width).
+                It is also possible to pass 3D by ignoring the channel dim,
+                which will be added automatically.
+            y_test (numpy array):
+                1D numpy array with target classes.
+            kwargs:
+                Parameters for train_test_split ('test_size' and 'seed') when
+                separate test set is not provided and 'memory_alloc', which
+                sets a threshold (in GBs) for holding entire training data on GPU
+        """
+
+        if X_test is None or y_test is None:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=kwargs.get("test_size", .15),
+                shuffle=True, random_state=kwargs.get("seed", 1))
+
+        if self.full_epoch:
+            loaders = init_cls_dataloaders(
+                X_train, y_train, X_test, y_test,
+                self.batch_size, memory_alloc=kwargs.get("memory_alloc", 4))
+            self.train_loader, self.test_loader = loaders
+        else:
+            (self.X_train, self.y_train,
+             self.X_test, self.y_test) = preprocess_training_cls_data(
+                                    X_train, y_train, X_test, y_test,
+                                    self.batch_size,
+                                    kwargs.get("memory_alloc", 4))
+
+    def accuracy_fn(self,
+                    y: torch.Tensor,
+                    y_prob: torch.Tensor,
+                    *args):
+        """Computes a ratio of correct predictions"""
+        _, predicted = torch.max(y_prob.data, 1)
+        total = y.size(0)
+        correct = (predicted == y).sum().item()
+        return correct / total

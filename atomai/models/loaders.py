@@ -16,6 +16,7 @@ import torch
 from .segmentor import Segmentor
 from .imspec import ImSpec
 from .regressor import Regressor
+from .classifier import Classifier
 from .dgm import BaseVAE, VAE, rVAE, jrVAE, jVAE
 from ..utils import average_weights
 
@@ -44,6 +45,8 @@ def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE],
                 model = load_imspec_model(loaded_dict)
             elif model_type == "reg":
                 model = load_reg_model(loaded_dict)
+            elif model_type == "cls":
+                model = load_cls_model(loaded_dict)
             elif model_type == "vae":
                 model = load_vae_model(loaded_dict)
             else:
@@ -122,6 +125,30 @@ def load_reg_model(meta_dict: Dict[str, torch.Tensor]) -> Type[Regressor]:
     out_dim = meta_dict.pop("out_dim")
     weights = meta_dict.pop("weights")
     model = Regressor(backbone, out_dim, **meta_dict)
+    model.net.load_state_dict(weights)
+    if "optimizer" in meta_dict.keys():
+        optimizer = meta_dict.pop("optimizer")
+        model.optimizer = optimizer
+    model.net.eval()
+    return model
+
+
+def load_cls_model(meta_dict: Dict[str, torch.Tensor]) -> Type[Regressor]:
+    """
+    Loads trained AtomAI classification models
+
+    Args:
+        meta_dict (str):
+            dictionary with trained weights and key information
+            about model's structure
+
+    Returns:
+        Classifier object with NN in evaluation state
+    """
+    backbone = meta_dict.pop("backbone")
+    nb_classes = meta_dict.pop("nb_classes")
+    weights = meta_dict.pop("weights")
+    model = Classifier(backbone, nb_classes, **meta_dict)
     model.net.load_state_dict(weights)
     if "optimizer" in meta_dict.keys():
         optimizer = meta_dict.pop("optimizer")

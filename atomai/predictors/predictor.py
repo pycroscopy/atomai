@@ -476,6 +476,55 @@ class RegPredictor(BasePredictor):
                   + str(np.around(time.time() - start_time, decimals=4))
                   + ' seconds')
         return prediction
+    
+
+class clsPredictor(RegPredictor):
+    """
+    Prediction with a trained classifier
+
+    Args:
+        trained_model:
+            Pre-trained neural network
+        nb_classes:
+            number of classes in a classification scheme
+        use_gpu:
+            Use GPU accelration for prediction
+        verbose:
+            Verbosity
+
+    Example:
+
+        >>> # Make predictions with trained regression model
+        >>> nb_classes = 10 
+        >>> prediction = clsPredictor(trained_model, nb_classes).run(data)
+    """
+    def __init__(self,
+                 trained_model: Type[torch.nn.Module],
+                 nb_classes: int,
+                 use_gpu: bool = False,
+                 **kwargs: str) -> None:
+        """
+        Initialize predictor
+        """
+        super(clsPredictor, self).__init__(trained_model, nb_classes, use_gpu, **kwargs)
+
+    def predict(self,
+                image_data: np.ndarray,
+                **kwargs: int) -> np.ndarray:
+        """
+        Categorizes an input image or a batch of input images
+
+        Args:
+            image_data (numpy array): Input image or batch of images
+            **num_batches (int): number of batches (Default: 10)
+            **norm (bool): Normalize data to (0, 1) during pre-processing
+        """
+        num_batches = kwargs.get("num_batches", 10)
+        image_data = self.preprocess(image_data, kwargs.get("norm", True))
+        output = self.batch_predict(
+            image_data, (len(image_data), self.output_dim), num_batches)
+        output = torch.argmax(output, 1)
+        return output.squeeze().numpy()
 
 
 class Locator:
