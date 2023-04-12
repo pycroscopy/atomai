@@ -6,6 +6,7 @@ Neural nets for regression and classification tasks
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
+from typing import List
 
 import torch
 import torch.nn as nn
@@ -94,7 +95,7 @@ class MultiTaskClassifierNet(nn.Module):
         num_classes (List[int]): A list containing the number of output classes for each task.
         backbone_type (str, optional): The type of backbone architecture. Choose from "resnet", "vgg", or "mobilenet". Default is "resnet".
     """
-    def __init__(self, input_channels: int, num_tasks: int, num_classes: list[int], backbone_type: str = "resnet"):
+    def __init__(self, input_channels: int, num_classes: List[int], backbone_type: str = "resnet"):
         super(MultiTaskClassifierNet, self).__init__()
 
         # Create the backbone with adaptive pooling
@@ -109,7 +110,7 @@ class MultiTaskClassifierNet(nn.Module):
         # Flatten layer
         self.flatten = nn.Flatten()
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         """
         Forward pass of the MultiTaskClassifierNet.
 
