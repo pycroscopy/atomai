@@ -167,7 +167,8 @@ def select_loss(loss: str, nb_classes: int = None, **kwargs):
     else:
         raise NotImplementedError(
             "Select Dice loss ('dice'), focal loss ('focal') "
-            " cross-entropy loss ('ce') or means-squared error ('mse')"
+            " cross-entropy loss ('ce'), means-squared error ('mse'),"
+            " multitask loss (multitask_nll and multitask_ce)"
             " or pass your custom loss function"
         )
     return criterion
