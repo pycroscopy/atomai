@@ -864,3 +864,9 @@ def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor:
     onehot = torch.zeros(idx.size(0), n, device=device_)
     onehot.scatter_(1, idx, 1)
     return onehot
+
+
+def create_batches(array, batch_size):
+    """Splits array/tensor into batches"""
+    num_batches = (array.shape[0] + batch_size - 1) // batch_size
+    return [array[i * batch_size:(i + 1) * batch_size] for i in range(num_batches)]
