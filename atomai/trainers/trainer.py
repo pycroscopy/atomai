@@ -971,6 +971,8 @@ class clsTrainer(BaseTrainer):
         kwargs["batch_seed"] = kwargs.get("batch_seed", seed)
         set_train_rng(seed)
         self.nb_classes = nb_classes
+        self.criterion = self.get_loss_fn('nll')
+        
         self.net, self.meta_state_dict = init_cls_model(
                                 nb_classes, backbone, **kwargs)
         self.net.to(self.device)

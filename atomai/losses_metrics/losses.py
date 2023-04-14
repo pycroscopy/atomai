@@ -4,6 +4,8 @@ losses.py
 
 Custom Pytorch loss functions
 """
+from typing import List, Type, Optional
+
 import torch
 import torch.nn.functional as F
 
@@ -87,13 +89,62 @@ class dice_loss(torch.nn.Module):
         return (1 - dice_loss)
 
 
-def select_loss(loss: str, nb_classes: int = None):
+class MultiTaskLoss(torch.nn.Module):
+    """
+    Multi-task loss for handling loss computation in multi-task learning.
+
+    Args:
+        num_tasks (int): The number of tasks.
+        loss_fn (Type[nn.Module], optional): The loss function class to use for each task. Default is nn.NLLLoss.
+        weights (List[float], optional): The weights for each task's loss. Default is None, which sets equal weights for all tasks.
+    """
+    def __init__(self,
+                 num_tasks: int,
+                 loss_fn: Type[torch.nn.Module] = torch.nn.NLLLoss,
+                 weights: Optional[List[float]] = None):
+        super(MultiTaskLoss, self).__init__()
+
+        # Create a list of loss functions for each task
+        self.loss_functions = [loss_fn() for _ in range(num_tasks)]
+
+        # Set the weights for each task
+        if weights is not None:
+            assert len(weights) == num_tasks, "The length of weights must match num_tasks"
+            self.weights = weights
+        else:
+            self.weights = [1.0] * num_tasks
+
+    def forward(self, outputs: List[torch.Tensor], labels: List[torch.Tensor]) -> torch.Tensor:
+        """
+        Compute the combined loss for multiple tasks.
+
+        Args:
+            outputs (List[torch.Tensor]): A list of output tensors from the multi-task model, one for each task.
+            labels (List[torch.Tensor]): A list of ground truth label tensors, one for each task.
+
+        Returns:
+            torch.Tensor: The total combined loss.
+        """
+        # Calculate the individual losses for each task
+        individual_losses = [
+            weight * loss_fn(output, label)
+            for weight, loss_fn, output, label in zip(self.weights, self.loss_functions, outputs, labels)
+        ]
+
+        # Combine the individual losses to get the total loss
+        total_loss = sum(individual_losses)
+        return total_loss
+
+
+def select_loss(loss: str, nb_classes: int = None, **kwargs):
     """
     Selects loss for DCNN model training
     """
-    if loss == 'ce' and nb_classes is None:
+    if loss in ['ce', 'multitask'] and nb_classes is None:
         raise ValueError("For cross-entropy loss function, you must" +
                          " specify the number of classes")
+    if loss == 'multitask' and not isinstance(nb_classes, list):
+        raise ValueError("Provide number of classes for each task as a list")
     if loss == 'dice':
         criterion = dice_loss()
     elif loss == 'focal':
@@ -102,6 +153,13 @@ def select_loss(loss: str, nb_classes: int = None):
         criterion = torch.nn.BCEWithLogitsLoss()
     elif loss == 'ce' and nb_classes > 2:
         criterion = torch.nn.CrossEntropyLoss()
+    elif loss == 'nll':
+        criterion = torch.nn.NLLLoss()
+    elif loss == 'multitask_nll':
+        criterion == MultiTaskLoss(len(nb_classes), **kwargs)
+    elif loss == 'multitask_ce':
+        criterion == MultiTaskLoss(
+            len(nb_classes), torch.nn.CrossEntropyLoss, **kwargs)
     elif loss == 'mse':
         criterion = torch.nn.MSELoss()
     elif hasattr(loss, "__call__"):
@@ -109,7 +167,8 @@ def select_loss(loss: str, nb_classes: int = None):
     else:
         raise NotImplementedError(
             "Select Dice loss ('dice'), focal loss ('focal') "
-            " cross-entropy loss ('ce') or means-squared error ('mse')"
+            " cross-entropy loss ('ce'), means-squared error ('mse'),"
+            " multitask loss (multitask_nll and multitask_ce)"
             " or pass your custom loss function"
         )
     return criterion
