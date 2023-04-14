@@ -23,6 +23,7 @@ class GPTrainer:
                  indim: int,
                  **kwargs: Union[str, int]) -> None:
 
+        set_seed_and_precision(**kwargs)
         self.dimdict = {"input_dim": indim}
         self.device = kwargs.get(
             "device", 'cuda:0' if torch.cuda.is_available() else 'cpu')
