@@ -91,7 +91,7 @@ class GPTrainer:
             {'params': self.gp_model.covar_module.parameters()},
             {'params': self.gp_model.mean_module.parameters()},
             {'params': self.gp_model.likelihood.parameters()}]
-        self.optimizer = torch.optim.Adam(list_of_params, lr=kwargs.get("lr", 0.01))
+        self.optimizer = torch.optim.Adam(list_of_params, lr=kwargs.get("lr", 0.1))
         self.mll = gpytorch.mlls.ExactMarginalLogLikelihood(self.likelihood, self.gp_model)
         self.training_cycles = training_cycles
         self.compiled = True
@@ -118,6 +118,7 @@ class GPTrainer:
             lengthscale: Optional lengthscale value for the base kernel.
             print_loss: print loss at every n-th training cycle (epoch)
         """
+        self.compile_multi_model_trainer(X, y, training_cycles, **kwargs)
         for e in range(self.training_cycles):
             self.train_step()
             if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
