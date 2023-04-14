@@ -67,7 +67,7 @@ class CustomGPModel(gpytorch.models.ExactGP):
                  kernel_type: str = 'kissgp',
                  base_kernel: Union[str, gpytorch.kernels.Kernel] = 'rbf',
                  inducing_points: Optional[torch.Tensor] = None, grid_size: int = 20,
-                 lengthscale: Optional[float] = None):
+                 lengthscale: Optional[float] = None, **kwargs):
         """
         Custom GP Model that allows the user to choose different base kernels, kernel types, and lengthscales.
 
