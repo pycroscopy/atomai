@@ -27,7 +27,7 @@ class GPTrainer:
         self.dimdict = {"input_dim": indim}
         self.device = kwargs.get(
             "device", 'cuda:0' if torch.cuda.is_available() else 'cpu')
-        precision = kwargs.get("precision", "double")
+        precision = kwargs.get("precision", "single")
         self.dtype = torch.float32 if precision == "single" else torch.float64
 
         self.gp_model = None
