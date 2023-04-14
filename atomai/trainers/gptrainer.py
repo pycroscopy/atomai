@@ -2,7 +2,7 @@
 gptrainer.py
 ============
 
-Module for training deep kernel learning based Gaussian process regression.
+Module for training Gaussian process and deep kernel learning models
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
 """
@@ -13,8 +13,132 @@ import gpytorch
 import numpy as np
 import torch
 
-from ..nets import GPRegressionModel, fcFeatureExtractor
+from ..nets import GPRegressionModel, fcFeatureExtractor, CustomGPModel
 from ..utils import set_seed_and_precision
+
+
+class GPTrainer:
+
+    def __init__(self,
+                 indim: int,
+                 **kwargs: Union[str, int]) -> None:
+
+        self.dimdict = {"input_dim": indim}
+        self.device = kwargs.get(
+            "device", 'cuda:0' if torch.cuda.is_available() else 'cpu')
+        precision = kwargs.get("precision", "double")
+        self.dtype = torch.float32 if precision == "single" else torch.float64
+
+        self.gp_model = None
+        self.likelihood = None
+        self.compiled = False
+        self.train_loss = []
+
+    def _set_data(self, x: Union[torch.Tensor, np.ndarray],
+                  device: str = None) -> torch.tensor:
+        """Data preprocessing."""
+        device_ = device if device else self.device
+        if isinstance(x, np.ndarray):
+            x = torch.from_numpy(x).to(self.dtype).to(device_)
+        elif isinstance(x, torch.Tensor):
+            x = x.to(self.dtype).to(device_)
+        else:
+            raise TypeError("Pass data as ndarray or torch tensor object")
+        return x
+
+    def set_data(self, x: Union[torch.Tensor, np.ndarray],
+                 y: Optional[Union[torch.Tensor, np.ndarray]] = None,
+                 device: str = None) -> Tuple[torch.tensor]:
+        """Data preprocessing. Casts data array to a selected tensor type
+        and moves it to a selected devive."""
+        x = self._set_data(x, device)
+        if y is not None:
+            y = y[None] if y.ndim == 1 else y
+            y = self._set_data(y, device)
+        return x, y
+
+    def compile_trainer(self, X: Union[torch.Tensor, np.ndarray],
+                        y: Union[torch.Tensor, np.ndarray],
+                        training_cycles: int = 1,
+                        **kwargs):
+        """
+        Args:
+            X: Input training data of (N, num_feature) dimensions. for 2D images, it will be (N, 2)
+            y: Output targets of (N,) dimensions
+            training_cycles: Number of training epochs
+
+        Keyword Args:
+            grid_size:
+                Grid size for structured kernel interpolation
+            lr: learning rate (Default: 0.01)
+            kernel_type: Type of kernel to use, either 'sparse' or 'kissgp'.
+            base_kernel: Name of the base kernel as a string, either 'rbf' or 'matern', or a custom base kernel object.
+            inducing_points: Inducing points for the sparse kernel.
+            grid_size: Grid size for the KISS-GP kernel.
+            lengthscale: Optional lengthscale value for the base kernel.
+            print_loss: print loss at every n-th training cycle (epoch)
+        """
+        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+        self.gp_model = CustomGPModel(X, y, likelihood, **kwargs)
+        self.likelihood = likelihood
+        self.gp_model.to(self.device)
+        self.likelihood.to(self.device)
+        self.gp_model.train()
+        self.likelihood.train()
+        list_of_params = [
+            {'params': self.gp_model.covar_module.parameters()},
+            {'params': self.gp_model.mean_module.parameters()},
+            {'params': self.gp_model.likelihood.parameters()}]
+        self.optimizer = torch.optim.Adam(list_of_params, lr=kwargs.get("lr", 0.01))
+        self.mll = gpytorch.mlls.ExactMarginalLogLikelihood(self.likelihood, self.gp_model)
+        self.training_cycles = training_cycles
+        self.compiled = True
+
+    def run(self, X: Union[torch.Tensor, np.ndarray] = None,
+            y: Union[torch.Tensor, np.ndarray] = None,
+            training_cycles: int = 1,
+            **kwargs) -> Type[gpytorch.models.ExactGP]:
+        """
+        Initializes and trains a deep kernel GP model
+
+        Args:
+            X: Input training data of (N, num_feature) dimensions. for 2D images, it will be (N, 2)
+            y: Output targets of (N,) dimensions
+            training_cycles: Number of training epochs
+
+        Keyword Args:
+            grid_size: Grid size for structured kernel interpolation
+            lr: learning rate (Default: 0.01)
+            kernel_type: Type of kernel to use, either 'sparse' or 'kissgp'.
+            base_kernel: Name of the base kernel as a string, either 'rbf' or 'matern', or a custom base kernel object.
+            inducing_points: Inducing points for the sparse kernel.
+            grid_size: Grid size for the KISS-GP kernel.
+            lengthscale: Optional lengthscale value for the base kernel.
+            print_loss: print loss at every n-th training cycle (epoch)
+        """
+        for e in range(self.training_cycles):
+            self.train_step()
+            if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
+                    e == self.training_cycles - 1]):
+                self.print_statistics(e)
+        return self.gp_model
+
+    def train_step(self) -> None:
+        """
+        Single training step with backpropagation
+        to computegradients and optimizes weights.
+        """
+        self.optimizer.zero_grad()
+        X, y = self.gp_model.train_inputs, self.gp_model.train_targets
+        output = self.gp_model(*X)
+        loss = -self.mll(output, y).sum()
+        loss.backward()
+        self.optimizer.step()
+        self.train_loss.append(loss.item())
+
+    def print_statistics(self, e):
+        print('Epoch {}/{} ...'.format(e+1, self.training_cycles),
+              'Training loss: {}'.format(np.around(self.train_loss[-1], 4)))
 
 
 class dklGPTrainer:
