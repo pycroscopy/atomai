@@ -78,6 +78,7 @@ class GPTrainer:
             lengthscale: Optional lengthscale value for the base kernel.
             print_loss: print loss at every n-th training cycle (epoch)
         """
+        X, y = self.set_data(X, y)
         likelihood = gpytorch.likelihoods.GaussianLikelihood()
         self.gp_model = CustomGPModel(X, y, likelihood, **kwargs)
         self.likelihood = likelihood
