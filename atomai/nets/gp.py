@@ -64,7 +64,7 @@ class CustomGPModel(gpytorch.models.ExactGP):
     def __init__(self,
                  train_x: torch.Tensor, train_y: torch.Tensor,
                  likelihood: gpytorch.likelihoods.GaussianLikelihood,
-                 kernel_type: str = 'sparse',
+                 kernel_type: str = 'kissgp',
                  base_kernel: Union[str, gpytorch.kernels.Kernel] = 'rbf',
                  inducing_points: Optional[torch.Tensor] = None, grid_size: int = 20,
                  lengthscale: Optional[float] = None):
