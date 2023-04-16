@@ -10,8 +10,8 @@ from ...utils import prepare_gp_input, create_batches
 
 class Reconstructor(GPTrainer):
 
-    def __init__(self, input_dim: int, **kwargs):
-        super(Reconstructor, self).__init__(input_dim, **kwargs)
+    def __init__(self, **kwargs):
+        super(Reconstructor, self).__init__(**kwargs)
 
     def fit(self, X: torch.Tensor, y: torch.Tensor,
             training_cycles: int, **kwargs):
@@ -19,15 +19,16 @@ class Reconstructor(GPTrainer):
 
     def predict(self, X_new: torch.Tensor, **kwargs):
         batch_size = kwargs.get("batch_size", len(X_new))
+        device = kwargs.get("device")
         X_new_batches = create_batches(X_new, batch_size)
         self.gp_model.eval()
         self.likelihood.eval()
         reconstruction = []
         with torch.no_grad(), gpytorch.settings.fast_pred_var():
             for x in X_new_batches:
-                self._set_data(x, **kwargs)
+                x = self._set_data(x, device)
                 y_pred = self.likelihood(self.gp_model(x))
-                reconstruction.append(y_pred)
+                reconstruction.append(y_pred.mean)
         return torch.cat(reconstruction)
 
     def reconstruct(self, sparse_image: np.ndarray,
@@ -35,4 +36,4 @@ class Reconstructor(GPTrainer):
         X_train, y_train, X_full = prepare_gp_input(sparse_image)
         self.fit(X_train, y_train, training_cycles, **kwargs)
         reconstruction = self.predict(X_full, **kwargs)
-        return reconstruction.mean.view(sparse_image.shape).cpu().numpy()
+        return reconstruction.view(sparse_image.shape).cpu().numpy()

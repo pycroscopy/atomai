@@ -20,14 +20,12 @@ from ..utils import set_seed_and_precision
 class GPTrainer:
 
     def __init__(self,
-                 indim: int,
                  **kwargs: Union[str, int]) -> None:
 
-        set_seed_and_precision(**kwargs)
-        self.dimdict = {"input_dim": indim}
-        self.device = kwargs.get(
-            "device", 'cuda:0' if torch.cuda.is_available() else 'cpu')
         precision = kwargs.get("precision", "single")
+        set_seed_and_precision(precision=precision)
+        self.device = kwargs.get(
+            "device", 'cuda:0' if torch.cuda.is_available() else 'cpu') 
         self.dtype = torch.float32 if precision == "single" else torch.float64
 
         self.gp_model = None
@@ -118,7 +116,7 @@ class GPTrainer:
             lengthscale: Optional lengthscale value for the base kernel.
             print_loss: print loss at every n-th training cycle (epoch)
         """
-        self.compile_multi_model_trainer(X, y, training_cycles, **kwargs)
+        self.compile_trainer(X, y, training_cycles, **kwargs)
         for e in range(self.training_cycles):
             self.train_step()
             if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
