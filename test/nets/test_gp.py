@@ -56,20 +56,23 @@ def test_init_custom_gp_model_with_invalid_kernel_type():
 
 
 def test_custom_gp_model_forward():
-    train_x = torch.randn(10, 2)
-    train_y = torch.randn(10)
+    h = w = 10
+    pixel_indices = torch.tensor([(i, j) for i in range(h) for j in range(w)])
+
+    train_x = pixel_indices[::2]
+    train_y = torch.randn(len(train_x))
     likelihood = gpytorch.likelihoods.GaussianLikelihood()
 
     model = CustomGPModel(train_x, train_y, likelihood)
 
-    test_x = torch.randn(5, 2)
+    test_x = pixel_indices
 
     model.eval()
     output = model(test_x)
 
     assert isinstance(output, gpytorch.distributions.MultivariateNormal)
-    assert output.mean.shape == (5,)
-    assert output.covariance_matrix.shape == (5, 5)
+    assert output.mean.shape == (100,)
+    assert output.covariance_matrix.shape == (100, 100)
 
 
 def test_init_custom_gp_model_with_sparse_kernel():
