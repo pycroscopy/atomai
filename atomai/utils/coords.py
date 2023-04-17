@@ -535,3 +535,9 @@ def remove_edge_coord(coordinates: np.ndarray, dim: Tuple,
     coord_to_rem = np.array(coord_to_rem, dtype=int)
     coordinates = np.delete(coordinates, coord_to_rem, axis=0)
     return coordinates
+
+
+def get_lengthscale_constraints(grid):        
+    cmax = np.amax(grid, axis=0) // 2 + 1
+    cmin = np.ones(grid.shape[-1])
+    return [cmin.tolist(), cmax.tolist()]

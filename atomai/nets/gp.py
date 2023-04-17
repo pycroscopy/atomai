@@ -5,7 +5,7 @@ gp.py
 Modules for Gaussian process regression with deep kernel learning
 """
 
-from typing import Type, Optional, Union
+from typing import Type, Optional, Union, Tuple, List
 
 import torch
 import gpytorch
@@ -66,8 +66,8 @@ class CustomGPModel(gpytorch.models.ExactGP):
                  likelihood: gpytorch.likelihoods.GaussianLikelihood,
                  kernel_type: str = 'kissgp',
                  base_kernel: Union[str, gpytorch.kernels.Kernel] = 'rbf',
-                 inducing_points: Optional[torch.Tensor] = None, grid_size: int = 20,
-                 lengthscale: Optional[float] = None, **kwargs):
+                 inducing_points: Optional[torch.Tensor] = None, grid_points_ratio: int = 20,
+                 lengthscale_constraints: Optional[Tuple[List[float]]] = None, **kwargs):
         """
         Custom GP Model that allows the user to choose different base kernels, kernel types, and lengthscales.
 
@@ -79,22 +79,29 @@ class CustomGPModel(gpytorch.models.ExactGP):
             base_kernel: Name of the base kernel as a string, either 'rbf' or 'matern', or a custom base kernel object. Defaults to 'rbf'.
             inducing_points: Inducing points for the sparse kernel. Defaults to None.
             grid_size: Grid size for the KISS-GP kernel. Defaults to 20.
-            lengthscale: Optional lengthscale value for the base kernel. Defaults to None.
+            lengthscale_contraints: Optional lengthscale constraints for the base kernel. Defaults to None.
         """
         super(CustomGPModel, self).__init__(train_x, train_y, likelihood)
 
         self.mean_module = gpytorch.means.ConstantMean()
 
         if isinstance(base_kernel, str):
+            
+            if lengthscale_constraints:
+                lengthscale_constraints = gpytorch.constraints.Interval(
+                    torch.tensor(lengthscale_constraints[0]),
+                    torch.tensor(lengthscale_constraints[1]))
+            
             if base_kernel == 'rbf':
-                base_kernel = gpytorch.kernels.RBFKernel()
+                base_kernel = gpytorch.kernels.RBFKernel(
+                    ard_num_dims=train_x.shape[-1],
+                    lengthscale_constraint=lengthscale_constraints)
             elif base_kernel == 'matern':
-                base_kernel = gpytorch.kernels.MaternKernel()
+                base_kernel = gpytorch.kernels.MaternKernel(
+                    ard_num_dims=train_x.shape[-1],
+                    lengthscale_constraint=lengthscale_constraints)
             else:
                 raise ValueError("base_kernel must be either 'rbf', 'matern', or a custom gpytorch.kernels.Kernel object")
-
-        if lengthscale is not None:
-            base_kernel.lengthscale = lengthscale
 
         self.base_covar_module = gpytorch.kernels.ScaleKernel(base_kernel)
 
@@ -102,8 +109,9 @@ class CustomGPModel(gpytorch.models.ExactGP):
             self.covar_module = gpytorch.kernels.InducingPointKernel(
                 self.base_covar_module, inducing_points=inducing_points, likelihood=likelihood)
         elif kernel_type == 'kissgp':
+            grid_size = gpytorch.utils.grid.choose_grid_size(train_x, grid_points_ratio)
             self.covar_module = gpytorch.kernels.GridInterpolationKernel(
-                self.base_covar_module, grid_size=grid_size, num_dims=2)
+                self.base_covar_module, grid_size=grid_size, num_dims=train_x.shape[-1])
         else:
             raise ValueError(
                 f"Invalid kernel_type: {kernel_type}. Supported values are 'sparse' and 'kissgp'.")

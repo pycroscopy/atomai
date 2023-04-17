@@ -67,14 +67,12 @@ class GPTrainer:
             training_cycles: Number of training epochs
 
         Keyword Args:
-            grid_size:
-                Grid size for structured kernel interpolation
             lr: learning rate (Default: 0.01)
             kernel_type: Type of kernel to use, either 'sparse' or 'kissgp'.
             base_kernel: Name of the base kernel as a string, either 'rbf' or 'matern', or a custom base kernel object.
             inducing_points: Inducing points for the sparse kernel.
-            grid_size: Grid size for the KISS-GP kernel.
-            lengthscale: Optional lengthscale value for the base kernel.
+            grid_points_ratio: Determines grid size for the KISS-GP kernel.
+            lengthscale_constraints: Optional lengthscale constraints for the base kernel.
             print_loss: print loss at every n-th training cycle (epoch)
         """
         X, y = self.set_data(X, y)

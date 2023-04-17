@@ -5,7 +5,7 @@ import gpytorch
 import torch
 
 from ...trainers import GPTrainer
-from ...utils import prepare_gp_input, create_batches
+from ...utils import prepare_gp_input, create_batches, get_lengthscale_constraints
 
 
 class Reconstructor(GPTrainer):
@@ -32,8 +32,13 @@ class Reconstructor(GPTrainer):
         return torch.cat(reconstruction)
 
     def reconstruct(self, sparse_image: np.ndarray,
-                    training_cycles: int = 100, **kwargs):
+                    training_cycles: int = 100, lengthscale_constraints=None,
+                    grid_points_ratio: float = 1.0, **kwargs):
         X_train, y_train, X_full = prepare_gp_input(sparse_image)
-        self.fit(X_train, y_train, training_cycles, **kwargs)
+        if not lengthscale_constraints:
+            lengthscale_constraints = get_lengthscale_constraints(X_full)
+        self.fit(X_train, y_train, training_cycles,
+                 lengthscale_constraints=lengthscale_constraints,
+                 grid_points_ratio=grid_points_ratio, **kwargs)
         reconstruction = self.predict(X_full, **kwargs)
         return reconstruction.view(sparse_image.shape).cpu().numpy()
