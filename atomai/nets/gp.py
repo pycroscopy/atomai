@@ -78,7 +78,7 @@ class CustomGPModel(gpytorch.models.ExactGP):
             kernel_type: Type of kernel to use, either 'sparse' or 'kissgp'. Defaults to 'sparse'.
             base_kernel: Name of the base kernel as a string, either 'rbf' or 'matern', or a custom base kernel object. Defaults to 'rbf'.
             inducing_points: Inducing points for the sparse kernel. Defaults to None.
-            grid_size: Grid size for the KISS-GP kernel. Defaults to 20.
+            grid_points_ratio: Determines a grid size for the KISS-GP kernel. Defaults to 1.0
             lengthscale_contraints: Optional lengthscale constraints for the base kernel. Defaults to None.
         """
         super(CustomGPModel, self).__init__(train_x, train_y, likelihood)

@@ -62,7 +62,7 @@ class GPTrainer:
                         **kwargs):
         """
         Args:
-            X: Input training data of (N, num_feature) dimensions. for 2D images, it will be (N, 2)
+            X: Input training data of (N, num_features) dimensions. For 2D images, it will be (N, 2)
             y: Output targets of (N,) dimensions
             training_cycles: Number of training epochs
 
