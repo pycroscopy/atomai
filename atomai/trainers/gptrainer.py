@@ -114,7 +114,8 @@ class GPTrainer:
             lengthscale: Optional lengthscale value for the base kernel.
             print_loss: print loss at every n-th training cycle (epoch)
         """
-        self.compile_trainer(X, y, training_cycles, **kwargs)
+        if not self.compiled:
+            self.compile_trainer(X, y, training_cycles, **kwargs)
         for e in range(self.training_cycles):
             self.train_step()
             if any([e == 0, (e + 1) % kwargs.get("print_loss", 10) == 0,
