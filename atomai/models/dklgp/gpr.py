@@ -104,7 +104,7 @@ class Reconstructor(GPTrainer):
         X_train, y_train, X_full = prepare_gp_input(sparse_image)
         if not lengthscale_constraints:
             lengthscale_constraints = get_lengthscale_constraints(X_full)
-        print("Model training .../n")
+        print("Model training ...\n")
         self.fit(X_train, y_train, training_cycles,
                  lengthscale_constraints=lengthscale_constraints,
                  grid_points_ratio=grid_points_ratio, **kwargs)
