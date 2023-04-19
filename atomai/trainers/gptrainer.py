@@ -141,7 +141,7 @@ class GPTrainer:
               'Training loss: {}'.format(np.around(self.train_loss[-1], 4)))
 
 
-class dklGPTrainer:
+class dklGPTrainer(GPTrainer):
     """
     Deep kernel learning (DKL)-based Gaussian process regression (GPR)
 
@@ -167,6 +167,8 @@ class dklGPTrainer:
         """
         Initializes DKL-GPR.
         """
+        super(dklGPTrainer, self).__init__(**kwargs)
+        
         set_seed_and_precision(**kwargs)
         self.dimdict = {"input_dim": indim, "embedim": embedim}
         self.device = kwargs.get(
@@ -174,34 +176,7 @@ class dklGPTrainer:
         precision = kwargs.get("precision", "double")
         self.dtype = torch.float32 if precision == "single" else torch.float64
         self.correlated_output = shared_embedding_space
-        self.gp_model = None
-        self.likelihood = None
         self.ensemble = False
-        self.compiled = False
-        self.train_loss = []
-
-    def _set_data(self, x: Union[torch.Tensor, np.ndarray],
-                  device: str = None) -> torch.tensor:
-        """Data preprocessing."""
-        device_ = device if device else self.device
-        if isinstance(x, np.ndarray):
-            x = torch.from_numpy(x).to(self.dtype).to(device_)
-        elif isinstance(x, torch.Tensor):
-            x = x.to(self.dtype).to(device_)
-        else:
-            raise TypeError("Pass data as ndarray or torch tensor object")
-        return x
-
-    def set_data(self, x: Union[torch.Tensor, np.ndarray],
-                 y: Optional[Union[torch.Tensor, np.ndarray]] = None,
-                 device: str = None) -> Tuple[torch.tensor]:
-        """Data preprocessing. Casts data array to a selected tensor type
-        and moves it to a selected devive."""
-        x = self._set_data(x, device)
-        if y is not None:
-            y = y[None] if y.ndim == 1 else y
-            y = self._set_data(y, device)
-        return x, y
 
     def compile_multi_model_trainer(self,
                                     X: Union[torch.Tensor, np.ndarray],
@@ -328,19 +303,6 @@ class dklGPTrainer:
         self.mll = gpytorch.mlls.ExactMarginalLogLikelihood(self.likelihood, self.gp_model)
         self.training_cycles = training_cycles
         self.compiled = True
-
-    def train_step(self) -> None:
-        """
-        Single training step with backpropagation
-        to computegradients and optimizes weights.
-        """
-        self.optimizer.zero_grad()
-        X, y = self.gp_model.train_inputs, self.gp_model.train_targets
-        output = self.gp_model(*X)
-        loss = -self.mll(output, y).sum()
-        loss.backward()
-        self.optimizer.step()
-        self.train_loss.append(loss.item())
 
     def run(self, X: Union[torch.Tensor, np.ndarray] = None,
             y: Union[torch.Tensor, np.ndarray] = None,
