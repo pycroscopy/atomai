@@ -864,3 +864,21 @@ def to_onehot(idx: torch.Tensor, n: int) -> torch.Tensor:
     onehot = torch.zeros(idx.size(0), n, device=device_)
     onehot.scatter_(1, idx, 1)
     return onehot
+
+
+def create_batches(array, batch_size):
+    """Splits array/tensor into batches"""
+    num_batches = (array.shape[0] + batch_size - 1) // batch_size
+    return [array[i * batch_size:(i + 1) * batch_size] for i in range(num_batches)]
+
+
+def prepare_gp_input(sparse_image):
+    # Find non-zero element indices
+    non_zero_indices = np.nonzero(sparse_image)
+    # Create the GP input using the indices
+    gp_input = np.column_stack(non_zero_indices)
+    # Extract non-zero values (targets) from the sparse image
+    targets = sparse_image[non_zero_indices]
+    # Generate indices for the entire image
+    full_indices = np.array(np.meshgrid(*[np.arange(dim) for dim in sparse_image.shape])).T.reshape(-1, sparse_image.ndim)
+    return gp_input, targets, full_indices
