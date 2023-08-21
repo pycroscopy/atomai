@@ -67,7 +67,10 @@ class BaseTrainer:
     """
     def __init__(self):
         set_train_rng(1)
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if torch.backends.mps.is_available():
+            self.device = torch.device("mps") # backend for Apple silicon GPUs
+        else:
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.net = None
         self.criterion = None
         self.optimizer = None
