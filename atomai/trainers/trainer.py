@@ -69,8 +69,10 @@ class BaseTrainer:
         set_train_rng(1)
         if torch.backends.mps.is_available():
             self.device = torch.device("mps") # backend for Apple silicon GPUs
+        elif torch.cuda.is_available():
+            self.device = 'cuda'
         else:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            self.device = 'cpu'
         self.net = None
         self.criterion = None
         self.optimizer = None
@@ -365,6 +367,8 @@ class BaseTrainer:
             accuracy_metrics = "Accuracy"
         if torch.cuda.is_available():
             gpu_usage = gpu_usage_map(torch.cuda.current_device())
+        elif torch.backends.mps.is_available():
+            gpu_usage = gpu_usage_map(torch.mps.current_device())
         else:
             gpu_usage = ['N/A ', ' N/A']
         if self.compute_accuracy:
