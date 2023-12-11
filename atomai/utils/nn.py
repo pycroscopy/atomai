@@ -48,6 +48,8 @@ def load_weights(model: Type[torch.nn.Module],
     torch.manual_seed(0)
     if torch.cuda.device_count() > 0:
         checkpoint = torch.load(weights_path)
+    elif torch.backends.mps.is_available():
+        checkpoint = torch.load(weights_path, map_location='mps')
     else:
         checkpoint = torch.load(weights_path, map_location='cpu')
     model.load_state_dict(checkpoint)
@@ -199,6 +201,9 @@ def mock_forward(model: Type[torch.nn.Module],
     x = torch.randn(1, *dims)
     if next(model.parameters()).is_cuda:
         x = x.cuda()
+    elif next(model.parameters()).is_mps:
+        mps_device = torch.device("mps")
+        x = x.to(mps_device)
     out = model(x)
     return out
 
