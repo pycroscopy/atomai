@@ -368,7 +368,7 @@ class BaseTrainer:
         if torch.cuda.is_available():
             gpu_usage = gpu_usage_map(torch.cuda.current_device())
         elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            gpu_usage = gpu_usage_map(torch.mps.current_device())
+            gpu_usage = ['N/A ', ' N/A']
         else:
             gpu_usage = ['N/A ', ' N/A']
         if self.compute_accuracy:
