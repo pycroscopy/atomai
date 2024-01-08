@@ -48,7 +48,7 @@ def load_weights(model: Type[torch.nn.Module],
     torch.manual_seed(0)
     if torch.cuda.device_count() > 0:
         checkpoint = torch.load(weights_path)
-    elif torch.backends.mps.is_available():
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         checkpoint = torch.load(weights_path, map_location='mps')
     else:
         checkpoint = torch.load(weights_path, map_location='cpu')
