@@ -20,6 +20,8 @@ class Unet(nn.Module):
     Builds a fully convolutional Unet-like neural network model
 
     Args:
+        n_channels:
+            Number of channels in the input image
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -48,6 +50,7 @@ class Unet(nn.Module):
             (to maintain symmetry between encoder and decoder)
     """
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 16,
                  dropout: bool = False,
@@ -64,7 +67,7 @@ class Unet(nn.Module):
         padding_values = dilation_values.copy()
         dropout_vals = [.1, .2, .1] if dropout else [0, 0, 0]
         self.c1 = ConvBlock(
-            2, nbl[0], 1, nb_filters,
+            2, nbl[0], n_channels, nb_filters,
             batch_norm=batch_norm
         )
         self.c2 = ConvBlock(
@@ -148,6 +151,8 @@ class dilnet(nn.Module):
     by utilizing a combination of regular and dilated convolutions
 
     Args:
+        n_channels:
+            Number of channels in the input image
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -167,6 +172,7 @@ class dilnet(nn.Module):
     """
 
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 25,
                  dropout: bool = False,
@@ -184,7 +190,7 @@ class dilnet(nn.Module):
         padding_values_2 = dilation_values_2.copy()
         dropout_vals = [.3, .3] if dropout else [0, 0]
         self.c1 = ConvBlock(
-                    2, nbl[0], 1, nb_filters,
+                    2, nbl[0], n_channels, nb_filters,
                     batch_norm=batch_norm
         )
         self.at1 = DilatedBlock(
@@ -231,6 +237,8 @@ class ResHedNet(nn.Module):
     Holistically nested edge detector with residual connections in each block
 
     Args:
+        n_channels:
+            Number of channels in the input layer
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -247,6 +255,7 @@ class ResHedNet(nn.Module):
 
     """
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 64,
                  upsampling_mode: str = "bilinear",
@@ -257,7 +266,7 @@ class ResHedNet(nn.Module):
         super(ResHedNet, self).__init__()
         nbl = kwargs.get("layers", [3, 4, 5])
         self.upsample = upsampling_mode
-        self.net1 = ResModule(2, nbl[0], 1, nb_filters, True)
+        self.net1 = ResModule(2, nbl[0], n_channels, nb_filters, True)
         self.net2 = nn.Sequential(
             nn.MaxPool2d(2, 2),
             ResModule(2, nbl[1], nb_filters, 2*nb_filters, True)
@@ -302,6 +311,8 @@ class SegResNet(nn.Module):
     with residual blocks for semantic segmentation
 
     Args:
+        n_channels:
+            Number of channels in the input image
         nb_classes:
             Number of classes in the ground truth
         nb_filters:
@@ -321,6 +332,7 @@ class SegResNet(nn.Module):
 
     '''
     def __init__(self,
+                 n_channels: int = 1,
                  nb_classes: int = 1,
                  nb_filters: int = 32,
                  batch_norm: bool = True,
@@ -333,7 +345,7 @@ class SegResNet(nn.Module):
         super(SegResNet, self).__init__()
         nbl = kwargs.get("layers", [2, 2, 2])
         self.c1 = ConvBlock(
-            2, 1, 1, nb_filters, batch_norm=batch_norm
+            2, 1, n_channels, nb_filters, batch_norm=batch_norm
         )
         self.c2 = ResModule(
             2, nbl[0], nb_filters, nb_filters*2, batch_norm=batch_norm
@@ -386,12 +398,14 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         meta_state_dict = {
             'model_type': 'Seg', model: 'custom', 'nb_classes': nb_classes}
         return model, meta_state_dict
+    n_channels = kwargs.get('n_channels', 1)
     batch_norm = kwargs.get('batch_norm', True)
     dropout = kwargs.get('dropout', False)
     upsampling = kwargs.get('upsampling', "bilinear")
     meta_state_dict = {
                 'model_type': 'seg',
                 'model': model,
+                'n_channels': n_channels,
                 'nb_classes': nb_classes,
                 'batch_norm': batch_norm,
                 'dropout': dropout,
@@ -402,7 +416,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 16)
         layers = kwargs.get("layers", [1, 2, 2, 3])
         net = Unet(
-            nb_classes, nb_filters, dropout,
+            n_channels, nb_classes, nb_filters, dropout,
             batch_norm, upsampling, with_dilation,
             layers=layers
         )
@@ -411,7 +425,7 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 25)
         layers = kwargs.get("layers", [1, 3, 3, 1])
         net = dilnet(
-            nb_classes, nb_filters,
+            n_channels, nb_classes, nb_filters,
             dropout, batch_norm, upsampling,
             layers=layers
         )
@@ -419,14 +433,14 @@ def init_fcnn_model(model: Union[Type[nn.Module], str],
         nb_filters = kwargs.get('nb_filters', 32)
         layers = kwargs.get("layers", [2, 2, 2])
         net = SegResNet(
-            nb_classes, nb_filters,
+            n_channels, nb_classes, nb_filters,
             batch_norm, upsampling, layers=layers
         )
     elif isinstance(model, str) and model == 'ResHedNet':
         nb_filters = kwargs.get('nb_filters', 64)
         layers = kwargs.get("layers", [3, 4, 5])
         net = ResHedNet(
-            nb_classes, nb_filters,
+            n_channels, nb_classes, nb_filters,
             upsampling, layers=layers
         )
     else:
