@@ -136,6 +136,54 @@ def rvae_loss(recon_loss: str,
         kl_div = infocapacity(kl_div, capacity, num_iter=num_iter)
     return likelihood - kl_div
 
+def rvae_loss_lvae(recon_loss: str,
+              in_dim: Tuple[int],
+              x: torch.Tensor,
+              x_reconstr: torch.Tensor,
+              y: torch.Tensor = None,
+              *args: torch.Tensor,
+              **kwargs: Union[List[float], float]
+              ) -> torch.Tensor:
+    """
+    Calculates ELBO
+    """
+    if len(args) == 2:
+        z_mean, z_logsd = args
+    else:
+        raise ValueError(
+            "Pass mean and SD values of encoded distribution as args")
+    
+    phi_prior = kwargs.get("phi_prior", 0.1)
+    capacity = kwargs.get("capacity")
+    num_iter = kwargs.get("num_iter", 0)
+    
+    phi_logsd = z_logsd[:, 0]
+    z_mean, z_logsd = z_mean[:, 1:], z_logsd[:, 1:]
+    
+    # Reconstruction loss
+    likelihood = -reconstruction_loss(recon_loss, in_dim, x, x_reconstr).mean()
+    
+    # KL divergence
+    kl_rot = kld_rot(phi_prior, phi_logsd).mean()
+    kl_z = kld_normal([z_mean, z_logsd]).mean()
+    kl_div = (kl_z + kl_rot)
+    if capacity is not None:
+        kl_div = infocapacity(kl_div, capacity, num_iter=num_iter)
+    
+    # Custom loss
+    if y is not None:
+        batch_size = x.size(0)
+        y_true = y[:batch_size].float()
+        custom_loss = torch.mean((z_mean[:, -1] - y_true) ** 2) * 10# last latent variable
+    else:
+        custom_loss = torch.tensor(0.0, device=x.device)
+
+    # print(f"Likelihood: {likelihood}, KL: {kl_div}, Custom: {custom_loss}")
+    # Total loss
+    # intuition: likelihood shoul dbe maximize, kl_loss and custon loss should be reduced
+    total_loss = likelihood - kl_div - custom_loss
+    return total_loss
+
 
 def joint_vae_loss(recon_loss: str,
                    in_dim: Tuple[int],
