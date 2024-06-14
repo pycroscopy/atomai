@@ -146,6 +146,37 @@ class rVAE(BaseVAE):
 
         return self.elbo_fn(x, x_reconstr, z_mean, z_logsd, **self.kdict_)
 
+    def decoder_temp(self, z_mean: Union[np.ndarray, torch.Tensor],
+               y: Optional[Union[int, np.ndarray, torch.Tensor]] = None) -> torch.Tensor:
+        """
+        ### to be added: the conditional decoding
+        Takes a point in the latent space and decodes it into an image via the decoder
+
+        Args:
+            z_mean (Union[np.ndarray, torch.Tensor]): 5 dimentional
+
+        Returns:
+            torch.Tensor: _description_
+            
+        Example:
+        z_mean, z_std = rvae.encode(norm_patches)
+        decoded_patches = rvae.decoder_temp(z_mean) 
+        
+        """
+        z1, z2, z3 = z_mean[:,0], z_mean[:, 1:3], z_mean[:, 3:]
+        x_coord_ = self.x_coord.expand(z_mean.shape[0], *self.x_coord.size()).cpu()
+        phi = torch.tensor(z1) # angle
+        dx = torch.tensor(z2)  # translation
+        dx = (dx * self.dx_prior).unsqueeze(1)
+        x_coord_ = transform_coordinates(x_coord_, phi, dx)
+        z_sample = torch.tensor(z3)
+        if self.device == "cuda":
+            x_coord_ = x_coord_.cuda()
+            z_sample = z_sample.cuda()
+        x_decoded = self.decoder_net(x_coord_, z_sample)
+        imdec = x_decoded.detach().cpu().numpy()
+        return imdec
+               
     def fit(self,
             X_train: Union[np.ndarray, torch.Tensor],
             y_train: Optional[Union[np.ndarray, torch.Tensor]] = None,
