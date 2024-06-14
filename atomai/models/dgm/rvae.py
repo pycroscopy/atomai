@@ -159,8 +159,8 @@ class rVAE(BaseVAE):
             torch.Tensor: _description_
             
         Example:
-        z_mean, z_std = rvae.encode(norm_patches)
-        decoded_patches = rvae.decoder_temp(z_mean) 
+        >>> z_mean, z_std = rvae.encode(norm_patches)
+        >>> decoded_patches = rvae.decoder_temp(z_mean) 
         
         """
         z1, z2, z3 = z_mean[:,0], z_mean[:, 1:3], z_mean[:, 3:]
