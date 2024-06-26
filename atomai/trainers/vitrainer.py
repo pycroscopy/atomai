@@ -309,6 +309,12 @@ class viBaseTrainer:
             elbo = step(x) if y is None else step(x, y)
             loss = -elbo
             loss.backward()
+            # Clip gradients
+            max_norm = 1.0  # Set the maximum norm for gradient clipping
+            print("Clipping gradients")
+            torch.nn.utils.clip_grad_norm_(self.encoder_net.parameters(), max_norm)
+            torch.nn.utils.clip_grad_norm_(self.decoder_net.parameters(), max_norm)
+
             self.optim.step()
             self.optim.zero_grad()
             elbo = elbo.item()
