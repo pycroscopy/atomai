@@ -319,7 +319,7 @@ class datatransform:
             pass
         else:
             raise NotImplementedError("Use 'channel_first' or 'channel_last'")
-        images = (images - images.min()) / images.ptp()
+        images = (images - images.min()) / np.ptp(images)
         if self.custom_transform is not None:
             images, targets = self.custom_transform(images, targets)
         if self.rotation and same_dim:
@@ -354,7 +354,7 @@ class datatransform:
             images = np.expand_dims(images, axis=3)
         else:
             raise NotImplementedError("Use 'channel_first' or 'channel_last'")
-        images = (images - images.min()) / images.ptp()
+        images = (images - images.min()) / np.ptp(images)
         return images, targets
 
 
