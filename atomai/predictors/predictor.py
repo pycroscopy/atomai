@@ -286,7 +286,8 @@ class SegPredictor(BasePredictor):
             return decoded_imgs
         images, decoded_imgs = self.predict(
             image_data, return_image=True, **kwargs)
-        loc = Locator(self.thresh, refine=self.refine, d=self.d)
+        thresh = kwargs.get("thresh", self.thresh)
+        loc = Locator(thresh, refine=self.refine, d=self.d)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
