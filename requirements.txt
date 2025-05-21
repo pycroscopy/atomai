@@ -12,4 +12,4 @@ opencv-python>=4.1.0
 networkx>=2.5
 mendeleev<=0.6.1
 progressbar2>=3.38.0
-gpytorch>=1.4.0,<1.7.0
+gpytorch>=1.9.1
