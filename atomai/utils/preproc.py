@@ -786,7 +786,7 @@ def torch_format_spectra(spectra: np.ndarray,
     else:
         pass
     if norm:
-        spectra = (spectra - spectra.min()) / spectra.ptp()
+        spectra = (spectra - spectra.min()) / np.ptp(spectra)
     spectra = torch.from_numpy(spectra).float()
     return spectra
 
