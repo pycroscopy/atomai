@@ -56,7 +56,7 @@ class SignalEncoder(nn.Module):
         bn = kwargs.get('batch_norm', True)
         if self.downsample:
             signal_dim = [s // self.downsample for s in signal_dim]
-        n = np.product(signal_dim)
+        n = np.prod(signal_dim)
         self.reshape_ = nb_filters * n
         self.conv = ConvBlock(
             ndim, nb_layers, 1, nb_filters,
@@ -118,7 +118,7 @@ class SignalDecoder(nn.Module):
         ndim = 2 if len(signal_dim) == 2 else 1
         if self.upsampling:
             signal_dim = [s // 4 for s in signal_dim]
-        n = np.product(signal_dim)
+        n = np.prod(signal_dim)
         self.reshape_ = (nb_filters, *signal_dim)
         self.fc = nn.Linear(z_dim, nb_filters*n)
         if self.upsampling:
@@ -269,7 +269,7 @@ class convEncoderNet(nn.Module):
         self.conv = ConvBlock(
             dim, num_layers, c, hidden_dim,
             lrelu_a=kwargs.get("lrelu_a", 0.1))
-        self.reshape_ = hidden_dim * np.product(in_dim[:2])
+        self.reshape_ = hidden_dim * np.prod(in_dim[:2])
         self.fc11 = nn.Linear(self.reshape_, latent_dim)
         self.fc12 = nn.Linear(self.reshape_, latent_dim)
         self._out = nn.Softplus() if kwargs.get("softplus_out") else lambda x: x
@@ -323,7 +323,7 @@ class fcEncoderNet(nn.Module):
         super(fcEncoderNet, self).__init__()
         dense = []
         for i in range(num_layers):
-            input_dim = np.product(in_dim) if i == 0 else hidden_dim
+            input_dim = np.prod(in_dim) if i == 0 else hidden_dim
             dense.extend([nn.Linear(input_dim, hidden_dim), nn.Tanh()])
         self.dense = nn.Sequential(*dense)
         self.reshape_ = hidden_dim
@@ -335,7 +335,7 @@ class fcEncoderNet(nn.Module):
         """
         Forward pass
         """
-        x = x.reshape(-1, np.product(x.size()[1:]))
+        x = x.reshape(-1, np.prod(x.size()[1:]))
         x = self.dense(x)
         x = x.reshape(-1, self.reshape_)
         z_mu = self.fc11(x)
@@ -378,7 +378,7 @@ class jfcEncoderNet(nn.Module):
         super(jfcEncoderNet, self).__init__()
         dense = []
         for i in range(num_layers):
-            input_dim = np.product(in_dim) if i == 0 else hidden_dim
+            input_dim = np.prod(in_dim) if i == 0 else hidden_dim
             dense.extend([nn.Linear(input_dim, hidden_dim), nn.Tanh()])
         self.dense = nn.Sequential(*dense)
         self.reshape_ = hidden_dim
@@ -394,7 +394,7 @@ class jfcEncoderNet(nn.Module):
         """
         Forward pass
         """
-        x = x.reshape(-1, np.product(x.size()[1:]))
+        x = x.reshape(-1, np.prod(x.size()[1:]))
         x = self.dense(x)
         x = x.reshape(-1, self.reshape_)
         encoded = [self.fc11(x), self._out(self.fc12(x))]
@@ -446,7 +446,7 @@ class jconvEncoderNet(nn.Module):
         self.conv = ConvBlock(
             dim, num_layers, c, hidden_dim,
             lrelu_a=kwargs.get("lrelu_a", 0.1))
-        self.reshape_ = hidden_dim * np.product(in_dim[:2])
+        self.reshape_ = hidden_dim * np.prod(in_dim[:2])
         self.fc11 = nn.Linear(self.reshape_, latent_dim)
         self.fc12 = nn.Linear(self.reshape_, latent_dim)
         fc13 = []
@@ -501,7 +501,7 @@ class convDecoderNet(nn.Module):
         dim = 2 if len(out_dim) > 1 else 1
         c = out_dim[-1] if len(out_dim) > 2 else 1
         self.fc_linear = nn.Linear(
-            latent_dim, hidden_dim * np.product(out_dim[:2]),
+            latent_dim, hidden_dim * np.prod(out_dim[:2]),
             bias=False)
         self.reshape_ = (hidden_dim, *out_dim[:2])
         self.decoder = ConvBlock(
@@ -563,7 +563,7 @@ class fcDecoderNet(nn.Module):
             hidden_dim_ = latent_dim if i == 0 else hidden_dim
             decoder.extend([nn.Linear(hidden_dim_, hidden_dim), nn.Tanh()])
         self.decoder = nn.Sequential(*decoder)
-        self.out = nn.Linear(hidden_dim, np.product(out_dim))
+        self.out = nn.Linear(hidden_dim, np.prod(out_dim))
         self.out_dim = (c, *out_dim[:2])
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
