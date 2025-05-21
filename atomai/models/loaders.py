@@ -34,7 +34,7 @@ def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE],
         Model in evaluation state
     """
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    loaded_dict = torch.load(filepath, map_location=device)
+    loaded_dict = torch.load(filepath, map_location=device, weights_only=False)
     if 'model_type' in loaded_dict.keys():
         model_type = loaded_dict.pop("model_type")
         with warnings.catch_warnings():

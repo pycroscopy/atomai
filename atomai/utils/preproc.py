@@ -757,7 +757,7 @@ def torch_format_image(image_data: np.ndarray,
     else:
         pass
     if norm:
-        image_data = (image_data - image_data.min()) / image_data.ptp()
+        image_data = (image_data - image_data.min()) / np.ptp(image_data)
     image_data = torch.from_numpy(image_data).float()
     return image_data
 
@@ -786,7 +786,7 @@ def torch_format_spectra(spectra: np.ndarray,
     else:
         pass
     if norm:
-        spectra = (spectra - spectra.min()) / spectra.ptp()
+        spectra = (spectra - spectra.min()) / np.ptp(spectra)
     spectra = torch.from_numpy(spectra).float()
     return spectra
 

@@ -434,7 +434,7 @@ class BaseVAE(viBaseTrainer):
                 figure[i * self.in_dim[0]: (i + 1) * self.in_dim[0],
                        j * self.in_dim[1]: (j + 1) * self.in_dim[1]] = imdec
         if figure.min() < 0:
-            figure = (figure - figure.min()) / figure.ptp()
+            figure = (figure - figure.min()) / np.ptp(figure)
 
         fig, ax = plt.subplots(figsize=(10, 10))
         ax.imshow(figure, cmap=cmap, origin=kwargs.get("origin", "lower"),
@@ -506,7 +506,7 @@ class BaseVAE(viBaseTrainer):
         grid = make_grid(torch.from_numpy(decoded),
                          nrow=d, padding=kwargs.get("pad", 2)).numpy()
         grid = grid.transpose(1, 2, 0) if len(self.in_dim) == 3 else grid[0]
-        grid = (grid - grid.min()) / grid.ptp()
+        grid = (grid - grid.min()) / np.ptp(grid)
         if not kwargs.get("keep_square", False) and disc_dim != d:
             grid = grid[:(self.in_dim[0]+kwargs.get("pad", 2)) * disc_dim]
         if plot:
