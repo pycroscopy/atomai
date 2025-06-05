@@ -212,8 +212,8 @@ class DenoisingAutoencoder(BaseTrainer):
                 data = data[:, None, ...]     # Add channel dim
         
         prediction = predictor.predict(data, **kwargs)
-        
-        return prediction
+
+        return prediction.detach().cpu().numpy().squeeze()
     
     def load_weights(self, filepath: str) -> None:
         """
