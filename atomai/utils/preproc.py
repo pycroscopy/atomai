@@ -695,6 +695,69 @@ def preprocess_training_cls_data(X_train: Union[np.ndarray, torch.Tensor],
     return X_train, y_train, X_test, y_test
 
 
+def preprocess_denoiser_data(X_train: Union[np.ndarray, torch.Tensor],
+                             y_train: Union[np.ndarray, torch.Tensor], 
+                             X_test: Union[np.ndarray, torch.Tensor],
+                             y_test: Union[np.ndarray, torch.Tensor]
+                             ) -> Tuple[torch.Tensor]:
+    """
+    Preprocess training and test data for denoising autoencoder
+    
+    Args:
+        X_train: Noisy training images
+        y_train: Clean training images  
+        X_test: Noisy test images
+        y_test: Clean test images
+        
+    Returns:
+        Preprocessed torch tensors
+    """
+    import warnings
+    
+    # Check if data is numpy arrays or torch tensors
+    all_data = (X_train, y_train, X_test, y_test)
+    all_numpy = all([isinstance(i, np.ndarray) for i in all_data])
+    all_torch = all([isinstance(i, torch.Tensor) for i in all_data])
+    
+    if not all_numpy and not all_torch:
+        raise TypeError(
+            "Provide training and test data in the form of numpy arrays or torch tensors")
+    
+    # Add channel dimension if needed (for grayscale images)
+    if X_train.ndim == 3:
+        warnings.warn('Adding channel dimension of 1 to noisy training images', UserWarning)
+        X_train = X_train[:, np.newaxis] if all_numpy else X_train.unsqueeze(1)
+    if y_train.ndim == 3:
+        warnings.warn('Adding channel dimension of 1 to clean training images', UserWarning)
+        y_train = y_train[:, np.newaxis] if all_numpy else y_train.unsqueeze(1)
+    if X_test.ndim == 3:
+        warnings.warn('Adding channel dimension of 1 to noisy test images', UserWarning)
+        X_test = X_test[:, np.newaxis] if all_numpy else X_test.unsqueeze(1)
+    if y_test.ndim == 3:
+        warnings.warn('Adding channel dimension of 1 to clean test images', UserWarning)
+        y_test = y_test[:, np.newaxis] if all_numpy else y_test.unsqueeze(1)
+    
+    # Convert to torch tensors if numpy
+    if all_numpy:
+        X_train = torch.from_numpy(X_train).float()
+        y_train = torch.from_numpy(y_train).float()
+        X_test = torch.from_numpy(X_test).float()
+        y_test = torch.from_numpy(y_test).float()
+    else:
+        X_train = X_train.float()
+        y_train = y_train.float()
+        X_test = X_test.float()
+        y_test = y_test.float()
+    
+    # Validate dimensions
+    if X_train.shape != y_train.shape:
+        raise ValueError("Noisy and clean training images must have the same shape")
+    if X_test.shape != y_test.shape:
+        raise ValueError("Noisy and clean test images must have the same shape")
+    
+    return X_train, y_train, X_test, y_test
+
+
 def init_cls_dataloaders(X_train: Union[np.ndarray, torch.Tensor],
                          y_train: Union[np.ndarray, torch.Tensor],
                          X_test: Union[np.ndarray, torch.Tensor],

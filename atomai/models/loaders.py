@@ -17,6 +17,7 @@ from .segmentor import Segmentor
 from .imspec import ImSpec
 from .regressor import Regressor
 from .classifier import Classifier
+from .denoiser import DenoisingAutoencoder
 from .dgm import BaseVAE, VAE, rVAE, jrVAE, jVAE
 from ..utils import average_weights
 
@@ -49,6 +50,8 @@ def load_model(filepath: str) -> Union[Segmentor, Union[VAE, rVAE, jrVAE, jVAE],
                 model = load_cls_model(loaded_dict)
             elif model_type == "vae":
                 model = load_vae_model(loaded_dict)
+            elif model_type == "denoising_autoencoder":
+                model = load_denoising_autoencoder(loaded_dict)
             else:
                 raise ValueError(
                     "The model type {} cannot be loaded".format(model_type))
@@ -190,6 +193,46 @@ def load_vae_model(meta_dict: Dict[str, torch.Tensor]) -> Type[BaseVAE]:
     m.decoder_net.eval()
     m.optim = optimizer
     return m
+
+
+def load_denoising_autoencoder(meta_dict: Dict[str, torch.Tensor]) -> Type[DenoisingAutoencoder]:
+    """
+    Loads trained AtomAI denoising autoencoder models
+
+    Args:
+        meta_dict (dict):
+            dictionary with trained weights and key information
+            about model's structure
+
+    Returns:
+        DenoisingAutoencoder object with NN in evaluation state
+    """
+    from .denoiser import DenoisingAutoencoder
+    
+    encoder_filters = meta_dict.pop("encoder_filters", [8, 16, 32, 64])
+    decoder_filters = meta_dict.pop("decoder_filters", [64, 32, 16, 8])
+    encoder_layers = meta_dict.pop("encoder_layers", [1, 2, 2, 2])
+    decoder_layers = meta_dict.pop("decoder_layers", [2, 2, 2, 1])
+    use_batch_norm = meta_dict.pop("use_batch_norm", True)
+    upsampling_mode = meta_dict.pop("upsampling_mode", 'nearest')
+    weights = meta_dict.pop("weights")
+    
+    model = DenoisingAutoencoder(
+        encoder_filters=encoder_filters,
+        decoder_filters=decoder_filters,
+        encoder_layers=encoder_layers,
+        decoder_layers=decoder_layers,
+        use_batch_norm=use_batch_norm,
+        upsampling_mode=upsampling_mode,
+        **meta_dict
+    )
+    
+    model.net.load_state_dict(weights)
+    if "optimizer" in meta_dict.keys():
+        optimizer = meta_dict.pop("optimizer")
+        model.optimizer = optimizer
+    model.net.eval()
+    return model
 
 
 def load_ensemble(filepath: str) -> Tuple[Type[torch.nn.Module], Dict[int, Dict[str, torch.Tensor]]]:

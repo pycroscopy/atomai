@@ -299,3 +299,65 @@ def animation_from_png(png_dir: str, moviename: str = 'anim',
     imageio.mimsave(os.path.join(savedir, moviename + '.gif'), images, duration=duration)
     if remove_dir:
         shutil.rmtree(png_dir)
+
+
+def visualize_unmixing_results(components, abundances, figsize=(15, 10), 
+                               save_path=None, show_colorbar=False):
+    """
+    Visualize NMF components and their spatial abundances
+    
+    Parameters:
+    -----------
+    components : numpy.ndarray
+        Spectral components from NMF (shape: n_components, height, width)
+    abundances : numpy.ndarray  
+        Abundance maps (shape: n_components, height, width)
+    figsize : tuple, optional
+        Figure size (width, height)
+    save_path : str, optional
+        Path to save the visualization. If None, display only
+    show_colorbar : bool, optional
+        Whether to show colorbars for each subplot
+    """
+    
+    n_components = components.shape[0]
+    
+    # Create figure with subplots: 2 rows (components + abundances)
+    fig, axes = plt.subplots(2, n_components, figsize=figsize)
+    
+    # Handle case where n_components = 1
+    if n_components == 1:
+        axes = axes.reshape(2, 1)
+    
+    # Plot spectral components (top row)
+    for i in range(n_components):
+        im1 = axes[0, i].imshow(components[i], cmap='viridis', aspect='equal')
+        axes[0, i].set_title(f'Component {i+1}\n(Spectral Signature)', fontsize=10)
+        axes[0, i].set_xlabel('Frequency Y')
+        axes[0, i].set_ylabel('Frequency X')
+        axes[0, i].tick_params(labelsize=8)
+        
+        if show_colorbar:
+            plt.colorbar(im1, ax=axes[0, i], shrink=0.8)
+    
+    # Plot abundance maps (bottom row)
+    for i in range(n_components):
+        im2 = axes[1, i].imshow(abundances[i], cmap='seismic', aspect='equal')
+        axes[1, i].set_title(f'Component {i+1}\n(Spatial Distribution)', fontsize=10)
+        axes[1, i].set_xlabel('Window Position Y')
+        axes[1, i].set_ylabel('Window Position X')
+        axes[1, i].tick_params(labelsize=8)
+        
+        if show_colorbar:
+            plt.colorbar(im2, ax=axes[1, i], shrink=0.8)
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.93)
+    
+    # Save or show
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Visualization saved to: {save_path}")
+    
+    plt.show()
