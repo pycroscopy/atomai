@@ -167,7 +167,7 @@ class DenoisingAutoencoder(BaseTrainer):
                 X_train, y_train, test_size=kwargs.get("test_size", .15),
                 shuffle=True, random_state=kwargs.get("seed", 1))
         
-        # Preprocess data similar to other models
+        # Preprocess data
         X_train, y_train, X_test, y_test = preprocess_denoiser_data(
             X_train, y_train, X_test, y_test)
             
@@ -180,7 +180,6 @@ class DenoisingAutoencoder(BaseTrainer):
             **kwargs
         )
         
-        # Run training
         self.run()
         
         # Update meta state dict
@@ -195,8 +194,6 @@ class DenoisingAutoencoder(BaseTrainer):
         Args:
             data: Input noisy images
             **num_batches: Number of batches for prediction (Default: 10)
-            **norm: Whether to normalize input data (Default: True)
-            **verbose: Whether to show prediction progress (Default: True)
             
         Returns:
             Denoised images
@@ -237,7 +234,7 @@ def init_denoising_autoencoder(**kwargs) -> Tuple[Type[torch.nn.Module], dict]:
     return model.net, model.meta_state_dict
 
 
-# Add convenience function for quick denoising
+# Convenience function for quick denoising
 def denoise_images(noisy_images: np.ndarray,
                    clean_images: np.ndarray,
                    test_noisy: Optional[np.ndarray] = None,
