@@ -301,8 +301,8 @@ def animation_from_png(png_dir: str, moviename: str = 'anim',
         shutil.rmtree(png_dir)
 
 
-def visualize_results(components, abundances, figsize=(15, 10), 
-                     save_path=None, show_colorbar=False):
+def visualize_unmixing_results(components, abundances, figsize=(15, 10), 
+                               save_path=None, show_colorbar=False):
     """
     Visualize NMF components and their spatial abundances
     
