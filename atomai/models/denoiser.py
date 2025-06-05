@@ -14,7 +14,7 @@ import numpy as np
 from ..trainers import BaseTrainer
 from ..predictors import BasePredictor
 from ..nets import ConvBlock, UpsampleBlock
-from ..utils import set_train_rng
+from ..utils import set_train_rng, preprocess_denoiser_data
 
 
 class DenoisingAutoencoder(BaseTrainer):
@@ -161,11 +161,16 @@ class DenoisingAutoencoder(BaseTrainer):
             perturb_weights: Whether to use weight perturbation
             **kwargs: Additional arguments for training
         """
-        # Reset training state
-        self._reset_weights()
-        self._reset_training_history()
-        self._delete_optimizer()
+        if X_test is None or y_test is None:
+            from sklearn.model_selection import train_test_split
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_train, y_train, test_size=kwargs.get("test_size", .15),
+                shuffle=True, random_state=kwargs.get("seed", 1))
         
+        # Preprocess data similar to other models
+        X_train, y_train, X_test, y_test = preprocess_denoiser_data(
+            X_train, y_train, X_test, y_test)
+            
         # Compile and run training
         self.compile_trainer(
             (X_train, y_train, X_test, y_test),
