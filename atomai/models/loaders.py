@@ -17,6 +17,7 @@ from .segmentor import Segmentor
 from .imspec import ImSpec
 from .regressor import Regressor
 from .classifier import Classifier
+from .denoiser import DenoisingAutoencoder
 from .dgm import BaseVAE, VAE, rVAE, jrVAE, jVAE
 from ..utils import average_weights
 
@@ -194,7 +195,7 @@ def load_vae_model(meta_dict: Dict[str, torch.Tensor]) -> Type[BaseVAE]:
     return m
 
 
-def load_denoising_autoencoder(meta_dict: Dict[str, torch.Tensor]) -> Type['DenoisingAutoencoder']:
+def load_denoising_autoencoder(meta_dict: Dict[str, torch.Tensor]) -> Type[DenoisingAutoencoder]:
     """
     Loads trained AtomAI denoising autoencoder models
 
