@@ -5,6 +5,7 @@ denoiser.py
 Denoising autoencoder model for image cleaning
 
 Created by Maxim Ziatdinov (email: maxim.ziatdinov@ai4microscopy.com)
+Modified with conventional batch normalization approach
 """
 
 from typing import Type, Union, Optional, Tuple
@@ -25,7 +26,7 @@ class DenoisingAutoencoder(BaseTrainer):
         decoder_filters: List of filter sizes for decoder layers (Default: [64, 32, 16, 8])
         encoder_layers: Number of convolutional layers per encoder block (Default: [1, 2, 2, 2])
         decoder_layers: Number of convolutional layers per decoder block (Default: [2, 2, 2, 1])
-        use_batch_norm: Whether to use batch normalization (Default: True for first layer only)
+        use_batch_norm: Whether to use batch normalization in both encoder and decoder (Default: True)
         upsampling_mode: Upsampling method ('nearest' or 'bilinear') (Default: 'nearest')
         **seed: Random seed for reproducibility (Default: 1)
         
@@ -44,7 +45,7 @@ class DenoisingAutoencoder(BaseTrainer):
                  decoder_filters: list = [64, 32, 16, 8],
                  encoder_layers: list = [1, 2, 2, 2],
                  decoder_layers: list = [2, 2, 2, 1],
-                 use_batch_norm: bool = True,
+                 use_batch_norm: bool = False,
                  upsampling_mode: str = 'nearest',
                  **kwargs) -> None:
         """
@@ -81,18 +82,17 @@ class DenoisingAutoencoder(BaseTrainer):
     
     def _build_autoencoder(self) -> torch.nn.Module:
         """
-        Build the encoder-decoder architecture
+        Build the encoder-decoder architecture with consistent batch norm placement
         """
         # Build encoder
         encoder_modules = []
         in_channels = 1  # Assuming grayscale images
         
         for i, (filters, layers) in enumerate(zip(self.encoder_filters, self.encoder_layers)):
-            # Add convolutional block
-            batch_norm = self.use_batch_norm if i == 0 else False
+            # Add convolutional block with consistent batch norm usage
             encoder_modules.append(
                 ConvBlock(ndim=2, nb_layers=layers, input_channels=in_channels,
-                         output_channels=filters, batch_norm=batch_norm)
+                         output_channels=filters, batch_norm=self.use_batch_norm)
             )
             # Add max pooling (except for the last layer)
             if i < len(self.encoder_filters) - 1:
@@ -112,14 +112,14 @@ class DenoisingAutoencoder(BaseTrainer):
                                 output_channels=in_channels, mode=self.upsampling_mode)
                 )
             
-            # Add convolutional block
+            # Add convolutional block with same batch norm setting as encoder
             decoder_modules.append(
                 ConvBlock(ndim=2, nb_layers=layers, input_channels=in_channels,
-                         output_channels=filters, batch_norm=False)
+                         output_channels=filters, batch_norm=self.use_batch_norm)
             )
             in_channels = filters
         
-        # Final output layer
+        # Final output layer (no batch norm for final reconstruction)
         decoder_modules.append(torch.nn.Conv2d(in_channels, 1, 1))
         
         decoder = torch.nn.Sequential(*decoder_modules)
