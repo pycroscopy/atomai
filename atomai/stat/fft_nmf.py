@@ -33,12 +33,6 @@ class SlidingFFTNMF:
         self._user_window_step_x = window_step_x
         self._user_window_step_y = window_step_y
         
-        # These will be set in _calculate_window_params or use defaults
-        self.window_size_x = window_size_x or 64  # Default fallback
-        self.window_size_y = window_size_y or 64
-        self.window_step_x = window_step_x or 16
-        self.window_step_y = window_step_y or 16
-        
         self.interpol_factor = interpolation_factor
         self.zoom_factor = zoom_factor
         self.hamming_filter = hamming_filter
