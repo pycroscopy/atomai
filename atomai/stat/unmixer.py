@@ -67,7 +67,6 @@ class SpectralUnmixer:
             # Avoid division by zero for empty spectra (e.g., from outside scan region)
             l1_norms[l1_norms == 0] = 1
             spectra_to_fit = spectra_matrix / l1_norms
-        # ===================================================
 
         print(f"Fitting data with {self.method.upper()}...")
 
