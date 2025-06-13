@@ -130,7 +130,7 @@ class SpectralUnmixer:
         print("Fit complete.")
         return self.components_, self.abundance_maps_
 
-    def plot_results(self, **kwargs):
+    def plot_results(self, x_axis_vals=None, x_axis_units=None, **kwargs):
         if self.components_ is None:
             print("You must run .fit() first.")
             return
@@ -143,9 +143,10 @@ class SpectralUnmixer:
 
         for i in range(self.n_components):
             # Plot component spectrum
-            axes[0, i].plot(self.components_[i, :])
+            xaxis = x_axis_vals if x_axis_vals is not None else np.arange(0, self.components_.shape[-1])
+            axes[0, i].plot(xaxis, self.components_[i, :])
             axes[0, i].set_title(f'{self.method.upper()} Component {i+1}')
-            axes[0, i].set_xlabel('Energy Bin')
+            axes[0, i].set_xlabel(x_axis_units if x_axis_units is not None else 'Energy Bin')
             if i == 0:
                 axes[0, i].set_ylabel('Intensity')
 
