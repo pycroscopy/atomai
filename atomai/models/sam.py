@@ -2,15 +2,43 @@ import numpy as np
 import cv2
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 import pandas as pd
+import matplotlib.pyplot as plt
 import torch
 import os
 import urllib.request
 
-
 class ParticleAnalyzer:
     """
-    A class to encapsulate the entire particle analysis workflow,
-    from image pre-processing to segmentation and property extraction.
+    A class to encapsulate an end-to-end particle segmentation and analysis
+    workflow using the Segment Anything Model (SAM).
+
+    This class handles:
+    - Automatic downloading of SAM model checkpoints.
+    - Image pre-processing, including normalization and optional contrast enhancement.
+    - Running SAM with preset or custom parameters.
+    - Advanced post-processing to filter masks by area and shape, and to remove duplicates.
+    - Extraction of detailed properties for each detected particle.
+    - Conversion of results to a pandas DataFrame and visualization of results.
+
+    Example:
+        >>> # 1. Initialize the analyzer (downloads model if needed)
+        >>> analyzer = ParticleAnalyzer(model_type="vit_h")
+        >>>
+        >>> # 2. Load image and run the analysis
+        >>> image = np.load(path_to_your_image)
+        >>> result = analyzer.analyze(image)
+        >>>
+        >>> # 3. Print summary and visualize results
+        >>> print(f"Found {result['total_count']} particles.")
+        >>> df = ParticleAnalyzer.particles_to_dataframe(result)
+        >>> print(df.head())
+        >>>
+        >>> # This will generate and show a side-by-side plot
+        >>> ParticleAnalyzer.visualize_particles(
+        ...     result,
+        ...     original_image_for_plot=image,
+        ...     show_plot=True
+        ... )
     """
     def __init__(self, checkpoint_path=None, model_type="vit_h", device="auto"):
         """
@@ -275,8 +303,21 @@ class ParticleAnalyzer:
         return pd.DataFrame(data)
 
     @staticmethod
-    def visualize_particles(result, show_labels=True, show_centroids=True):
-        """Creates an RGB image visualizing the detected particles."""
+    def visualize_particles(result, original_image_for_plot=None, show_plot=False, show_labels=True, show_centroids=True):
+        """
+        Creates an RGB image visualizing the detected particles and optionally displays a plot.
+        
+        Args:
+            result (dict): The output dictionary from the analyze method.
+            original_image_for_plot (np.array, optional): The raw, unprocessed image for side-by-side comparison.
+                                                          If None, the processed image from the result is used.
+            show_plot (bool): If True, displays a matplotlib plot comparing original and segmented images.
+            show_labels (bool): If True, shows particle ID labels on the overlay.
+            show_centroids (bool): If True, shows particle centroids on the overlay.
+            
+        Returns:
+            np.array: The RGB overlay image with particles drawn on it.
+        """
         overlay = result['rgb_image'].copy()
         for particle in result.get('particles', []):
             contours, _ = cv2.findContours(particle['mask'].astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -288,4 +329,20 @@ class ParticleAnalyzer:
             if show_labels:
                 cv2.putText(overlay, str(particle['id']), (cx + 5, cy + 5), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        
+        if show_plot:
+            fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+            
+            # Use the provided original image for the 'before' plot, otherwise use the processed one from results
+            display_image = original_image_for_plot if original_image_for_plot is not None else result['original_image']
+            
+            axes[0].imshow(display_image, cmap='gray')
+            axes[0].set_title('Original Input')
+            axes[1].imshow(overlay)
+            axes[1].set_title(f"Detected Particles (n={result['total_count']})")
+            for ax in axes:
+                ax.set_axis_off()
+            plt.tight_layout()
+            plt.show()
+            
         return overlay
