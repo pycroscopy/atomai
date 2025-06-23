@@ -38,8 +38,7 @@ if __name__ == "__main__":
             'torchvision>=0.13.0',
             'progressbar2>=3.38.0',
             'gpytorch>=1.9.1',
-            'pandas>=1.1.5',
-            'segment-anything @ git+https://github.com/facebookresearch/segment-anything.git'
+            'pandas>=1.1.5'
         ],
         classifiers=['Programming Language :: Python',
                      'Development Status :: 3 - Alpha',
