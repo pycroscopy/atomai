@@ -17,6 +17,22 @@ ImSpec
     :member-order: bysource
     :show-inheritance:
 
+ParticleAnalyzer
+----------------
+.. autoclass:: atomai.models.ParticleAnalyzer
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
+Denoiser
+--------
+.. autoclass:: atomai.models.DenoisingAutoencoder
+    :members:
+    :undoc-members:
+    :member-order: bysource
+    :show-inheritance:
+
 Variational Autoencoder (VAE)
 -----------------------------
 .. autoclass:: atomai.models.VAE
