@@ -21,7 +21,7 @@ Welcome to AtomAI's documentation!
    atomai_models
    trainers_predictors
    nets
-   statistics
+   multivar
    losses_metrics
    other_utilities
    
