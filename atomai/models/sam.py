@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
@@ -26,7 +25,7 @@ class ParticleAnalyzer:
         >>> analyzer = ParticleAnalyzer(model_type="vit_h")
         >>>
         >>> # 2. Load image and run the analysis
-        >>> image = np.load(path_to_your_image)
+        >>> image = np.load(IMAGE_PATH)
         >>> result = analyzer.analyze(image)
         >>>
         >>> # 3. Print summary and visualize results
@@ -96,6 +95,15 @@ class ParticleAnalyzer:
 
     def _load_model(self, checkpoint_path, model_type):
         """Loads the SAM model from a checkpoint and moves it to the device."""
+        try:
+            from segment_anything import sam_model_registry
+        except ImportError:
+            raise ImportError(
+                "The 'segment-anything' package is required to use this feature.\n"
+                "Please install it directly from the official repository:\n\n"
+                "pip install git+https://github.com/facebookresearch/segment-anything.git"
+            )
+            
         try:
             sam = sam_model_registry[model_type](checkpoint=checkpoint_path)
             sam.to(device=self.device)
@@ -179,6 +187,15 @@ class ParticleAnalyzer:
 
     def _run_sam(self, image_rgb, preset_name):
         """Initializes and runs the SAM mask generator based on a preset."""
+        try:
+            from segment_anything import SamAutomaticMaskGenerator
+        except ImportError:
+            raise ImportError(
+                "The 'segment-anything' package is required to use this feature.\n"
+                "Please install it directly from the official repository:\n\n"
+                "pip install git+https://github.com/facebookresearch/segment-anything.git"
+            )
+
         sam_param_presets = {
             "default": {},
             "sensitive": {
