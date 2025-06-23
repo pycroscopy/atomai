@@ -7,6 +7,7 @@ import torch
 import os
 import urllib.request
 
+
 class ParticleAnalyzer:
     """
     A class to encapsulate an end-to-end particle segmentation and analysis
@@ -242,7 +243,6 @@ class ParticleAnalyzer:
             'mask': binary_mask
         }
 
-    # --- Helper methods for calculations ---
     def _calculate_perimeter(self, binary_mask):
         contours, _ = cv2.findContours(binary_mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         return cv2.arcLength(contours[0], True) if contours else 0
@@ -286,7 +286,6 @@ class ParticleAnalyzer:
                 pruned_masks.append(mask)
         return pruned_masks
 
-    # --- Static methods for utility functions ---
     @staticmethod
     def particles_to_dataframe(result):
         """Converts the 'particles' list from the result into a pandas DataFrame."""
