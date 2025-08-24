@@ -61,7 +61,8 @@ class Graph:
     """
 
     def __init__(self, coordinates: np.ndarray,
-                 map_dict: Dict) -> None:
+                 map_dict: Dict,
+                 px2ang: float = 1) -> None:
         """
         Initializes a graph object
         """
@@ -76,6 +77,8 @@ class Graph:
             v = Node(i, coords[:-1].tolist(), map_dict[coords[-1]])
             self.vertices.append(v)
         self.coordinates = coordinates
+        self.coordinates_ang = deepcopy(coordinates)
+        self.coordinates_ang[:, :-1] = self.coordinates[:, :-1] * px2ang
         self.map_dict = map_dict
         self.size = len(coordinates)
         self.rings = []
@@ -87,6 +90,10 @@ class Graph:
         Identifies neighbors of each graph node
 
         Args:
+            **max_neighbors(int):
+                This is the maximum number of neighbors each node can have, 
+                ususally used to form the graph with only nearest neighbors
+                Default is -1 which means it will find all the neighbors
             **expand (float):
                 coefficient determining the maximum allowable expansion of
                 atomic bonds when constructing a graph. For example, the two
@@ -97,34 +104,59 @@ class Graph:
             del v.neighbors[:]
         Rij = get_interatomic_r
         e = kwargs.get("expand", 1.2)
-        tree = spatial.cKDTree(self.coordinates[:, :3])
-        uval = np.unique(self.coordinates[:, -1])
+        max_neighbors = kwargs.get("max_neighbors", -1)
+        tree = spatial.cKDTree(self.coordinates_ang[:, :3])
+        uval = np.unique(self.coordinates_ang[:, -1])
         if len(uval) == 1:
             rmax = Rij([self.map_dict[uval[0]], self.map_dict[uval[0]]], e)
-            neighbors = tree.query_ball_point(self.coordinates[:, :3], r=rmax)
+            if max_neighbors == -1:
+                neighbors = tree.query_ball_point(self.coordinates_ang[:, :3], r=rmax)
+            else:
+                _, neighbors = tree.query(self.coordinates_ang[:, :3], k=max_neighbors+1, distance_upper_bound = rmax)
             for v, nn in zip(self.vertices, neighbors):
                 for n in nn:
-                    if self.vertices[n] != v:
-                        v.neighbors.append(self.vertices[n])
-                        v.neighborscopy.append(self.vertices[n])
+                    if not n >= len(self.vertices):
+                        if self.vertices[n] != v:
+                            v.neighbors.append(self.vertices[n])
+                            v.neighborscopy.append(self.vertices[n])
+                
         else:
             uval = [self.map_dict[u] for u in uval]
             apairs = [(p[0], p[1]) for p in itertools.product(uval, repeat=2)]
             rij = [Rij([a[0], a[1]], e) for a in apairs]
             rmax = np.max(rij)
             rij = dict(zip(apairs, rij))
-            for v, coords in zip(self.vertices, self.coordinates):
+            for v, coords in zip(self.vertices, self.coordinates_ang):
                 atom1 = self.map_dict[coords[-1]]
-                nn = tree.query_ball_point(coords[:3], r=rmax)
-                for n, coords2 in zip(nn, self.coordinates[nn]):
-                    if self.vertices[n] != v:
-                        atom2 = self.map_dict[coords2[-1]]
-                        eucldist = np.linalg.norm(
-                            coords[:3] - coords2[:3])
-                        if eucldist <= rij[(atom1, atom2)]:
-                            v.neighbors.append(self.vertices[n])
-                            v.neighborscopy.append(self.vertices[n])
-
+                if max_neighbors == -1:
+                    nn = tree.query_ball_point(coords[:3], r=rmax)
+                else:
+                    _, nn = tree.query(coords[:3], k=max_neighbors+1, distance_upper_bound = rmax)
+                
+                for n in nn:
+                    if not n >= len(self.vertices):
+                        coords2 = self.coordinates_ang[n]
+                        if self.vertices[n] != v:
+                            atom2 = self.map_dict[coords2[-1]]
+                            eucldist = np.linalg.norm(
+                                coords[:3] - coords2[:3])
+                            if eucldist <= rij[(atom1, atom2)]:
+                                v.neighbors.append(self.vertices[n])
+                                v.neighborscopy.append(self.vertices[n])
+        
+        #Making the graph symmetric when max_neighbors is used
+        for v in self.vertices:
+            id = v.id
+            rem_ids = []
+            for nn in v.neighbors:
+                nn_neighbors_list = [nn.neighbors[l].id for l in range(len(nn.neighbors))]
+                if id not in nn_neighbors_list:
+                    rem_ids.append(nn)
+    
+            for rem_id in rem_ids:
+                v.neighbors.remove(rem_id)
+            
+            
     def find_rings(self,
                    v: Type[Node],
                    rings: List[List[Type[Node]]] = [],
